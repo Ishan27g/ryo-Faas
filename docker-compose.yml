@@ -1,0 +1,64 @@
+
+# run from repository root
+# docker build -f Remote.Dockerfile -t cloud-agent:v0.1 .
+# docker network create faas_nw
+# docker-compose up
+
+version: "3.9"
+
+services:
+
+  jaeger:
+      container_name: jaeger
+      hostname: jaeger
+      image: jaegertracing/all-in-one:1.31
+      networks:
+        faas_nw:
+      ports:
+      - "16686:16686"
+      - "14268:14268"
+
+  prometheus:
+    image: prom/prometheus:v2.33.3
+    volumes:
+      - ./prometheus:/etc/prometheus/
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      faas_nw:
+
+  grafana:
+      image: grafana/grafana:8.5.0-52524pre
+      ports:
+        - "3000:3000"
+      depends_on:
+        - prometheus
+      networks:
+        faas_nw:
+      volumes:
+        - ./grafana:/var/lib/grafana
+     
+  rms:
+    image: cloud-agent:v0.1
+    networks:
+      faas_nw:
+    environment: # deployed functions
+      "PORT_START": "5000"
+      "NUM_PORTS" : "5"
+    ports: # 
+      - "5000-5004:5000-5004" # deployed functions
+      - "9000:9000"      # agent
+    container_name: cloud-agent
+    hostname: agent-faas
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    volumes:
+      - ./:/app:rw
+
+networks:
+  faas_nw:
+    external:
+      true

@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package deploy;
+
+option go_package = "./proto;deploy";
+
+service Deploy {
+  rpc deploy(DeployRequest) returns (DeployResponse);
+  rpc list(Empty) returns (DeployResponse);
+  rpc stop(DeployRequest) returns (DeployResponse);
+
+  rpc details(Empty) returns(DeployResponse);
+
+  rpc upload(stream File) returns (Empty) {}
+  rpc logs(Function) returns(Logs){}
+}
+message Logs {
+  Function fn = 1;
+  repeated string data = 2;
+}
+message File {
+  string fileName = 1;
+  string entrypoint = 2;
+  bytes content = 3;
+}
+message Empty{
+  oneof rsp {
+    string entrypoint = 1;
+    string atAgent = 2;
+  }
+}
+
+message Function {
+  // function entrypoint
+  string entrypoint = 1;
+  // file name
+  string filePath = 2;
+  // path to package-dir
+  string dir = 3;
+  string zip = 4;
+
+  // address of agent that manages function
+  string atAgent = 5;
+
+  // address of service running on agent
+  string proxyServiceAddr = 6;
+  // function endpoint
+  string url = 7;
+  string status = 8;
+
+}
+
+message DeployRequest {
+  Function functions = 1;
+}
+message DeployResponse {
+  repeated Function functions = 1;
+}
