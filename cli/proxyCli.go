@@ -52,7 +52,7 @@ func printJson(js interface{}) {
 	fmt.Println(string(data))
 }
 func printResonse(response *deploy.DeployResponse) {
-	printJson(response)
+	//printJson(response)
 	for _, fn := range response.Functions {
 		fmt.Printf("%s %s [%s]\n", fn.Entrypoint, fn.Url, fn.Status)
 	}
@@ -116,9 +116,8 @@ var statusProxyCmd = cli.Command{
 		var rsp []types.FunctionJsonRsp
 		json.Unmarshal(sendHttp("/details", ""), &rsp)
 		for _, v := range rsp {
-			fmt.Println(v.Name, v.Url, v.AtAgent, v.Proxy, v.Status)
+			fmt.Printf("%s\t\t%s\t%s\n", v.Url, v.Name, v.Status)
 		}
-		printJson(rsp)
 		return nil
 	},
 }

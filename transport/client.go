@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/metrics"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/mholt/archiver/v3"
 	"go.opentelemetry.io/otel"
@@ -18,9 +17,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// AgentWrapper expose an agent with metrics
+// AgentWrapper expose an agent with plugins
 type AgentWrapper interface {
-	GetMetrics() map[string]*metrics.Functions
 	Deploy(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	List(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
@@ -30,20 +28,8 @@ type AgentWrapper interface {
 }
 
 type rpcClient struct {
-	metrics metrics.MetricManager
 	deploy.DeployClient
 	*log.Logger
-}
-
-func (r *rpcClient) GetMetrics() map[string]*metrics.Functions {
-	for method, metric := range r.metrics.GetAll() {
-		r.Println("method is ", method)
-		for entrypoint, m := range metric.Fns {
-			r.Println(entrypoint)
-			r.Println(m.Duration)
-		}
-	}
-	return r.metrics.GetAll()
 }
 
 func (r *rpcClient) Deploy(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
@@ -52,9 +38,7 @@ func (r *rpcClient) Deploy(ctx context.Context, in *deploy.DeployRequest, opts .
 	ctxT, span := tr.Start(ctx, "agent-deploy")
 	defer span.End()
 
-	result := r.metrics.Deployed(in.Functions)
 	rsp, err := r.DeployClient.Deploy(ctxT, in, opts...)
-	r.returnMetric(err, result)
 
 	for _, r := range rsp.Functions {
 		span.SetAttributes(attribute.Key("entrypoint").String(r.Entrypoint))
@@ -71,18 +55,12 @@ func (r *rpcClient) List(ctx context.Context, in *deploy.Empty, opts ...grpc.Cal
 	if entrypoint == "" {
 		return nil, errors.New("no entrypoint in request")
 	}
-	result := r.metrics.List(entrypoint)
 	rsp, err := r.DeployClient.List(ctx, in, opts...)
-	r.returnMetric(err, result)
-
 	return rsp, err
 }
 
 func (r *rpcClient) Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
-	result := r.metrics.Stop(in.GetEntrypoint())
 	rsp, err := r.DeployClient.Stop(ctx, in, opts...)
-	r.returnMetric(err, result)
-
 	return rsp, err
 }
 
@@ -91,10 +69,7 @@ func (r *rpcClient) Details(ctx context.Context, in *deploy.Empty, opts ...grpc.
 	if entrypoint == "" {
 		return nil, errors.New("no entrypoint in request")
 	}
-	result := r.metrics.Details(entrypoint)
 	rsp, err := r.DeployClient.Details(ctx, in, opts...)
-	r.returnMetric(err, result)
-
 	return rsp, err
 }
 
@@ -103,16 +78,8 @@ func (r *rpcClient) Upload(ctx context.Context, opts ...grpc.CallOption) (deploy
 }
 
 func (r *rpcClient) Logs(ctx context.Context, in *deploy.Function, opts ...grpc.CallOption) (*deploy.Logs, error) {
-	result := r.metrics.Logs(in.Entrypoint)
 	rsp, err := r.DeployClient.Logs(ctx, in, opts...)
-	r.returnMetric(err, result)
-
 	return rsp, err
-}
-
-func (r *rpcClient) returnMetric(err error, result chan<- bool) {
-	defer close(result)
-	result <- err == nil
 }
 
 func ProxyGrpcClient(agentAddr string) AgentWrapper {
@@ -126,7 +93,6 @@ func ProxyGrpcClient(agentAddr string) AgentWrapper {
 		return nil
 	}
 	rpc := rpcClient{
-		metrics:      metrics.Manager(),
 		DeployClient: deploy.NewDeployClient(grpcClient),
 		Logger:       log.New(os.Stdout, "[RPC-CLIENT] ", log.Ltime),
 	}

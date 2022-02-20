@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 )
@@ -78,15 +79,17 @@ func rewriteDeployDotGo(pkgName, entrypoint string) (string, error) {
 		return genFile, err
 	}
 	dir := importPath
+
+	packageAlias := strings.ReplaceAll(pkgName, "-", "")
 	for i := 0; i < len(node.Decls); i++ {
 		d := node.Decls[i]
 		switch d.(type) {
 		case *ast.GenDecl:
 			dd := d.(*ast.GenDecl)
 			if dd.Tok == token.IMPORT {
-				// Add the new import
+				// add the new import
 				iSpec := &ast.ImportSpec{
-					Name: &ast.Ident{Name: pkgName},
+					Name: &ast.Ident{Name: packageAlias},
 					Path: &ast.BasicLit{Value: strconv.Quote(dir + pkgName)},
 				}
 				dd.Specs = append(dd.Specs, iSpec)
@@ -102,7 +105,7 @@ func rewriteDeployDotGo(pkgName, entrypoint string) (string, error) {
 					},
 					Tok: token.ASSIGN,
 					Rhs: []ast.Expr{
-						&ast.Ident{Name: pkgName + `.` + entrypoint},
+						&ast.Ident{Name: packageAlias + `.` + entrypoint},
 					},
 				}
 				stmt2 := &ast.AssignStmt{
@@ -114,7 +117,7 @@ func rewriteDeployDotGo(pkgName, entrypoint string) (string, error) {
 						&ast.Ident{Name: "\"" + entrypoint + "\""},
 					},
 				}
-				// Add the new function call with relevant
+				// add the new function call with relevant
 				//newCallStmt := &ast.ExprStmt{ // functions.HTTP(
 				//	X: &ast.CallExpr{
 				//		Fun: &ast.Ident{

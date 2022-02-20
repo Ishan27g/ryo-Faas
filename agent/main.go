@@ -5,7 +5,7 @@ import (
 	"flag"
 
 	"github.com/Ishan27g/ryo-Faas/agent/registry"
-	"github.com/Ishan27g/ryo-Faas/metrics"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	"github.com/Ishan27g/ryo-Faas/transport"
 )
 
@@ -23,7 +23,7 @@ func main() {
 	defer cancel()
 	flag.Parse()
 	agent := registry.Init(*port)
-	jp := metrics.InitJaeger(ctx, "ryo-Faas-agent", "", "http://localhost:14268/api/traces")
+	jp := plugins.InitJaeger(ctx, "ryo-Faas-agent", "", "http://localhost:14268/api/traces")
 	defer jp.Close()
 	transport.Init(ctx, agent, rpcAddr, nil, "").Start()
 

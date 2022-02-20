@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/metrics"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
@@ -29,7 +29,7 @@ func requestWithOtel() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	// connect to jaeger
-	jp := metrics.InitJaeger(ctx, "otel-client", "", "http://localhost:14268/api/traces")
+	jp := plugins.InitJaeger(ctx, "otel-client", "", "http://localhost:14268/api/traces")
 	defer jp.Close()
 
 	tr := jp.Tracer("otel-client")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,7 +68,6 @@ func TestList(t *testing.T) {
 	agentHandler.Println(deployRsp)
 
 	fmt.Println()
-	c.GetMetrics()
 
 	<-time.After(2 * time.Second)
 
@@ -81,7 +81,6 @@ func TestList(t *testing.T) {
 	assert.Equal(t, "DEPLOYED", logs.Fn.Status)
 
 	fmt.Println()
-	c.GetMetrics()
 
 	<-time.After(3 * time.Second)
 	logs, err = c.Logs(ctx, &deploy.Function{Entrypoint: entrypoint})
@@ -94,6 +93,11 @@ func TestList(t *testing.T) {
 	assert.Equal(t, "DEPLOYED", logs.Fn.Status)
 
 	fmt.Println()
-	c.GetMetrics()
 
+}
+
+func TestTrim(t *testing.T) {
+	var pkgName string
+	pkgName = strings.ReplaceAll("redis-cache", "-", "")
+	fmt.Println(pkgName)
 }

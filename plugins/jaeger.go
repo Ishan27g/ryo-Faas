@@ -1,4 +1,4 @@
-package metrics
+package plugins
 
 import (
 	"context"
@@ -27,6 +27,7 @@ func InitJaeger(ctx context.Context, app, service, url string) *JaegerProvider {
 	}
 	fmt.Println("CONNECTED TO JAEGER ", url)
 	tp := tracesdk.NewTracerProvider(
+		tracesdk.WithSampler(tracesdk.TraceIDRatioBased(1)),
 		tracesdk.WithBatcher(exporter),
 		tracesdk.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
@@ -35,7 +36,6 @@ func InitJaeger(ctx context.Context, app, service, url string) *JaegerProvider {
 		)),
 	)
 	otel.SetTracerProvider(tp)
-	// https://github.com/open-telemetry/opentelemetry-go-contrib/blob/c59b4421d98c35a7fa9735647507304da112ff51/instrumentation/net/http/otelhttp/example/server/server.go#L52
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
 	return &JaegerProvider{

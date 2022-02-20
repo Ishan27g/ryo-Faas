@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/metrics"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
@@ -92,9 +92,7 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	ctxT, span := tr.Start(ctx, "proxy-deploy")
 	span.SetAttributes(attribute.Key("entrypoint").String(request.Functions.Entrypoint))
 
-	defer func() {
-		span.End()
-	}()
+	defer span.End()
 
 	h.Println("DEPLOY REQUEST FOR ", request.Functions)
 	agent, address := h.assignAgentToFunction(request.Functions.Entrypoint)
@@ -237,18 +235,20 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	sp := trace.SpanFromContext(c.Request.Context())
 	sp.SetAttributes(attribute.Key("function-called").String(fnName))
 
+	ctxR := trace.ContextWithSpan(c.Request.Context(), sp)
+
 	now := time.Now()
 	if proxy, fnServiceHost, atAgent := h.proxies.get(fnName); fnServiceHost != "" {
-		stc, span := proxy.ServeHTTP(c.Writer, c.Request, fnServiceHost)
+		stc, span := proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost)
 		agent = atAgent
 		statusCode = stc
 		span.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
 		span.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
-		span.AddEvent("function-rsp-status", trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
+		span.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
 	} else {
 		c.String(http.StatusBadGateway, "Not found - ", fnName)
 	}
-	metrics.Prometheus.Update(fnName, agent, statusCode)
+	plugins.Prometheus.Update(fnName, agent, statusCode)
 }
 
 func (h *handler) AgentJoinHttp(c *gin.Context) {
@@ -332,22 +332,6 @@ func (h *handler) ListHttp(c *gin.Context) {
 	c.JSON(200, rsp)
 }
 
-func (h *handler) MetricsDevHttp(c *gin.Context) {
-	var agentMetrics []map[string]*metrics.Functions
-	proxyMetrics := make(map[string]*metrics.Metric)
-	for _, wrapper := range h.agent {
-		agentMetrics = append(agentMetrics, wrapper.GetMetrics())
-	}
-	//for entryPoint, metric := range h.metric.Fns {
-	//	proxyMetrics[entryPoint] = metric
-	//	fn := h.proxies.functions[entryPoint]
-	//	proxyMetrics[entryPoint].Function.AtAgent = fn.agentAddr
-	//	proxyMetrics[entryPoint].Function.Url = "http://" + h.httpFnProxyPort + fn.proxyFrom
-	//	proxyMetrics[entryPoint].Function.ProxyServiceAddr = fn.proxyTo
-	//}
-	c.JSON(200, &gin.H{"agentMetrics": agentMetrics, "proxyMetrics": proxyMetrics})
-}
-
 func (h *handler) MetricsPrometheus(c *gin.Context) {
 	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
 }
@@ -384,7 +368,6 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.GET("/list", h.ListHttp)
 	// curl  http://localhost:9002/metrics
 	h.g.GET("/metrics", h.MetricsPrometheus)
-	h.g.GET("/metricsDev", h.MetricsDevHttp)
 
 	// curl -X POST http://localhost:9002/functions/method1 -H 'Content-Type: application/json' -d '{
 	//    "data": "http://host.docker.internal:9002/functions/method2"

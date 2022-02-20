@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Ishan27g/ryo-Faas/metrics"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -30,7 +30,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	jp := metrics.InitJaeger(ctx, "ryo-Faas-agent", "deployed-service-"+entrypoint, "http://jaeger:14268/api/traces") //match with docker hostname
+	jp := plugins.InitJaeger(ctx, "ryo-Faas-agent", "deployed-service-"+entrypoint, "http://jaeger:14268/api/traces") //match with docker hostname
 	defer jp.Close()
 	// _ = jp.Tracer("function-with-otel")
 

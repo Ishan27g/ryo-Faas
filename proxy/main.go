@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 
-	"github.com/Ishan27g/ryo-Faas/metrics"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 )
 
@@ -21,9 +21,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	defer cancel()
-	metrics.InitPrometheus()
+	plugins.InitPrometheus()
 	url := "http://localhost:14268/api/traces"
-	provider := metrics.InitJaeger(ctx, "ryo-Faas-proxy", "proxy", url)
+	provider := plugins.InitJaeger(ctx, "ryo-Faas-proxy", "proxy", url)
 	defer provider.Close()
 
 	proxy.Start(ctx, host+*grpcPort, host+*httpPort)

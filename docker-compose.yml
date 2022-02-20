@@ -34,11 +34,11 @@ services:
       - "9090:9090"
     networks:
       faas_nw:
-    deploy:
-        resources:
-          limits:
-            cpus: '0.10'
-            memory: 500M
+#    deploy:
+#        resources:
+#          limits:
+#            cpus: '0.10'
+#            memory: 500M
 
   grafana:
       image: grafana/grafana:8.5.0-52524pre
@@ -73,6 +73,14 @@ services:
     volumes:
       - ./:/app:rw
     
+  redis:
+      image: "redis:alpine3.13"
+      ports:
+        - "6379:6379"
+      container_name: redis
+      hostname: redis  
+      networks:
+        faas_nw:
 
 networks:
   faas_nw:

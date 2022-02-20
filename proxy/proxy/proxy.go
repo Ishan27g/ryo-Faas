@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -26,6 +27,11 @@ func newProxy() proxy {
 	}
 }
 
+// fn-url and proxyDefinitions
+type proxyDefinitions struct {
+	functions map[string]*definition
+}
+
 type proxyFunction struct {
 	fnName    string
 	remoteUrl string
@@ -38,11 +44,6 @@ type definition struct {
 	proxyTo   string // fn.url -> hostname:service-port/entryPoint
 
 	agentAddr string // rpc or http
-}
-
-// fn-url and proxyDefinitions
-type proxyDefinitions struct {
-	functions map[string]*definition
 }
 
 const Functions = "/functions"
@@ -102,10 +103,9 @@ func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 	return d.proxyFrom
 }
 
-// Pxy https://developpaper.com/how-does-golang-implement-http-proxy-and-reverse-proxy/
 type Pxy struct{}
 
-func (p *Pxy) ServeHTTP(rw http.ResponseWriter, req *http.Request, host string) (int, trace.Span) {
+func (p *Pxy) ServeHTTP(ctx context.Context, rw http.ResponseWriter, req *http.Request, host string) (int, trace.Span) {
 	// tr := otel.Tracer(MetricTracerFwToAgent)
 
 	// otel.GetTracerProvider().Tracer(MetricTracerFwToAgent)
@@ -115,7 +115,7 @@ func (p *Pxy) ServeHTTP(rw http.ResponseWriter, req *http.Request, host string) 
 
 	transport := otelhttp.NewTransport(http.DefaultTransport)
 	//outReq := &http.Request{}
-	outReq, _ := http.NewRequestWithContext(req.Context(), req.Method, req.RequestURI, req.Body)
+	outReq, _ := http.NewRequestWithContext(ctx, req.Method, req.RequestURI, req.Body)
 	//*outReq = *req
 	for key, value := range req.Header {
 		for _, v := range value {
@@ -128,19 +128,23 @@ func (p *Pxy) ServeHTTP(rw http.ResponseWriter, req *http.Request, host string) 
 		}
 		outReq.Header.Set("X-Forwarded-For", clientIP)
 	}
-	endpoint := strings.Trim(outReq.URL.String(), Functions)
+	endpoint := strings.TrimPrefix(outReq.URL.RequestURI(), Functions)
+	fmt.Println("Sending to ", host+endpoint)
 	var err error
-	outReq.URL, err = url.Parse(host + "/" + endpoint)
-	trace.SpanFromContext(outReq.Context()).SetAttributes(attribute.Key("proxyFrom").String(endpoint))
-	trace.SpanFromContext(outReq.Context()).SetAttributes(attribute.Key("proxyTo").String(outReq.URL.String()))
+	outReq.URL, err = url.Parse(host + endpoint)
+
+	span := trace.SpanFromContext(outReq.Context())
+
+	span.SetAttributes(attribute.Key("proxyFrom").String(endpoint))
+	span.SetAttributes(attribute.Key("proxyTo").String(outReq.URL.String()))
 	if err != nil {
 		rw.WriteHeader(http.StatusBadGateway)
-		return http.StatusBadGateway, trace.SpanFromContext(outReq.Context())
+		return http.StatusBadGateway, span
 	}
 	res, err := transport.RoundTrip(outReq)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadGateway)
-		return http.StatusBadGateway, trace.SpanFromContext(outReq.Context())
+		return http.StatusBadGateway, span
 	}
 	for key, value := range res.Header {
 		for _, v := range value {
@@ -150,5 +154,5 @@ func (p *Pxy) ServeHTTP(rw http.ResponseWriter, req *http.Request, host string) 
 	rw.WriteHeader(res.StatusCode)
 	io.Copy(rw, res.Body)
 	res.Body.Close()
-	return res.StatusCode, trace.SpanFromContext(outReq.Context())
+	return res.StatusCode, span
 }
