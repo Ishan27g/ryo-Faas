@@ -21,11 +21,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	defer cancel()
+	metrics.InitPrometheus()
 	url := "http://localhost:14268/api/traces"
-	provider := metrics.Jaeger(ctx, url)
+	provider := metrics.InitJaeger(ctx, "ryo-Faas-proxy", "proxy", url)
 	defer provider.Close()
 
-	proxy.Start(ctx, host+*grpcPort, host+*httpPort, provider)
+	proxy.Start(ctx, host+*grpcPort, host+*httpPort)
 	// handler.AgentConnectionType = transport.RPC
 	<-make(chan bool)
 }

@@ -21,7 +21,7 @@ type Function struct {
 	Zip string `json:"zip,omitempty"`
 	// address of agent that manages function
 	AtAgent string `json:"atAgent,omitempty"`
-	// address of service running on agent
+	// address of app running on agent
 	ProxyServiceAddr string `json:"proxyServiceAddr,omitempty"`
 	// function endpoint
 	Url    string `json:"url,omitempty"`

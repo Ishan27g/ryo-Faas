@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-
+	method1 "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/method1"
 	"github.com/Ishan27g/ryo-Faas/metrics"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
@@ -16,6 +16,8 @@ var entrypoint string
 
 // init definition gets generated to call deploy()
 func init() {
+	handlerFunc = method1.Method1
+	entrypoint = "Method1"
 
 }
 
@@ -30,7 +32,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	jp := metrics.InitJaeger(ctx, "ryo-Faas-agent", "deployed-service-"+entrypoint, "http://jaeger:14268/api/traces") //match with docker hostname
+	jp := metrics.InitJaeger(ctx, "ryo-Faas-agent", "deployed-service-"+entrypoint, "http://jaeger:14268/api/traces")	//match with docker hostname
 	defer jp.Close()
 	// _ = jp.Tracer("function-with-otel")
 

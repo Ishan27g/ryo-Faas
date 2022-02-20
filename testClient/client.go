@@ -29,7 +29,7 @@ func requestWithOtel() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	// connect to jaeger
-	jp := metrics.Jaeger(ctx, "http://localhost:14268/api/traces")
+	jp := metrics.InitJaeger(ctx, "otel-client", "", "http://localhost:14268/api/traces")
 	defer jp.Close()
 
 	tr := jp.Tracer("otel-client")

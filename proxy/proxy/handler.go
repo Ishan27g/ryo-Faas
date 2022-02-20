@@ -36,13 +36,8 @@ type handler struct {
 
 	ready chan string
 
-	// metric *metrics.Functions
-	*metrics.PrometheusMetrics
-
 	proxies proxy
 	*log.Logger
-
-	jaegerPrv *metrics.JaegerProvider
 }
 
 func prettyJson(js interface{}) string {
@@ -96,8 +91,8 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	tr := otel.Tracer("Function deploy")
 	ctxT, span := tr.Start(ctx, "proxy-deploy")
 	span.SetAttributes(attribute.Key("entrypoint").String(request.Functions.Entrypoint))
+
 	defer func() {
-		span.SetAttributes(attribute.Key("add-proxy-rsp").String(time.Since(now).String()))
 		span.End()
 	}()
 
@@ -108,17 +103,21 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	}
 	defer h.agentReady(address)
 	if !transport.UploadDir(agent, ctxT, request.Functions.Dir, request.Functions.Entrypoint) {
+		span.AddEvent("Upload error", trace.WithAttributes(attribute.Key(request.Functions.Dir).String(request.Functions.AtAgent)))
 		return nil, errors.New("cannot upload directory to agent " + request.Functions.Entrypoint)
 	}
 
-	span.SetAttributes(attribute.Key("upload").String(time.Since(now).String()))
+	span.SetAttributes(attribute.Key("upload-duration").String(time.Since(now).String()))
+
 	now = time.Now()
+
 	response := new(deploy.DeployResponse)
 	agentRsp, err := agent.Deploy(ctxT, request)
 	if err != nil {
 		return nil, err
 	}
-	span.SetAttributes(attribute.Key("deploy").String(time.Since(now).String()))
+
+	span.SetAttributes(attribute.Key("upload-duration").String(time.Since(now).String()))
 	now = time.Now()
 
 	for _, function := range agentRsp.Functions {
@@ -126,24 +125,32 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 		proxyUrl := h.proxies.add(jsonFn)
 		function.Url = "http://" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
-
-		span.SetAttributes(attribute.Key("entrypoint").String(function.Entrypoint))
 		span.SetAttributes(attribute.Key("status").String(function.Status))
 		span.SetAttributes(attribute.Key("url").String(function.Url))
-
 	}
+	span.AddEvent(prettyJson(response))
 	h.Println("DEPLOY RESPONSE", prettyJson(response))
 	return response, nil
 }
 
 func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
+
+	tr := otel.Tracer("Function stop")
+	ctxT, span := tr.Start(ctx, "proxy-stop")
+	span.SetAttributes(attribute.Key("entrypoint").String(request.GetEntrypoint()))
+
+	defer func() {
+		span.End()
+	}()
+
 	entryPoint := request.GetEntrypoint()
 	agent, address := h.getFunctionAgent(entryPoint)
 	if agent == nil {
+		span.AddEvent("cannot find agent for" + entryPoint)
 		return nil, errors.New("cannot find agent for" + entryPoint)
 	}
 	defer h.agentReady(address)
-	agentRsp, err := agent.Stop(ctx, request)
+	agentRsp, err := agent.Stop(ctxT, request)
 	if err != nil {
 		return nil, err
 	}
@@ -152,36 +159,43 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 		h.proxies.remove(function.Entrypoint)
 		function.Url = ""
 		response.Functions = append(response.Functions, function)
+		span.AddEvent(function.Url, trace.WithAttributes(attribute.StringSlice(function.Status, []string{
+			function.AtAgent, function.ProxyServiceAddr,
+		})))
 	}
 	return response, nil
 }
 
 func (h *handler) List(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
+
+	tr := otel.Tracer("Function list")
+	ctxT, span := tr.Start(ctx, "proxy-list")
+	span.SetAttributes(attribute.Key("entrypoint").String(empty.GetEntrypoint()))
+
+	defer func() {
+		span.End()
+	}()
+
 	agent, address := h.getFunctionAgent(empty.GetEntrypoint())
 	if agent == nil {
+		span.AddEvent("cannot find agent for" + empty.GetEntrypoint())
 		return nil, errors.New("cannot find agent for" + empty.GetEntrypoint())
 	}
 	defer h.agentReady(address)
-	response, err := agent.List(ctx, empty)
+	response, err := agent.List(ctxT, empty)
 	if err != nil {
 		return nil, err
 	}
 	for _, fn := range response.Functions {
 		fn.Url = h.proxies.functions[fn.Entrypoint].proxyFrom
+		span.AddEvent(fn.Url, trace.WithAttributes(attribute.StringSlice(fn.Status, []string{
+			fn.AtAgent, fn.ProxyServiceAddr,
+		})))
 	}
 	return response, nil
 }
-func (h *handler) DetailsStatic(ctx context.Context, empty *deploy.Empty) []types.FunctionJsonRsp {
-	h.Println("Proxy details : ", h.proxies.details())
-	h.Println("Function : ", h.functions)
-	h.Println("Agents : ", h.agent)
-
-	return h.proxies.details()
-}
 func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
 	var details *deploy.DeployResponse
-
-	//h.getFunctionAgent(empty.GetEntrypoint())
 
 	for _, client := range h.agent {
 		detail, err := client.Details(ctx, empty)
@@ -215,27 +229,26 @@ func (h *handler) Logs(ctx context.Context, function *deploy.Function) (*deploy.
 
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
-	//done := h.metric.Invoked(fnName)
 
-	//defer close(done)
 	var statusCode = http.StatusBadGateway
 	var agent = "Not found"
 
-	// h.jaegerPrv.Tracer(MetricTracerFwToAgent).Start(c.Request.Context(), fnName)
+	// get from request
 	sp := trace.SpanFromContext(c.Request.Context())
-	sp.SetAttributes(attribute.Key("forward-to").String(fnName))
+	sp.SetAttributes(attribute.Key("function-called").String(fnName))
 
 	now := time.Now()
 	if proxy, fnServiceHost, atAgent := h.proxies.get(fnName); fnServiceHost != "" {
-		statusCode, span := proxy.ServeHTTP(c.Writer, c.Request, fnServiceHost)
+		stc, span := proxy.ServeHTTP(c.Writer, c.Request, fnServiceHost)
 		agent = atAgent
-		span.SetAttributes(attribute.Key("status").String(strconv.Itoa(statusCode)))
-		span.SetAttributes(attribute.Key("round-trip").String(time.Since(now).String()))
+		statusCode = stc
+		span.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
+		span.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
+		span.AddEvent("function-rsp-status", trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
 	} else {
 		c.String(http.StatusBadGateway, "Not found - ", fnName)
 	}
-	// done <- statusCode >= http.StatusOK && statusCode <= http.StatusAccepted
-	h.PrometheusMetrics.Update(fnName, agent, statusCode)
+	metrics.Prometheus.Update(fnName, agent, statusCode)
 }
 
 func (h *handler) AgentJoinHttp(c *gin.Context) {
@@ -251,6 +264,12 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 
 	var details []types.FunctionJsonRsp
 	fmt.Println(h.proxies.functions)
+	tr := otel.Tracer("Function list")
+	ctxT, span := tr.Start(c.Request.Context(), "proxy-details")
+
+	defer func() {
+		span.End()
+	}()
 
 	for _, fn := range h.proxies.details() {
 		fmt.Println(fn)
@@ -264,18 +283,16 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 			continue
 		}
 
-		detail, err := client.Details(c.Request.Context(), &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: fn.Name}})
+		detail, err := client.Details(ctxT, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: fn.Name}})
 		if err == nil {
 			for _, fn := range detail.Functions {
 				fn.Url = "http://" + h.httpFnProxyPort + pFn.proxyFrom
 				details = append(details, types.RpcFunctionRspToJson(fn))
+				span.SetAttributes(attribute.Key(fn.Entrypoint).String(fn.Status))
 			}
 		}
 	}
-	// rsp := make(map[string]interface{})
-	// rsp["Proxy details"] = h.proxies.details()
-	// rsp["Function"] = h.functions
-	// rsp["Agents"] = h.agent
+	span.AddEvent(prettyJson(details))
 	c.JSON(200, details)
 }
 
@@ -335,7 +352,7 @@ func (h *handler) MetricsPrometheus(c *gin.Context) {
 	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
 }
 
-func Start(ctx context.Context, grpcPort, http string, provider *metrics.JaegerProvider) {
+func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
 	h.agent = make(map[string]transport.AgentWrapper)
 	h.functions = make(map[string]string)
@@ -343,11 +360,6 @@ func Start(ctx context.Context, grpcPort, http string, provider *metrics.JaegerP
 	h.proxies = newProxy()
 	h.Logger = log.New(os.Stdout, "[PROXY-HANDLER] ", log.Ltime)
 	h.ready = make(chan string)
-
-	//h.metric = metrics.NewMetricMap()
-	h.PrometheusMetrics = metrics.InitPrometheus()
-
-	h.jaegerPrv = provider
 
 	gin.SetMode(gin.DebugMode)
 	h.g = gin.New()

@@ -4,7 +4,7 @@
 # docker network create faas_nw
 # docker-compose up
 
-version: "3.9"
+version: "3.7"
 
 services:
 
@@ -17,6 +17,11 @@ services:
       ports:
       - "16686:16686"
       - "14268:14268"
+      deploy:
+        resources:
+          limits:
+            cpus: '0.05'
+            memory: 250M
 
   prometheus:
     image: prom/prometheus:v2.33.3
@@ -29,6 +34,11 @@ services:
       - "9090:9090"
     networks:
       faas_nw:
+    deploy:
+        resources:
+          limits:
+            cpus: '0.10'
+            memory: 500M
 
   grafana:
       image: grafana/grafana:8.5.0-52524pre
@@ -40,7 +50,12 @@ services:
         faas_nw:
       volumes:
         - ./grafana:/var/lib/grafana
-     
+      deploy:
+        resources:
+          limits:
+            cpus: '0.05'
+            memory: 250M
+
   rms:
     image: cloud-agent:v0.1
     networks:
@@ -57,6 +72,7 @@ services:
     tty: true        # docker run -t
     volumes:
       - ./:/app:rw
+    
 
 networks:
   faas_nw:
