@@ -20,7 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type DeployClient interface {
 	Deploy(ctx context.Context, in *DeployRequest, opts ...grpc.CallOption) (*DeployResponse, error)
 	List(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error)
-	Stop(ctx context.Context, in *DeployRequest, opts ...grpc.CallOption) (*DeployResponse, error)
+	Stop(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error)
 	Details(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error)
 	Upload(ctx context.Context, opts ...grpc.CallOption) (Deploy_UploadClient, error)
 	Logs(ctx context.Context, in *Function, opts ...grpc.CallOption) (*Logs, error)
@@ -52,7 +52,7 @@ func (c *deployClient) List(ctx context.Context, in *Empty, opts ...grpc.CallOpt
 	return out, nil
 }
 
-func (c *deployClient) Stop(ctx context.Context, in *DeployRequest, opts ...grpc.CallOption) (*DeployResponse, error) {
+func (c *deployClient) Stop(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error) {
 	out := new(DeployResponse)
 	err := c.cc.Invoke(ctx, "/deploy.Deploy/stop", in, out, opts...)
 	if err != nil {
@@ -119,7 +119,7 @@ func (c *deployClient) Logs(ctx context.Context, in *Function, opts ...grpc.Call
 type DeployServer interface {
 	Deploy(context.Context, *DeployRequest) (*DeployResponse, error)
 	List(context.Context, *Empty) (*DeployResponse, error)
-	Stop(context.Context, *DeployRequest) (*DeployResponse, error)
+	Stop(context.Context, *Empty) (*DeployResponse, error)
 	Details(context.Context, *Empty) (*DeployResponse, error)
 	Upload(Deploy_UploadServer) error
 	Logs(context.Context, *Function) (*Logs, error)
@@ -135,7 +135,7 @@ func (UnimplementedDeployServer) Deploy(context.Context, *DeployRequest) (*Deplo
 func (UnimplementedDeployServer) List(context.Context, *Empty) (*DeployResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
 }
-func (UnimplementedDeployServer) Stop(context.Context, *DeployRequest) (*DeployResponse, error) {
+func (UnimplementedDeployServer) Stop(context.Context, *Empty) (*DeployResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
 func (UnimplementedDeployServer) Details(context.Context, *Empty) (*DeployResponse, error) {
@@ -197,7 +197,7 @@ func _Deploy_List_Handler(srv interface{}, ctx context.Context, dec func(interfa
 }
 
 func _Deploy_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeployRequest)
+	in := new(Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func _Deploy_Stop_Handler(srv interface{}, ctx context.Context, dec func(interfa
 		FullMethod: "/deploy.Deploy/stop",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeployServer).Stop(ctx, req.(*DeployRequest))
+		return srv.(DeployServer).Stop(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

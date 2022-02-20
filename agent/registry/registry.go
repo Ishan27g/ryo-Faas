@@ -83,6 +83,9 @@ func (r *registry) stopped(fnName string) *deploy.Function {
 	port := r.functions[fnName].port
 	r.ports[port] = true
 
+	os.RemoveAll(r.functions[fnName].Dir)
+	os.Remove(r.functions[fnName].FilePath)
+
 	fn := &deploy.Function{Entrypoint: fnName, Status: "STOPPED", AtAgent: r.address}
 
 	delete(r.functions, fnName)

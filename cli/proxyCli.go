@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
+	"github.com/Ishan27g/ryo-Faas/types"
 	"github.com/urfave/cli/v2"
 )
 
@@ -49,6 +51,28 @@ func printJson(js interface{}) {
 	}
 	fmt.Println(string(data))
 }
+func printResonse(response *deploy.DeployResponse) {
+	printJson(response)
+	for _, fn := range response.Functions {
+		fmt.Printf("%s %s [%s]\n", fn.Entrypoint, fn.Url, fn.Status)
+	}
+}
+
+var proxyAddr = "localhost:9002"
+
+// localhost:9000
+func sendHttp(url, agentAddr string) []byte {
+	resp, err := http.Get("http://" + proxyAddr + url + agentAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return body
+}
 
 var deployCmd = cli.Command{
 	Name:            "run",
@@ -76,8 +100,25 @@ var deployCmd = cli.Command{
 				fmt.Println(err.Error())
 				continue
 			}
-			printJson(deployResponse)
+			printResonse(deployResponse)
 		}
+		return nil
+	},
+}
+var statusProxyCmd = cli.Command{
+	Name:            "status",
+	Aliases:         []string{"s"},
+	Usage:           "list current details",
+	ArgsUsage:       "server-cli status",
+	HideHelp:        false,
+	HideHelpCommand: false,
+	Action: func(c *cli.Context) error {
+		var rsp []types.FunctionJsonRsp
+		json.Unmarshal(sendHttp("/details", ""), &rsp)
+		for _, v := range rsp {
+			fmt.Println(v.Name, v.Url, v.AtAgent, v.Proxy, v.Status)
+		}
+		printJson(rsp)
 		return nil
 	},
 }
@@ -100,19 +141,59 @@ var listCmd = cli.Command{
 		}
 		response, err := proxy.List(c.Context, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: c.Args().First()}})
 		if err != nil {
-			return err
+			fmt.Println(err.Error())
+			return nil
 		}
+		printResonse(response)
+		return nil
+	},
+}
+var stopCmd = cli.Command{
+	Name:            "stop",
+	Aliases:         []string{"s"},
+	Usage:           "stop a function",
+	ArgsUsage:       "server-cli stop {entrypoint}",
+	HideHelp:        false,
+	HideHelpCommand: false,
+	Action: func(c *cli.Context) error {
+		if c.Args().Len() == 0 {
+			return cli.Exit("entrypoint not provided", 1)
+		}
+		fmt.Println(c.Args().First())
+
+		proxy := getProxy()
+		if proxy == nil {
+			return cli.Exit("cannot connect to "+proxyAddress, 1)
+		}
+
+		response, err := proxy.Stop(c.Context, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: c.Args().First()}})
 		if err != nil {
 			fmt.Println(err.Error())
 			return nil
 		}
-		printJson(response)
+		printResonse(response)
+		return nil
+	},
+}
+var agentAddCmd = cli.Command{
+	Name:            "add",
+	Aliases:         []string{"a"},
+	Usage:           "add an agent",
+	ArgsUsage:       "server-cli add {address}",
+	HideHelp:        false,
+	HideHelpCommand: false,
+	Action: func(c *cli.Context) error {
+		if c.Args().Len() == 0 {
+			return cli.Exit("address not provided", 1)
+		}
+		fmt.Println(c.Args().First())
+		sendHttp("/addAgent?address=", c.Args().First())
 		return nil
 	},
 }
 
 func main() {
-	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd}, Flags: []cli.Flag{
+	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd, &statusProxyCmd}, Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:        "proxy",
 			Aliases:     []string{"p"},

@@ -22,9 +22,12 @@ var url = "http://localhost:9002/functions/methodwithotel"
 // assumes `methodwithotel` is deployed and available via proxy at `url`
 // starts a span that gets propagated from this client to the proxy and then to the deployed function.
 func main() {
+	requestWithOtel()
+}
+
+func requestWithOtel() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 	// connect to jaeger
 	jp := metrics.Jaeger(ctx, "http://localhost:14268/api/traces")
 	defer jp.Close()

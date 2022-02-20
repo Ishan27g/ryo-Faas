@@ -36,34 +36,34 @@ type shell struct {
 }
 
 type command struct {
-	Fn *deploy.Function
-	p  *process
+	done chan bool
+	Fn   *deploy.Function
+	p    *process
 }
 type process struct {
-	context.CancelFunc
 	io.ReadCloser
 	logs []string
 }
 
-func newProcess() (*process, context.Context) {
+func newProcess() *process {
 	var pr = new(process)
-	ctx, cancel := context.WithCancel(context.Background())
-	pr.CancelFunc = cancel
 	pr.logs = []string{}
-	return pr, ctx
+	return pr
 }
 func (s *shell) run(fn *deploy.Function, port string) bool {
 
-	pr, ctx := newProcess()
-	cmd := bc(fn, port, ctx)
-	ok := pr.execCmd(ctx, cmd)
-	if ok {
-		s.processes[fn.Entrypoint] = &command{
-			Fn: fn,
-			p:  pr,
-		}
+	pr := newProcess()
+	cmd := bc(fn, port)
+	s.processes[fn.Entrypoint] = &command{
+		Fn:   fn,
+		p:    pr,
+		done: make(chan bool),
 	}
-	s.Println("RUNNING - ", s.processes[fn.Entrypoint])
+	ok := pr.execCmd(cmd, s.processes[fn.Entrypoint].done)
+	if !ok {
+		delete(s.processes, fn.Entrypoint)
+	}
+	s.Println("RUNNING - ", fn.Entrypoint, s.processes[fn.Entrypoint].Fn)
 	return ok
 }
 
@@ -72,7 +72,7 @@ func (s *shell) Stop(fnName string) {
 		fmt.Println("shell process not found", fnName)
 		return
 	}
-	s.processes[fnName].p.CancelFunc()
+	s.processes[fnName].done <- true
 	fmt.Println("Stopped ", fnName)
 	delete(s.processes, fnName)
 }
@@ -85,15 +85,20 @@ func (s *shell) Logs(fnName string) []string {
 	return s.processes[fnName].p.Logs()
 }
 
-func (p *process) execCmd(ctx context.Context, cmd *run.RunInfo) bool {
+func (p *process) execCmd(cmd *run.RunInfo, end chan bool) bool {
 	var err error
-
 	r, w := io.Pipe()
 	p.ReadCloser = r
 	p.logs = []string{}
 
-	fmt.Println("EXECUTING - ")
-
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd.Ctx(ctx)
+	defer func() {
+		go func() {
+			<-end
+			cancel()
+		}()
+	}()
 	// run command
 	go func() {
 		err = cmd.Run(w)
@@ -101,11 +106,13 @@ func (p *process) execCmd(ctx context.Context, cmd *run.RunInfo) bool {
 			fmt.Println("p-run-", err.Error())
 		}
 	}()
+
 	// close pipes on cancel
 	go func() {
 		<-ctx.Done()
 		w.Close()
 		p.ReadCloser.Close()
+		fmt.Println("Context done")
 	}()
 
 	go func() {
@@ -118,16 +125,12 @@ func (p *process) execCmd(ctx context.Context, cmd *run.RunInfo) bool {
 		fmt.Println("EXITTTTTT")
 	}()
 
-	if err != nil {
-		return false
-	}
-
-	return true
+	return err == nil
 }
 
-var bc func(fn *deploy.Function, port string, ctx context.Context) *run.RunInfo
+var bc func(fn *deploy.Function, port string) *run.RunInfo
 
-func SetBuildCommand(f func(fn *deploy.Function, port string, ctx context.Context) *run.RunInfo) {
+func SetBuildCommand(f func(fn *deploy.Function, port string) *run.RunInfo) {
 	if f == nil {
 		bc = buildCommand
 		return
@@ -135,10 +138,10 @@ func SetBuildCommand(f func(fn *deploy.Function, port string, ctx context.Contex
 	bc = f
 }
 
-func buildCommand(fn *deploy.Function, port string, ctx context.Context) *run.RunInfo {
-	cmd := run.CMD("go", "run", fn.FilePath, deployFile()).
-		Env("PORT="+port, "URL="+strings.ToLower(fn.Entrypoint)).
-		Ctx(ctx)
+func buildCommand(fn *deploy.Function, port string) *run.RunInfo {
+	cmd := run.CMD("go", "run", fn.FilePath).
+		Env("PORT="+port, "URL="+strings.ToLower(fn.Entrypoint))
+		//Ctx(ctx)
 	return cmd
 }
 func (p *process) Logs() []string {

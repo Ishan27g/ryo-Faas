@@ -9,7 +9,7 @@ import (
 
 func TestAstGen(t *testing.T) {
 
-	pathToFnFw = path() + FnFw
+	pathToDeployment = path() + FnFw
 
 	packageName := "method1"
 	entrypoint := "Method1"

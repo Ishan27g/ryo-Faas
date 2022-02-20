@@ -15,7 +15,7 @@ import (
 	"github.com/mholt/archiver/v3"
 )
 
-var importPath = "github.com/Ishan27g/ryo-Faas/agent/registry/funcFrameworkWrapper/"
+var importPath = "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/"
 
 var path = func() string {
 	cwd, _ := os.Getwd()
@@ -26,30 +26,24 @@ var path = func() string {
 }
 var agentDir = "/registry"
 
-const FnFw = "/funcFrameworkWrapper/"
+const FnFw = "/deploy/"
 
-var pathToFnFw = path() + agentDir + FnFw
-var unzipDir = pathToFnFw
+var pathToDeployment = path() + agentDir + FnFw
+var PathToFns = pathToDeployment + "functions/"
 
-func defaultPath() string {
-	unzipDir = pathToFnFw
-	return path() + agentDir + FnFw
-}
+// func defaultPath() string {
+// 	unzipDir = pathToDeployment
+// 	return path() + agentDir + FnFw
+// }
 
 var getGenFilePath = func(fileName string) string {
-	return pathToFnFw + strings.ToLower(fileName) + "_generated.go"
+	return PathToFns + strings.ToLower(fileName) + "_generated.go"
 }
 var modFile = func() string {
-	return pathToFnFw + "template.go"
-}
-var deployFile = func() string {
-	return pathToFnFw + "deploy.go"
+	return pathToDeployment + "template.go"
 }
 
 type AgentHandler struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-
 	*registry
 	*log.Logger
 }
@@ -70,11 +64,10 @@ func (a *AgentHandler) List(ctx context.Context, empty *deploy.Empty) (*deploy.D
 	return a.registry.list(empty), nil
 }
 
-func (a *AgentHandler) Stop(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
+func (a *AgentHandler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
 	defer timeIt(time.Now())
 	var rsp = new(deploy.DeployResponse)
-	function := request.Functions
-	rsp.Functions = append(rsp.Functions, a.registry.stopped(function.Entrypoint))
+	rsp.Functions = append(rsp.Functions, a.registry.stopped(request.GetEntrypoint()))
 	return rsp, nil
 }
 
@@ -109,11 +102,12 @@ END:
 	err := stream.SendAndClose(&deploy.Empty{Rsp: nil})
 	fmt.Println("END: ", err)
 
-	dir, err := os.MkdirTemp("/app", "")
+	dir, err := os.MkdirTemp("/app/agent", "")
 	if err != nil {
 		fmt.Println("cannot mkdir temp")
 		return err
 	}
+
 	tmpZip := dir + "tmp.zip"
 	file, err := os.OpenFile(tmpZip, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
@@ -131,14 +125,16 @@ END:
 		fmt.Println("cannot write image to file ", fileName, err.Error())
 		return err
 	}
-	fmt.Println("unzipping ", fileName, " to ", unzipDir)
-	err = archiver.Unarchive(tmpZip, unzipDir)
+	_, fname := filepath.Split(fileName)
+	unzipTo := PathToFns + strings.TrimSuffix(fname, ".zip") + "/"
+
+	fmt.Println("unzipping ", fileName, " to ", PathToFns)
+	err = archiver.Unarchive(tmpZip, PathToFns)
 	if err != nil {
 		fmt.Println("Un-archive error ", err.Error())
 		return err
 	}
-	_, fname := filepath.Split(fileName)
-	unzipTo := unzipDir + strings.TrimSuffix(fname, ".zip") + "/"
+
 	a.registry.upload(entrypoint, unzipTo)
 	return nil
 
@@ -165,6 +161,8 @@ func Init(rpcAddress string) *AgentHandler {
 	agent.Logger = log.New(os.Stdout, "[AGENT-HANDLER]", log.Ltime)
 	*agent.registry = setup(rpcAddress)
 	agent.Println("AgentInterface configured at ", agent.address)
+
+	os.Mkdir(PathToFns, os.ModePerm)
 
 	return agent
 }

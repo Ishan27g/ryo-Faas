@@ -51,8 +51,8 @@ func (p *proxyDefinitions) details() []types.FunctionJsonRsp {
 	var str []types.FunctionJsonRsp
 	for _, d := range p.functions {
 		str = append(str, types.FunctionJsonRsp{
-			Name:    d.fnName,
-			Status:  "?",
+			Name: d.fnName,
+			// Status:  "?",
 			Url:     d.proxyFrom,
 			Proxy:   d.proxyTo,
 			AtAgent: d.agentAddr,
@@ -67,9 +67,17 @@ func (p *proxyDefinitions) remove(fnName string) {
 	}
 	delete(p.functions, fnName)
 }
+func (p *proxyDefinitions) getFn(fnName string) *definition {
+	if p.functions[fnName] == nil {
+		fmt.Println("not found in p.functions", fnName)
+		return nil
+	}
+	return p.functions[fnName]
+}
 func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string) {
 	fnName = strings.ToLower(fnName)
 	if p.functions[fnName] == nil {
+		fmt.Println("not found in proxyDefinitions", fnName)
 		return nil, "", ""
 	}
 	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr

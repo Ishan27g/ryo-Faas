@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/metrics"
@@ -135,17 +136,18 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	return response, nil
 }
 
-func (h *handler) Stop(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
-	agent, address := h.getFunctionAgent(request.Functions.Entrypoint)
+func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
+	entryPoint := request.GetEntrypoint()
+	agent, address := h.getFunctionAgent(entryPoint)
 	if agent == nil {
-		return nil, errors.New("cannot find agent for" + request.Functions.Entrypoint)
+		return nil, errors.New("cannot find agent for" + entryPoint)
 	}
 	defer h.agentReady(address)
-	response := new(deploy.DeployResponse)
 	agentRsp, err := agent.Stop(ctx, request)
 	if err != nil {
 		return nil, err
 	}
+	response := new(deploy.DeployResponse)
 	for _, function := range agentRsp.Functions {
 		h.proxies.remove(function.Entrypoint)
 		function.Url = ""
@@ -164,11 +166,23 @@ func (h *handler) List(ctx context.Context, empty *deploy.Empty) (*deploy.Deploy
 	if err != nil {
 		return nil, err
 	}
+	for _, fn := range response.Functions {
+		fn.Url = h.proxies.functions[fn.Entrypoint].proxyFrom
+	}
 	return response, nil
 }
+func (h *handler) DetailsStatic(ctx context.Context, empty *deploy.Empty) []types.FunctionJsonRsp {
+	h.Println("Proxy details : ", h.proxies.details())
+	h.Println("Function : ", h.functions)
+	h.Println("Agents : ", h.agent)
 
+	return h.proxies.details()
+}
 func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
 	var details *deploy.DeployResponse
+
+	//h.getFunctionAgent(empty.GetEntrypoint())
+
 	for _, client := range h.agent {
 		detail, err := client.Details(ctx, empty)
 		if err == nil {
@@ -234,11 +248,35 @@ func (h *handler) AgentJoinHttp(c *gin.Context) {
 }
 
 func (h *handler) DetailsHttp(c *gin.Context) {
-	rsp := make(map[string]interface{})
-	rsp["Proxy details"] = h.proxies.details()
-	rsp["Function"] = h.functions
-	rsp["Agents"] = h.agent
-	c.JSON(200, rsp)
+
+	var details []types.FunctionJsonRsp
+	fmt.Println(h.proxies.functions)
+
+	for _, fn := range h.proxies.details() {
+		fmt.Println(fn)
+		entrypoint := strings.ToLower(fn.Name)
+		pFn := h.proxies.getFn(entrypoint)
+		if pFn == nil {
+			continue
+		}
+		client, _ := h.getFunctionAgent(fn.Name)
+		if client == nil {
+			continue
+		}
+
+		detail, err := client.Details(c.Request.Context(), &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: fn.Name}})
+		if err == nil {
+			for _, fn := range detail.Functions {
+				fn.Url = "http://" + h.httpFnProxyPort + pFn.proxyFrom
+				details = append(details, types.RpcFunctionRspToJson(fn))
+			}
+		}
+	}
+	// rsp := make(map[string]interface{})
+	// rsp["Proxy details"] = h.proxies.details()
+	// rsp["Function"] = h.functions
+	// rsp["Agents"] = h.agent
+	c.JSON(200, details)
 }
 
 func (h *handler) DeployHttp(c *gin.Context) {

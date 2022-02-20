@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/metrics"
-	"github.com/Ishan27g/ryo-Faas/proto"
+	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/mholt/archiver/v3"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,7 +23,7 @@ type AgentWrapper interface {
 	GetMetrics() map[string]*metrics.Functions
 	Deploy(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	List(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
-	Stop(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
+	Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	Details(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	Upload(ctx context.Context, opts ...grpc.CallOption) (deploy.Deploy_UploadClient, error)
 	Logs(ctx context.Context, in *deploy.Function, opts ...grpc.CallOption) (*deploy.Logs, error)
@@ -78,8 +78,8 @@ func (r *rpcClient) List(ctx context.Context, in *deploy.Empty, opts ...grpc.Cal
 	return rsp, err
 }
 
-func (r *rpcClient) Stop(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
-	result := r.metrics.Stop(in.Functions.Entrypoint)
+func (r *rpcClient) Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
+	result := r.metrics.Stop(in.GetEntrypoint())
 	rsp, err := r.DeployClient.Stop(ctx, in, opts...)
 	r.returnMetric(err, result)
 

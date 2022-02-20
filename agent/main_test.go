@@ -15,7 +15,7 @@ import (
 )
 
 func setup(ctx context.Context, registryPort string) *registry.AgentHandler {
-	registry.SetBuildCommand(func(fn *deploy.Function, port string, ctx context.Context) *run.RunInfo {
+	registry.SetBuildCommand(func(fn *deploy.Function, port string) *run.RunInfo {
 		return run.CMD("sleep", "10").Ctx(ctx)
 	})
 	agent := registry.Init(registryPort)
