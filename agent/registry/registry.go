@@ -21,7 +21,7 @@ type registry struct {
 		port string
 		*deploy.Function
 	}
-	system
+	system *system
 	*log.Logger
 }
 
@@ -33,7 +33,7 @@ func prettyJson(js interface{}) string {
 	return string(data)
 }
 func setup(atAgent string) registry {
-	SetBuildCommand(nil)
+	//	SetBuildCommand(nil)
 
 	var err error
 	var reg registry
@@ -79,7 +79,7 @@ func (r *registry) deployed(fnName string) {
 }
 func (r *registry) stopped(fnName string) *deploy.Function {
 
-	r.system.Stop(fnName)
+	r.system.stop(fnName)
 	port := r.functions[fnName].port
 	r.ports[port] = true
 

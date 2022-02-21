@@ -5,8 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
-	"os"
+	"runtime"
 	"strings"
 
 	"github.com/DavidGamba/dgtools/run"
@@ -14,25 +13,57 @@ import (
 )
 
 // system provides multi to control functions that are run as os processes
-type system interface {
-	// Run a function as its own process
-	run(fn *deploy.Function, port string) bool
-	// Stop a running process by its function name
-	Stop(fnName string)
-	// Logs returns a channel that returns latest logs (todo tail logs instead?)
-	Logs(fnName string) []string
-}
+//type system1 interface {
+//	// Run a function as its own process
+//	run(fn *deploy.Function, port string) bool
+//	// Stop a running process by its function name
+//	stop(fnName string)
+//	// Logs returns a channel that returns latest logs (todo tail logs instead?)
+//	logs(fnName string) []byte
+//}
 
-func newSystem() system {
-	return &shell{
-		make(map[string]*command),
-		log.New(os.Stdout, "[SHELL]", log.Ltime),
+func newSystem() *system {
+	return &system{
+		process: make(map[string]*shell),
 	}
 }
 
+type kill func()
+type system struct {
+	process map[string]*shell
+}
+
+func (s *system) run(fn *deploy.Function, port string) bool {
+	s.process[fn.Entrypoint] = newShell(fn.GetEntrypoint())
+	return s.process[fn.Entrypoint].run(fn.FilePath, fn.Entrypoint, port)
+}
+
+func (s *system) stop(fnName string) {
+	if s.process[fnName] == nil {
+		return
+	}
+	s.process[fnName].kill()
+}
+
+func (s *system) logs(fnName string) []string {
+	if s.process[fnName] == nil {
+		return nil
+	}
+	return s.process[fnName].logs
+}
+
 type shell struct {
-	processes map[string]*command
-	*log.Logger
+	fnName string
+	logs   []string
+	kill
+}
+
+func newShell(fnName string) *shell {
+	return &shell{
+		fnName: fnName,
+		logs:   []string{},
+		kill:   nil,
+	}
 }
 
 type command struct {
@@ -45,104 +76,141 @@ type process struct {
 	logs []string
 }
 
-func newProcess() *process {
-	var pr = new(process)
-	pr.logs = []string{}
-	return pr
-}
-func (s *shell) run(fn *deploy.Function, port string) bool {
+//
+//func newProcess() *process {
+//	var pr = new(process)
+//	pr.logs = []string{}
+//	return pr
+//}
+//func (s *shell) run(fn *deploy.Function, port string) bool {
+//
+//	pr := newProcess()
+//	cmd := bc(fn, port)
+//	s.processes[fn.Entrypoint] = &command{
+//		Fn:   fn,
+//		p:    pr,
+//		done: make(chan bool),
+//	}
+//	ok := pr.execCmd(cmd, s.processes[fn.Entrypoint].done)
+//	if !ok {
+//		delete(s.processes, fn.Entrypoint)
+//	}
+//	s.Println("RUNNING - ", fn.Entrypoint, s.processes[fn.Entrypoint].Fn)
+//	return ok
+//}
+//
+//func (s *shell) stop(fnName string) {
+//	if s.processes[fnName] == nil {
+//		fmt.Println("shell process not found", fnName)
+//		return
+//	}
+//	s.processes[fnName].done <- true
+//	fmt.Println("Stopped ", fnName)
+//	delete(s.processes, fnName)
+//}
+//
+//func (s *shell) logs(fnName string) []string {
+//	if s.processes[fnName] == nil {
+//		fmt.Println("Process not found", fnName)
+//		return nil
+//	}
+//	return s.processes[fnName].p.logs()
+//}
+//
+//func (p *process) execCmd(cmd *run.RunInfo, end chan bool) bool {
+//	var err error
+//	r, w := io.Pipe()
+//	p.ReadCloser = r
+//	p.logs = []string{}
+//
+//	ctx, cancel := context.WithCancel(context.Background())
+//	cmd.Ctx(ctx)
+//	defer func() {
+//		go func() {
+//			<-end
+//			cancel()
+//		}()
+//	}()
+//	// run command
+//	go func() {
+//		err = cmd.Run(w)
+//		if err != nil {
+//			fmt.Println("p-run-", err.Error())
+//		}
+//	}()
+//	// close pipes on cancel
+//	go func() {
+//		<-ctx.Done()
+//		w.Close()
+//		p.ReadCloser.Close()
+//		fmt.Println("Context done")
+//	}()
+//
+//	go func() {
+//		scanner := bufio.NewScanner(p.ReadCloser)
+//		for scanner.Scan() {
+//			log := scanner.Text()
+//			fmt.Println(log)
+//			p.logs = append(p.logs, log)
+//		}
+//		fmt.Println("EXITTTTTT")
+//	}()
+//
+//	return err == nil
+//}
+//
+//var bc func(fn *deploy.Function, port string) *run.RunInfo
+//
+//func SetBuildCommand(f func(fn *deploy.Function, port string) *run.RunInfo) {
+//	if f == nil {
+//		bc = buildCommand
+//		return
+//	}
+//	bc = f
+//}
+//
+//func buildCommand(fn *deploy.Function, port string) *run.RunInfo {
+//	cmd := run.CMD("go", "run", fn.FilePath).
+//		Env("PORT="+port, "URL="+strings.ToLower(fn.Entrypoint))
+//	//Ctx(ctx)
+//	return cmd
+//}
 
-	pr := newProcess()
-	cmd := bc(fn, port)
-	s.processes[fn.Entrypoint] = &command{
-		Fn:   fn,
-		p:    pr,
-		done: make(chan bool),
-	}
-	ok := pr.execCmd(cmd, s.processes[fn.Entrypoint].done)
-	if !ok {
-		delete(s.processes, fn.Entrypoint)
-	}
-	s.Println("RUNNING - ", fn.Entrypoint, s.processes[fn.Entrypoint].Fn)
-	return ok
-}
-
-func (s *shell) Stop(fnName string) {
-	if s.processes[fnName] == nil {
-		fmt.Println("shell process not found", fnName)
-		return
-	}
-	s.processes[fnName].done <- true
-	fmt.Println("Stopped ", fnName)
-	delete(s.processes, fnName)
-}
-
-func (s *shell) Logs(fnName string) []string {
-	if s.processes[fnName] == nil {
-		fmt.Println("Process not found", fnName)
-		return nil
-	}
-	return s.processes[fnName].p.Logs()
-}
-
-func (p *process) execCmd(cmd *run.RunInfo, end chan bool) bool {
-	var err error
-	r, w := io.Pipe()
-	p.ReadCloser = r
-	p.logs = []string{}
+func (s *shell) run(filePath, entrypoint, port string) bool {
+	fmt.Println("fn.GenFilePath - ", filePath)
+	fmt.Println("starting on - ", port)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cmd.Ctx(ctx)
-	defer func() {
-		go func() {
-			<-end
-			cancel()
-		}()
-	}()
-	// run command
+	cmd := run.CMD("go", "run", filePath).
+		Env("PORT="+port, "URL="+strings.ToLower(entrypoint)).SaveErr().Ctx(ctx)
+
+	r, w := io.Pipe()
+
+	// start the service
+	var err error
 	go func() {
 		err = cmd.Run(w)
 		if err != nil {
-			fmt.Println("p-run-", err.Error())
+			fmt.Println(err.Error())
+			runtime.Goexit()
 		}
 	}()
-
-	// close pipes on cancel
 	go func() {
-		<-ctx.Done()
-		w.Close()
-		p.ReadCloser.Close()
-		fmt.Println("Context done")
-	}()
-
-	go func() {
-		scanner := bufio.NewScanner(p.ReadCloser)
+		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			log := scanner.Text()
 			fmt.Println(log)
-			p.logs = append(p.logs, log)
+			s.logs = append(s.logs, log)
 		}
-		fmt.Println("EXITTTTTT")
+		fmt.Println("exitttt")
+		s.kill()
 	}()
-
-	return err == nil
-}
-
-var bc func(fn *deploy.Function, port string) *run.RunInfo
-
-func SetBuildCommand(f func(fn *deploy.Function, port string) *run.RunInfo) {
-	if f == nil {
-		bc = buildCommand
-		return
+	s.kill = func() {
+		cancel()
+		w.Close()
+		fmt.Println("killed")
 	}
-	bc = f
-}
-
-func buildCommand(fn *deploy.Function, port string) *run.RunInfo {
-	cmd := run.CMD("go", "run", fn.FilePath).
-		Env("PORT="+port, "URL="+strings.ToLower(fn.Entrypoint))
-		//Ctx(ctx)
-	return cmd
+	return err == nil
 }
 func (p *process) Logs() []string {
 	return p.logs

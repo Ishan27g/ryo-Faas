@@ -1,9 +1,0 @@
-{
-  "deploy": [
-    {
-      "packageDir": "/Users/ishan/Desktop/multi/redis-cache",
-      "name" : "CacheRedis",
-      "filePath": "/Users/ishan/Desktop/multi/redis-cache/entrypoint.go"
-    }
-  ]
-}

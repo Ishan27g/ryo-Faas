@@ -98,6 +98,6 @@ func TestList(t *testing.T) {
 
 func TestTrim(t *testing.T) {
 	var pkgName string
-	pkgName = strings.ReplaceAll("redis-cache", "-", "")
+	pkgName = strings.ReplaceAll("rateLimit", "-", "")
 	fmt.Println(pkgName)
 }

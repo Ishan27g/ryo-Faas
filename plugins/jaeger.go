@@ -27,8 +27,8 @@ func InitJaeger(ctx context.Context, app, service, url string) *JaegerProvider {
 	}
 	fmt.Println("CONNECTED TO JAEGER ", url)
 	tp := tracesdk.NewTracerProvider(
-		tracesdk.WithSampler(tracesdk.TraceIDRatioBased(1)),
 		tracesdk.WithBatcher(exporter),
+		tracesdk.WithSampler(tracesdk.TraceIDRatioBased(1)),
 		tracesdk.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(app),

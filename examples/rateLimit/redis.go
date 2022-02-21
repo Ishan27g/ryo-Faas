@@ -1,4 +1,4 @@
-package redis_cache
+package rateLimit
 
 import (
 	"context"
@@ -59,22 +59,17 @@ func (r *redisClient) Allow(ctx context.Context, user string) (bool, int, string
 	now := time.Now()
 	redisKey := fmt.Sprintf("%s%x", "rate-session-id-", md5.Sum([]byte(user)))
 
-	// if first request, add to redis with auto-expiry after `Interval`
 	if exists, _ := r.check(redisKey); !exists {
 		r.add(redisKey, "0", Interval)
 		span.AddEvent("Redis-add-id" + time.Since(now).String())
 		span.SetAttributes(attribute.String("redis-add-id", time.Since(now).String()))
 		now = time.Now()
 	}
-	// get request count from redis for this user
 	requestCount := r.incAndGet(redisKey)
 	span.SetAttributes(attribute.String("redis-inc-id", time.Since(now).String()))
-	// allowed if count < limitPerUser
 	return requestCount < RequestLimit, requestCount, redisKey, span
 }
 
-// check returns a boolean and string where the boolean indicates whether
-// the given key exists (has not expired)
 func (r *redisClient) check(key string) (bool, string) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

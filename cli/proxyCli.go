@@ -164,13 +164,41 @@ var stopCmd = cli.Command{
 		if proxy == nil {
 			return cli.Exit("cannot connect to "+proxyAddress, 1)
 		}
+		for _, s := range c.Args().Slice() {
+			response, err := proxy.Stop(c.Context, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: s}})
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			printResonse(response)
+		}
+		return nil
+	},
+}
+var logsCmd = cli.Command{
+	Name:            "log",
+	Aliases:         []string{"l"},
+	Usage:           "log a function",
+	ArgsUsage:       "server-cli log {entrypoint}",
+	HideHelp:        false,
+	HideHelpCommand: false,
+	Action: func(c *cli.Context) error {
+		if c.Args().Len() == 0 {
+			return cli.Exit("entrypoint not provided", 1)
+		}
+		fmt.Println(c.Args().First())
 
-		response, err := proxy.Stop(c.Context, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: c.Args().First()}})
+		proxy := getProxy()
+		if proxy == nil {
+			return cli.Exit("cannot connect to "+proxyAddress, 1)
+		}
+
+		response, err := proxy.Logs(c.Context, &deploy.Function{Entrypoint: c.Args().First()})
 		if err != nil {
 			fmt.Println(err.Error())
 			return nil
 		}
-		printResonse(response)
+		printJson(response)
+		// printResonse(response)
 		return nil
 	},
 }
@@ -192,7 +220,7 @@ var agentAddCmd = cli.Command{
 }
 
 func main() {
-	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd, &statusProxyCmd}, Flags: []cli.Flag{
+	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd, &statusProxyCmd, &logsCmd}, Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:        "proxy",
 			Aliases:     []string{"p"},

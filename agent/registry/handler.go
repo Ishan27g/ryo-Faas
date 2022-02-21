@@ -142,11 +142,8 @@ END:
 
 func (a *AgentHandler) Logs(ctx context.Context, function *deploy.Function) (*deploy.Logs, error) {
 	defer timeIt(time.Now())
-	fn := &deploy.Empty_Entrypoint{Entrypoint: function.Entrypoint}
-	list := a.registry.list(&deploy.Empty{Rsp: fn})
-	logs := a.registry.Logs(function.Entrypoint)
+	logs := a.registry.system.logs(function.Entrypoint)
 	return &deploy.Logs{
-		Fn:   list.Functions[0],
 		Data: logs,
 	}, nil
 }

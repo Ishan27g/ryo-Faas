@@ -1,4 +1,4 @@
-package redis_cache
+package rateLimit
 
 import (
 	"encoding/json"
@@ -16,9 +16,9 @@ type response struct {
 	Interval      string `json:"interval"`
 }
 
-// CacheRedis exposes a redis based cache over http
+// RateLimit exposes a redis based cache over http
 // ?key=someId
-func CacheRedis(w http.ResponseWriter, r *http.Request) {
+func RateLimit(w http.ResponseWriter, r *http.Request) {
 
 	key := r.URL.Query()["key"]
 	allowed, requestNumber, id, span := cache.Allow(r.Context(), key[0])
@@ -32,14 +32,14 @@ func CacheRedis(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
-	span.AddEvent(fmt.Sprintf("%s : %v", id, allowed))
-
-	json.NewEncoder(w).Encode(&response{
+	var rsp = response{
 		Id:            id,
 		Allowed:       allowed,
 		RequestNumber: requestNumber,
 		RequestLimit:  RequestLimit,
 		Interval:      Interval.String(),
-	})
+	}
+	span.AddEvent(fmt.Sprintf("%v", rsp))
+
+	json.NewEncoder(w).Encode(&rsp)
 }

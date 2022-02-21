@@ -19,8 +19,8 @@ service Deploy {
   rpc logs(Function) returns(Logs){}
 }
 message Logs {
-  Function fn = 1;
-  repeated string data = 2;
+ // Function fn = 1;
+  repeated string data = 1;
 }
 message File {
   string fileName = 1;

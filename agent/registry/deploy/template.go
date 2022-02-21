@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/Ishan27g/ryo-Faas/plugins"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -38,7 +40,35 @@ func main() {
 	otelHandler := otelhttp.NewHandler(http.HandlerFunc(handlerFunc), entrypoint)
 	http.Handle(url, otelHandler)
 
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("httpListenAndServe: %v\n", err)
+	httpSrv := &http.Server{
+		Addr: ":" + port,
 	}
+	go func() {
+		fmt.Println("HTTP started on " + httpSrv.Addr)
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Println("HTTP", err.Error())
+		}
+	}()
+	<-catchExit()
+	fmt.Println("EXITING?")
+	cx, can := context.WithTimeout(context.Background(), 2*time.Second)
+	defer can()
+	if err := httpSrv.Shutdown(cx); err != nil {
+		fmt.Println("Http-Shutdown " + err.Error())
+	} else {
+		fmt.Println(err.Error())
+	}
+	//if err := http.ListenAndServe(":"+port, nil); err != nil {
+	//	log.Fatalf("httpListenAndServe: %v\n", err)
+	//}
+}
+func catchExit() chan bool {
+	stop := make(chan bool, 1)
+	closeLogs := make(chan os.Signal, 1)
+	signal.Notify(closeLogs, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	go func() {
+		<-closeLogs
+		stop <- true
+	}()
+	return stop
 }
