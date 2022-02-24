@@ -7,14 +7,16 @@ import (
 	"log"
 	"net/http"
 	"os"
-
+	"context"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	"github.com/urfave/cli/v2"
 )
 
 var proxyAddress string // rpc address of proxy (default :9001)
+
 
 type definition struct {
 	Deploy []struct {
@@ -138,7 +140,7 @@ var listCmd = cli.Command{
 		if proxy == nil {
 			return cli.Exit("cannot connect to "+proxyAddress, 1)
 		}
-		response, err := proxy.List(c.Context, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: c.Args().First()}})
+		response, err := proxy.List(context.Background(), &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: c.Args().First()}})
 		if err != nil {
 			fmt.Println(err.Error())
 			return nil
@@ -220,6 +222,9 @@ var agentAddCmd = cli.Command{
 }
 
 func main() {
+	var jp = plugins.InitJaeger(context.Background(), "ryo-Faas-agent", "agent", "http://localhost:14268/api/traces") //match with docker hostname
+	defer jp.Close()
+
 	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd,
 		&statusProxyCmd, &logsCmd}, Flags: []cli.Flag{
 		&cli.StringFlag{

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
 )
@@ -51,7 +53,10 @@ func Init(ctx context.Context, server deploy.DeployServer, rpcPort string, engin
 }
 
 func (l *listener) startGrpc() {
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+		)
 	// srv :=
 	deploy.RegisterDeployServer(grpcServer, l.grpc.server)
 	grpcAddr, err := net.Listen("tcp", l.grpc.port)

@@ -169,26 +169,29 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 
 func (h *handler) List(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
 
+	// span := trace.SpanFromContext(ctx)
+	//
 	tr := otel.Tracer("Function list")
-	ctxT, span := tr.Start(ctx, "proxy-list")
+	ctx, span := tr.Start(ctx, "proxy-list")
 	span.SetAttributes(attribute.Key("entrypoint").String(empty.GetEntrypoint()))
 
-	defer func() {
-		span.End()
-	}()
-
+	//defer func() {
+	//	span.End()
+	//}()
+	// ctx = trace.ContextWithSpan(ctx, span)
 	agent, address := h.getFunctionAgent(empty.GetEntrypoint())
 	if agent == nil {
 		span.AddEvent("cannot find agent for" + empty.GetEntrypoint())
 		return nil, errors.New("cannot find agent for" + empty.GetEntrypoint())
 	}
 	defer h.agentReady(address)
-	response, err := agent.List(ctxT, empty)
+	response, err := agent.List(ctx, empty)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(response)
 	for _, fn := range response.Functions {
-		fn.Url = h.proxies.functions[fn.Entrypoint].proxyFrom
+		fn.Url = h.proxies.functions[strings.ToLower(fn.Entrypoint)].proxyFrom
 		span.AddEvent(fn.Url, trace.WithAttributes(attribute.StringSlice(fn.Status, []string{
 			fn.AtAgent, fn.ProxyServiceAddr,
 		})))
@@ -361,6 +364,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	//    "filePath": "/Users/ishan/Desktop/multi/method1.go"
 	//  }
 	//]'
+
 	h.g.POST("/deploy", h.DeployHttp)
 	// curl  http://localhost:9002/details
 	h.g.GET("/details", h.DetailsHttp)

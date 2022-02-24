@@ -17,6 +17,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 )
 
 // AgentWrapper expose an agent with plugins
@@ -55,6 +58,7 @@ func (r *rpcClient) Deploy(ctx context.Context, in *deploy.DeployRequest, opts .
 func (r *rpcClient) List(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
 	entrypoint := in.GetEntrypoint()
 	if entrypoint == "" {
+		fmt.Println("no entrypoint in request")
 		return nil, errors.New("no entrypoint in request")
 	}
 	rsp, err := r.DeployClient.List(ctx, in, opts...)
@@ -99,7 +103,9 @@ func ProxyGrpcClient(agentAddr string) AgentWrapper {
 	defer cancel()
 	grpc.WaitForReady(true)
 	fmt.Println("Connecting to rpc -", agentAddr)
-	grpcClient, err := grpc.DialContext(ctx, agentAddr, grpc.WithInsecure(), grpc.WithBlock())
+	grpcClient, err := grpc.DialContext(ctx, agentAddr,grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),)
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil
