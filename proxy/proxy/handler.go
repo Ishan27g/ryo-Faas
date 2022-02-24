@@ -27,6 +27,7 @@ import (
 const MetricTracerFwToAgent = "proxy-function-call"
 const UrlLookup = "proxy-lookup"
 const HttpProxy = "http-proxy"
+const TracerName = "proxy"
 
 type handler struct {
 	g               *gin.Engine
@@ -40,6 +41,9 @@ type handler struct {
 	*log.Logger
 }
 
+func getTracer() trace.Tracer {
+	return otel.GetTracerProvider().Tracer(TracerName)
+}
 func prettyJson(js interface{}) string {
 	data, err := json.MarshalIndent(js, "", " ")
 	if err != nil {
@@ -88,18 +92,18 @@ func (h *handler) AddAgent(address string) bool {
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 
 	now := time.Now()
-	tr := otel.Tracer("Function deploy")
-	ctxT, span := tr.Start(ctx, "proxy-deploy")
+	tr := getTracer()
+	ctxT, span := tr.Start(ctx, "deploy")
 	span.SetAttributes(attribute.Key("entrypoint").String(request.Functions.Entrypoint))
 
 	defer span.End()
 
-	h.Println("DEPLOY REQUEST FOR ", request.Functions)
 	agent, address := h.assignAgentToFunction(request.Functions.Entrypoint)
 	if agent == nil {
 		return nil, errors.New("cannot assign an agent for" + request.Functions.Entrypoint)
 	}
 	defer h.agentReady(address)
+
 	if !transport.UploadDir(agent, ctxT, request.Functions.Dir, request.Functions.Entrypoint) {
 		span.AddEvent("Upload error", trace.WithAttributes(attribute.Key(request.Functions.Dir).String(request.Functions.AtAgent)))
 		return nil, errors.New("cannot upload directory to agent " + request.Functions.Entrypoint)
@@ -112,10 +116,11 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	response := new(deploy.DeployResponse)
 	agentRsp, err := agent.Deploy(ctxT, request)
 	if err != nil {
+		span.AddEvent("Deploy error at agent", trace.WithAttributes(attribute.Key(address).String(request.Functions.Entrypoint)))
 		return nil, err
 	}
 
-	span.SetAttributes(attribute.Key("upload-duration").String(time.Since(now).String()))
+	span.SetAttributes(attribute.Key("deploy-duration").String(time.Since(now).String()))
 	now = time.Now()
 
 	for _, function := range agentRsp.Functions {
@@ -123,8 +128,6 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 		proxyUrl := h.proxies.add(jsonFn)
 		function.Url = "http://" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
-		span.SetAttributes(attribute.Key("status").String(function.Status))
-		span.SetAttributes(attribute.Key("url").String(function.Url))
 	}
 	span.AddEvent(prettyJson(response))
 	h.Println("DEPLOY RESPONSE", prettyJson(response))
@@ -133,13 +136,11 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 
 func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
 
-	tr := otel.Tracer("Function stop")
-	ctxT, span := tr.Start(ctx, "proxy-stop")
+	tr := getTracer()
+	ctx, span := tr.Start(ctx, "stop")
 	span.SetAttributes(attribute.Key("entrypoint").String(request.GetEntrypoint()))
 
-	defer func() {
-		span.End()
-	}()
+	defer span.End()
 
 	entryPoint := request.GetEntrypoint()
 	agent, address := h.getFunctionAgent(entryPoint)
@@ -148,8 +149,10 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 		return nil, errors.New("cannot find agent for" + entryPoint)
 	}
 	defer h.agentReady(address)
-	agentRsp, err := agent.Stop(ctxT, request)
+
+	agentRsp, err := agent.Stop(ctx, request)
 	if err != nil {
+		span.AddEvent("Stop error at agent", trace.WithAttributes(attribute.Key(address).String(request.GetEntrypoint())))
 		return nil, err
 	}
 	response := new(deploy.DeployResponse)
@@ -233,8 +236,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 
 	// get from request
 	sp := trace.SpanFromContext(c.Request.Context())
-	sp.SetAttributes(attribute.Key("function-called").String(fnName))
-
+	sp.SetAttributes(attribute.Key("entrypoint").String(fnName))
 	ctxR := trace.ContextWithSpan(c.Request.Context(), sp)
 
 	now := time.Now()
@@ -246,9 +248,9 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 		span.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
 		span.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
 	} else {
-		c.String(http.StatusBadGateway, "Not found - ", fnName)
+		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}
-	plugins.Prometheus.Update(fnName, agent, statusCode)
+	plugins.Prometheus.FunctionInvocation(fnName, agent, statusCode)
 }
 
 func (h *handler) AgentJoinHttp(c *gin.Context) {

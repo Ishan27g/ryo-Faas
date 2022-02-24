@@ -102,9 +102,9 @@ END:
 	err := stream.SendAndClose(&deploy.Empty{Rsp: nil})
 	fmt.Println("END: ", err)
 
-	dir, err := os.MkdirTemp("/app/agent", "")
+	dir, err := os.MkdirTemp("", "tmp")
 	if err != nil {
-		fmt.Println("cannot mkdir temp")
+		fmt.Println("cannot mkdir temp", err.Error())
 		return err
 	}
 

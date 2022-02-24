@@ -37,7 +37,7 @@ func main() {
 	// _ = jp.Tracer("function-with-otel")
 
 	// https://github.com/open-telemetry/opentelemetry-go-contrib/tree/main/instrumentation/net/http/otelhttp/example
-	otelHandler := otelhttp.NewHandler(http.HandlerFunc(handlerFunc), entrypoint)
+	otelHandler := otelhttp.NewHandler(http.HandlerFunc(handlerFunc), "deployed-service-"+entrypoint)
 	http.Handle(url, otelHandler)
 
 	httpSrv := &http.Server{

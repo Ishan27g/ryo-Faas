@@ -3,17 +3,19 @@ package transport
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/mholt/archiver/v3"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 )
 
@@ -34,17 +36,17 @@ type rpcClient struct {
 
 func (r *rpcClient) Deploy(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
 	now := time.Now()
-	tr := otel.Tracer("agent-rpc")
-	ctxT, span := tr.Start(ctx, "agent-deploy")
-	defer span.End()
 
-	rsp, err := r.DeployClient.Deploy(ctxT, in, opts...)
+	span := trace.SpanFromContext(ctx)
 
-	for _, r := range rsp.Functions {
-		span.SetAttributes(attribute.Key("entrypoint").String(r.Entrypoint))
-		span.SetAttributes(attribute.Key("status").String(r.Status))
-		span.SetAttributes(attribute.Key("url").String(r.Url))
-		span.SetAttributes(attribute.Key("time").String(time.Since(now).String()))
+	rsp, err := r.DeployClient.Deploy(ctx, in, opts...)
+
+	for i, r := range rsp.Functions {
+		span.AddEvent(printJson(r))
+		span.SetAttributes(attribute.Key("entrypoint-" + strconv.Itoa(i)).String(r.Entrypoint))
+		span.SetAttributes(attribute.Key("status-" + strconv.Itoa(i)).String(r.Status))
+		span.SetAttributes(attribute.Key("url-" + strconv.Itoa(i)).String(r.Url))
+		span.SetAttributes(attribute.Key("time-" + strconv.Itoa(i)).String(time.Since(now).String()))
 	}
 
 	return rsp, err
@@ -60,25 +62,35 @@ func (r *rpcClient) List(ctx context.Context, in *deploy.Empty, opts ...grpc.Cal
 }
 
 func (r *rpcClient) Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
+	span := trace.SpanFromContext(ctx)
 	rsp, err := r.DeployClient.Stop(ctx, in, opts...)
+	span.AddEvent(printJson(r))
 	return rsp, err
 }
 
 func (r *rpcClient) Details(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
+	span := trace.SpanFromContext(ctx)
+
 	entrypoint := in.GetEntrypoint()
 	if entrypoint == "" {
+		span.AddEvent("no entrypoint in request")
 		return nil, errors.New("no entrypoint in request")
 	}
 	rsp, err := r.DeployClient.Details(ctx, in, opts...)
+	span.AddEvent(printJson(rsp))
 	return rsp, err
 }
 
 func (r *rpcClient) Upload(ctx context.Context, opts ...grpc.CallOption) (deploy.Deploy_UploadClient, error) {
-	return r.DeployClient.Upload(ctx, opts...)
+	dc, err := r.DeployClient.Upload(ctx, opts...)
+	return dc, err
 }
 
 func (r *rpcClient) Logs(ctx context.Context, in *deploy.Function, opts ...grpc.CallOption) (*deploy.Logs, error) {
+	span := trace.SpanFromContext(ctx)
 	rsp, err := r.DeployClient.Logs(ctx, in, opts...)
+	span.AddEvent(printJson(rsp))
+
 	return rsp, err
 }
 
@@ -112,12 +124,10 @@ func compress(dir string) string {
 func UploadDir(c deploy.DeployClient, ctx context.Context, dir string, entrypoint string) bool {
 	var result = false
 	now := time.Now()
-	tr := otel.Tracer("transport compress & upload")
-	ctx, span := tr.Start(ctx, "agent-upload")
+	span := trace.SpanFromContext(ctx)
 	defer func() {
 		span.SetAttributes(attribute.Key("error").Bool(!result))
 		span.SetAttributes(attribute.Key("upload").String(time.Since(now).String()))
-		span.End()
 	}()
 
 	zipFile := compress(dir)
@@ -127,6 +137,7 @@ func UploadDir(c deploy.DeployClient, ctx context.Context, dir string, entrypoin
 
 	file, err := os.Open(zipFile)
 	if err != nil {
+		span.AddEvent(err.Error())
 		fmt.Println(err)
 		return result
 	}
@@ -147,6 +158,7 @@ func UploadDir(c deploy.DeployClient, ctx context.Context, dir string, entrypoin
 		}
 		if err != nil {
 			fmt.Println("file read error-", err.Error())
+			span.AddEvent(err.Error())
 			return result
 		}
 		err = stream.Send(&deploy.File{
@@ -156,10 +168,18 @@ func UploadDir(c deploy.DeployClient, ctx context.Context, dir string, entrypoin
 		})
 		if err != nil {
 			fmt.Println("stream send:", err.Error())
+			span.AddEvent(err.Error())
 			return result
 
 		}
 	}
 	result = true
 	return result
+}
+func printJson(js interface{}) string {
+	data, err := json.MarshalIndent(js, "", " ")
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	return string(data)
 }

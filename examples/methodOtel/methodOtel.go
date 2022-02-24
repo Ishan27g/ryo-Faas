@@ -18,6 +18,7 @@ func MethodWithOtel(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	span := trace.SpanFromContext(ctx)
+
 	bag := baggage.FromContext(ctx)
 	fmt.Println("bag is ", bag.String())
 

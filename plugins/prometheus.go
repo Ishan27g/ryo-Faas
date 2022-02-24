@@ -22,7 +22,7 @@ func InitPrometheus() {
 		opsProcessed: opsProcessed,
 	}
 }
-func (lm *metrics) Update(name string, agent string, success int) {
+func (lm *metrics) FunctionInvocation(name string, agent string, success int) {
 	// rate(function_invocations{}[$__rate_interval])
 	lm.opsProcessed.With(prometheus.Labels{"entrypoint": name, "agent": agent, "statusCode": strconv.Itoa(success)}).Inc()
 }

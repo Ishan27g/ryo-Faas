@@ -220,7 +220,8 @@ var agentAddCmd = cli.Command{
 }
 
 func main() {
-	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd, &statusProxyCmd, &logsCmd}, Flags: []cli.Flag{
+	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd,
+		&statusProxyCmd, &logsCmd}, Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:        "proxy",
 			Aliases:     []string{"p"},

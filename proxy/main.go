@@ -23,7 +23,7 @@ func main() {
 	defer cancel()
 	plugins.InitPrometheus()
 	url := "http://localhost:14268/api/traces"
-	provider := plugins.InitJaeger(ctx, "ryo-Faas-proxy", "proxy", url)
+	provider := plugins.InitJaeger(ctx, "ryo-Faas-proxy", "proxy-server", url)
 	defer provider.Close()
 
 	proxy.Start(ctx, host+*grpcPort, host+*httpPort)

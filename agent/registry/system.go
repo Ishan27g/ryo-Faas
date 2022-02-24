@@ -175,14 +175,17 @@ type process struct {
 //	//Ctx(ctx)
 //	return cmd
 //}
+var cmd *run.RunInfo
 
+func SetBuildCommand(c *run.RunInfo) {
+	cmd = c
+}
 func (s *shell) run(filePath, entrypoint, port string) bool {
 	fmt.Println("fn.GenFilePath - ", filePath)
 	fmt.Println("starting on - ", port)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cmd := run.CMD("go", "run", filePath).
-		Env("PORT="+port, "URL="+strings.ToLower(entrypoint)).SaveErr().Ctx(ctx)
+	cmd = buildCommand(filePath, entrypoint, port, ctx)
 
 	r, w := io.Pipe()
 
@@ -211,6 +214,12 @@ func (s *shell) run(filePath, entrypoint, port string) bool {
 		fmt.Println("killed")
 	}
 	return err == nil
+}
+
+func buildCommand(filePath string, entrypoint string, port string, ctx context.Context) *run.RunInfo {
+	cmd := run.CMD("go", "run", filePath).
+		Env("PORT="+port, "URL="+strings.ToLower(entrypoint)).SaveErr().Ctx(ctx)
+	return cmd
 }
 func (p *process) Logs() []string {
 	return p.logs

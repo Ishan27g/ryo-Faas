@@ -14,7 +14,6 @@ type request struct {
 // MethodOk
 func Method1(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("method1 hit....")
-
 	var p request
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
@@ -28,6 +27,7 @@ func Method1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println("method2 response with status ", status)
+
 	w.WriteHeader(status)
 	fmt.Fprint(w, rsp+"\nAccepted at Method 1 ..."+"\n")
 }

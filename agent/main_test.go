@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,9 +15,7 @@ import (
 )
 
 func setup(ctx context.Context, registryPort string) *registry.AgentHandler {
-	registry.SetBuildCommand(func(fn *deploy.Function, port string) *run.RunInfo {
-		return run.CMD("sleep", "10").Ctx(ctx)
-	})
+	registry.SetBuildCommand(run.CMD("sleep", "10").Ctx(ctx))
 	agent := registry.Init(registryPort)
 	transport.Init(ctx, agent, DefaultPort, nil, "").Start()
 	return agent
@@ -27,8 +24,8 @@ func setup(ctx context.Context, registryPort string) *registry.AgentHandler {
 func TestSetup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		cancel()
 		<-time.After(3 * time.Second)
+		cancel()
 	}()
 	assert.NotNil(t, setup(ctx, DefaultPort))
 }
@@ -67,37 +64,22 @@ func TestList(t *testing.T) {
 
 	agentHandler.Println(deployRsp)
 
-	fmt.Println()
-
-	<-time.After(2 * time.Second)
-
-	logs, err := c.Logs(ctx, &deploy.Function{Entrypoint: entrypoint})
-	if err != nil {
-		return
-	}
+	list, err := c.List(ctx, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: entrypoint}})
 	assert.NoError(t, err)
+	assert.Equal(t, "DEPLOYED", list.Functions[0].Status)
 
-	agentHandler.Println(logs)
-	assert.Equal(t, "DEPLOYED", logs.Fn.Status)
+	//<-time.After(5 * time.Second)
+	//list, err = c.List(ctx, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: entrypoint}})
+	//assert.NoError(t, err)
+	//assert.Equal(t, "DEPLOYED", list.Functions[0].Status)
+	//
+	//logs, err := c.Logs(ctx, &deploy.Function{Entrypoint: entrypoint})
+	//assert.NoError(t, err)
+	//agentHandler.Println(logs)
+	//assert.NotNil(t, logs)
 
-	fmt.Println()
+	fmt.Println(list)
+	os.RemoveAll(list.Functions[0].Dir)
+	os.Remove(list.Functions[0].FilePath)
 
-	<-time.After(3 * time.Second)
-	logs, err = c.Logs(ctx, &deploy.Function{Entrypoint: entrypoint})
-	if err != nil {
-		return
-	}
-	assert.NoError(t, err)
-
-	agentHandler.Println(logs)
-	assert.Equal(t, "DEPLOYED", logs.Fn.Status)
-
-	fmt.Println()
-
-}
-
-func TestTrim(t *testing.T) {
-	var pkgName string
-	pkgName = strings.ReplaceAll("rateLimit", "-", "")
-	fmt.Println(pkgName)
 }
