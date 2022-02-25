@@ -21,7 +21,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	defer cancel()
-	plugins.InitPrometheus()
 	url := "http://localhost:14268/api/traces"
 	provider := plugins.InitJaeger(ctx, "ryo-Faas-proxy", "proxy-server", url)
 	defer provider.Close()

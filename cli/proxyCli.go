@@ -1,22 +1,22 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"context"
+
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
-	"github.com/Ishan27g/ryo-Faas/plugins"
 	"github.com/urfave/cli/v2"
 )
 
 var proxyAddress string // rpc address of proxy (default :9001)
-
 
 type definition struct {
 	Deploy []struct {
@@ -222,7 +222,7 @@ var agentAddCmd = cli.Command{
 }
 
 func main() {
-	var jp = plugins.InitJaeger(context.Background(), "ryo-Faas-agent", "agent", "http://localhost:14268/api/traces") //match with docker hostname
+	var jp = plugins.InitJaeger(context.Background(), "ryo-Faas-cli", "cli", "http://localhost:14268/api/traces") //match with docker hostname
 	defer jp.Close()
 
 	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd,

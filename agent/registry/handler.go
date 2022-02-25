@@ -13,8 +13,6 @@ import (
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/mholt/archiver/v3"
-	"go.opentelemetry.io/otel"
-
 )
 
 var importPath = "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/"
@@ -63,12 +61,8 @@ func (a *AgentHandler) Deploy(ctx context.Context, request *deploy.DeployRequest
 
 func (a *AgentHandler) List(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
 	defer timeIt(time.Now())
-
-	tr := otel.GetTracerProvider().Tracer("agent")
-	ctx, span := tr.Start(ctx, "list"+ empty.GetEntrypoint())
-	span.AddEvent(empty.GetEntrypoint())
-	span.End()
-	return a.registry.list(empty), nil
+	rsp := a.registry.list(empty)
+	return rsp, nil
 }
 
 func (a *AgentHandler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {

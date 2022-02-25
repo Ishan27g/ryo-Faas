@@ -9,17 +9,15 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/mholt/archiver/v3"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc/credentials/insecure"
-
 )
 
 // AgentWrapper expose an agent with plugins
@@ -38,30 +36,33 @@ type rpcClient struct {
 }
 
 func (r *rpcClient) Deploy(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
-	now := time.Now()
+	//now := time.Now()
 
-	span := trace.SpanFromContext(ctx)
+	//span := trace.SpanFromContext(ctx)
 
 	rsp, err := r.DeployClient.Deploy(ctx, in, opts...)
 
-	for i, r := range rsp.Functions {
-		span.AddEvent(printJson(r))
-		span.SetAttributes(attribute.Key("entrypoint-" + strconv.Itoa(i)).String(r.Entrypoint))
-		span.SetAttributes(attribute.Key("status-" + strconv.Itoa(i)).String(r.Status))
-		span.SetAttributes(attribute.Key("url-" + strconv.Itoa(i)).String(r.Url))
-		span.SetAttributes(attribute.Key("time-" + strconv.Itoa(i)).String(time.Since(now).String()))
-	}
+	//for i, r := range rsp.Functions {
+	//	span.AddEvent(printJson(r))
+	//	span.SetAttributes(attribute.Key("entrypoint-" + strconv.Itoa(i)).String(r.Entrypoint))
+	//	span.SetAttributes(attribute.Key("status-" + strconv.Itoa(i)).String(r.Status))
+	//	span.SetAttributes(attribute.Key("url-" + strconv.Itoa(i)).String(r.Url))
+	//	span.SetAttributes(attribute.Key("time-" + strconv.Itoa(i)).String(time.Since(now).String()))
+	//}
 
 	return rsp, err
 }
 
 func (r *rpcClient) List(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
 	entrypoint := in.GetEntrypoint()
+	span := trace.SpanFromContext(ctx)
 	if entrypoint == "" {
 		fmt.Println("no entrypoint in request")
 		return nil, errors.New("no entrypoint in request")
 	}
+	span.SetAttributes(attribute.Key("entrypoint-at-rpc").String(in.GetEntrypoint()))
 	rsp, err := r.DeployClient.List(ctx, in, opts...)
+	// span.AddEvent(printJson(rsp)) // already added by agent
 	return rsp, err
 }
 
@@ -103,9 +104,9 @@ func ProxyGrpcClient(agentAddr string) AgentWrapper {
 	defer cancel()
 	grpc.WaitForReady(true)
 	fmt.Println("Connecting to rpc -", agentAddr)
-	grpcClient, err := grpc.DialContext(ctx, agentAddr,grpc.WithTransportCredentials(insecure.NewCredentials()),
+	grpcClient, err := grpc.DialContext(ctx, agentAddr, grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),)
+		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil
@@ -152,8 +153,12 @@ func UploadDir(c deploy.DeployClient, ctx context.Context, dir string, entrypoin
 		os.Remove(zipFile)
 	}()
 
+	ctx = trace.ContextWithSpan(ctx, span)
+
 	stream, err := c.Upload(ctx)
 	defer stream.CloseAndRecv()
+
+	span = trace.SpanFromContext(ctx)
 
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, 1024)

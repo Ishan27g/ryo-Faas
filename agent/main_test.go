@@ -41,7 +41,7 @@ func TestList(t *testing.T) {
 	agentHandler := setup(ctx, DefaultPort)
 	assert.NotNil(t, agentHandler)
 
-	dir := "/Users/ishan/Desktop/multi/method1"
+	dir := "examples/method1"
 	filePath := dir + "/method1.go"
 	entrypoint := "Method1"
 	c := transport.ProxyGrpcClient(DefaultPort)

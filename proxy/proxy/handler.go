@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/plugins"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
@@ -92,11 +91,8 @@ func (h *handler) AddAgent(address string) bool {
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 
 	now := time.Now()
-	tr := getTracer()
-	ctxT, span := tr.Start(ctx, "deploy")
+	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.Key("entrypoint").String(request.Functions.Entrypoint))
-
-	defer span.End()
 
 	agent, address := h.assignAgentToFunction(request.Functions.Entrypoint)
 	if agent == nil {
@@ -104,21 +100,25 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	}
 	defer h.agentReady(address)
 
-	if !transport.UploadDir(agent, ctxT, request.Functions.Dir, request.Functions.Entrypoint) {
+	ctx = trace.ContextWithSpan(ctx, span)
+	if !transport.UploadDir(agent, ctx, request.Functions.Dir, request.Functions.Entrypoint) {
 		span.AddEvent("Upload error", trace.WithAttributes(attribute.Key(request.Functions.Dir).String(request.Functions.AtAgent)))
 		return nil, errors.New("cannot upload directory to agent " + request.Functions.Entrypoint)
 	}
 
+	span = trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.Key("upload-duration").String(time.Since(now).String()))
 
 	now = time.Now()
 
+	ctx = trace.ContextWithSpan(ctx, span)
 	response := new(deploy.DeployResponse)
-	agentRsp, err := agent.Deploy(ctxT, request)
+	agentRsp, err := agent.Deploy(ctx, request)
 	if err != nil {
 		span.AddEvent("Deploy error at agent", trace.WithAttributes(attribute.Key(address).String(request.Functions.Entrypoint)))
 		return nil, err
 	}
+	span = trace.SpanFromContext(ctx)
 
 	span.SetAttributes(attribute.Key("deploy-duration").String(time.Since(now).String()))
 	now = time.Now()
@@ -136,11 +136,8 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 
 func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
 
-	tr := getTracer()
-	ctx, span := tr.Start(ctx, "stop")
+	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.Key("entrypoint").String(request.GetEntrypoint()))
-
-	defer span.End()
 
 	entryPoint := request.GetEntrypoint()
 	agent, address := h.getFunctionAgent(entryPoint)
@@ -150,29 +147,28 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	}
 	defer h.agentReady(address)
 
+	ctx = trace.ContextWithSpan(ctx, span)
 	agentRsp, err := agent.Stop(ctx, request)
 	if err != nil {
 		span.AddEvent("Stop error at agent", trace.WithAttributes(attribute.Key(address).String(request.GetEntrypoint())))
 		return nil, err
 	}
+
 	response := new(deploy.DeployResponse)
 	for _, function := range agentRsp.Functions {
 		h.proxies.remove(function.Entrypoint)
 		function.Url = ""
 		response.Functions = append(response.Functions, function)
-		span.AddEvent(function.Url, trace.WithAttributes(attribute.StringSlice(function.Status, []string{
-			function.AtAgent, function.ProxyServiceAddr,
-		})))
 	}
 	return response, nil
 }
 
 func (h *handler) List(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
 
-	// span := trace.SpanFromContext(ctx)
+	span := trace.SpanFromContext(ctx)
 	//
-	tr := otel.Tracer("Function list")
-	ctx, span := tr.Start(ctx, "proxy-list")
+	//tr := otel.Tracer("Function list")
+	//ctx, span := tr.Start(ctx, "proxy-list")
 	span.SetAttributes(attribute.Key("entrypoint").String(empty.GetEntrypoint()))
 
 	//defer func() {
@@ -185,17 +181,21 @@ func (h *handler) List(ctx context.Context, empty *deploy.Empty) (*deploy.Deploy
 		return nil, errors.New("cannot find agent for" + empty.GetEntrypoint())
 	}
 	defer h.agentReady(address)
+
+	ctx = trace.ContextWithSpan(ctx, span)
+
 	response, err := agent.List(ctx, empty)
 	if err != nil {
 		return nil, err
 	}
 	fmt.Println(response)
+
+	span = trace.SpanFromContext(ctx)
 	for _, fn := range response.Functions {
 		fn.Url = h.proxies.functions[strings.ToLower(fn.Entrypoint)].proxyFrom
-		span.AddEvent(fn.Url, trace.WithAttributes(attribute.StringSlice(fn.Status, []string{
-			fn.AtAgent, fn.ProxyServiceAddr,
-		})))
+
 	}
+	span.AddEvent(prettyJson(response.Functions))
 	return response, nil
 }
 func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
@@ -207,6 +207,11 @@ func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.Dep
 			details.Functions = append(details.Functions, detail.Functions...)
 		}
 	}
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent(prettyJson(h.proxies.details()))
+	span.AddEvent(prettyJson(h.functions))
+	span.AddEvent(prettyJson(h.agent))
+
 	h.Println("Proxy details : ", h.proxies.details())
 	h.Println("Function : ", h.functions)
 	h.Println("Agents : ", h.agent)
@@ -235,7 +240,6 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
 
 	var statusCode = http.StatusBadGateway
-	var agent = "Not found"
 
 	// get from request
 	sp := trace.SpanFromContext(c.Request.Context())
@@ -245,15 +249,14 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	now := time.Now()
 	if proxy, fnServiceHost, atAgent := h.proxies.get(fnName); fnServiceHost != "" {
 		stc, span := proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost)
-		agent = atAgent
 		statusCode = stc
+		span.SetAttributes(attribute.Key("function-at-agent").String(atAgent))
 		span.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
 		span.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
 		span.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
 	} else {
 		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}
-	plugins.Prometheus.FunctionInvocation(fnName, agent, statusCode)
 }
 
 func (h *handler) AgentJoinHttp(c *gin.Context) {

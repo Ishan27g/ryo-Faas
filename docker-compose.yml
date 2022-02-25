@@ -23,39 +23,6 @@ services:
             cpus: '0.05'
             memory: 250M
 
-  prometheus:
-    image: prom/prometheus:v2.33.3
-    volumes:
-      - ./prometheus:/etc/prometheus/
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    ports:
-      - "9090:9090"
-    networks:
-      faas_nw:
-#    deploy:
-#        resources:
-#          limits:
-#            cpus: '0.10'
-#            memory: 500M
-
-  grafana:
-      image: grafana/grafana:8.5.0-52524pre
-      ports:
-        - "3000:3000"
-      depends_on:
-        - prometheus
-      networks:
-        faas_nw:
-      volumes:
-        - ./grafana:/var/lib/grafana
-      deploy:
-        resources:
-          limits:
-            cpus: '0.05'
-            memory: 250M
-
   rms:
     image: cloud-agent:v0.1
     networks:

@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/new-faas.iml" filepath="$PROJECT_DIR$/.idea/new-faas.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/ryo-Faas.iml" filepath="$PROJECT_DIR$/.idea/ryo-Faas.iml" />
     </modules>
   </component>
 </project>
