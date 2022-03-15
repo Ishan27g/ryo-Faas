@@ -1,6 +1,10 @@
-package deploy
+package FuncFw
 
 import "net/http"
+
+var (
+	exported = map[string]*HttpFunction{} // entrypoint:fn
+)
 
 type HttpFn func(w http.ResponseWriter, r *http.Request)
 
@@ -10,20 +14,16 @@ type HttpFunction struct {
 	HttpFn
 }
 
-var (
-	exported = map[string]HttpFunction{} // entrypoint:fn
-)
-
 func init() {
-	exported = make(map[string]HttpFunction)
+	exported = make(map[string]*HttpFunction)
 }
 func Export(entrypoint, url string, fn HttpFn) {
-	exported[entrypoint] = HttpFunction{
+	exported[entrypoint] = &HttpFunction{
 		Entrypoint: entrypoint,
 		UrlPath:    url,
 		HttpFn:     fn,
 	}
 }
-func Get() map[string]HttpFunction {
+func Get() map[string]*HttpFunction {
 	return exported
 }

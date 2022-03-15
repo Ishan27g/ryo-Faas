@@ -1,9 +1,8 @@
-package main
+package z
 
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,14 +22,17 @@ func init() {
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		log.Fatalln("missing env : PORT")
+		return
 	}
+	url := "/" + os.Getenv("URL")
+	fmt.Println("deploying at ", url)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	jp := plugins.InitJaeger(ctx, "ryo-Faas-agent", "", "http://jaeger:14268/api/traces") //match with docker hostname
 	defer jp.Close()
-	for entrypoint, function := range deploy.Get() {
+	for entrypoint, function := range FuncFw.Get() {
 		otelHandler := otelhttp.NewHandler(http.HandlerFunc(function.HttpFn), "deployed-service-"+entrypoint)
 		http.Handle(function.UrlPath, otelHandler)
 	}
