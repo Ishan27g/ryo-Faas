@@ -14,6 +14,235 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
+// DatabaseClient is the client API for Database service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type DatabaseClient interface {
+	New(ctx context.Context, in *Documents, opts ...grpc.CallOption) (*Ids, error)
+	Update(ctx context.Context, in *Documents, opts ...grpc.CallOption) (*Ids, error)
+	Get(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Documents, error)
+	All(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Documents, error)
+	Delete(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Ids, error)
+}
+
+type databaseClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDatabaseClient(cc grpc.ClientConnInterface) DatabaseClient {
+	return &databaseClient{cc}
+}
+
+func (c *databaseClient) New(ctx context.Context, in *Documents, opts ...grpc.CallOption) (*Ids, error) {
+	out := new(Ids)
+	err := c.cc.Invoke(ctx, "/deploy.Database/new", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *databaseClient) Update(ctx context.Context, in *Documents, opts ...grpc.CallOption) (*Ids, error) {
+	out := new(Ids)
+	err := c.cc.Invoke(ctx, "/deploy.Database/update", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *databaseClient) Get(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Documents, error) {
+	out := new(Documents)
+	err := c.cc.Invoke(ctx, "/deploy.Database/get", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *databaseClient) All(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Documents, error) {
+	out := new(Documents)
+	err := c.cc.Invoke(ctx, "/deploy.Database/all", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *databaseClient) Delete(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Ids, error) {
+	out := new(Ids)
+	err := c.cc.Invoke(ctx, "/deploy.Database/delete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DatabaseServer is the server API for Database service.
+// All implementations must embed UnimplementedDatabaseServer
+// for forward compatibility
+type DatabaseServer interface {
+	New(context.Context, *Documents) (*Ids, error)
+	Update(context.Context, *Documents) (*Ids, error)
+	Get(context.Context, *Ids) (*Documents, error)
+	All(context.Context, *Ids) (*Documents, error)
+	Delete(context.Context, *Ids) (*Ids, error)
+}
+
+// UnimplementedDatabaseServer must be embedded to have forward compatible implementations.
+type UnimplementedDatabaseServer struct {
+}
+
+func (UnimplementedDatabaseServer) New(context.Context, *Documents) (*Ids, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method New not implemented")
+}
+func (UnimplementedDatabaseServer) Update(context.Context, *Documents) (*Ids, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
+}
+func (UnimplementedDatabaseServer) Get(context.Context, *Ids) (*Documents, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedDatabaseServer) All(context.Context, *Ids) (*Documents, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method All not implemented")
+}
+func (UnimplementedDatabaseServer) Delete(context.Context, *Ids) (*Ids, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedDatabaseServer) mustEmbedUnimplementedDatabaseServer() {}
+
+// UnsafeDatabaseServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DatabaseServer will
+// result in compilation errors.
+type UnsafeDatabaseServer interface {
+	mustEmbedUnimplementedDatabaseServer()
+}
+
+func RegisterDatabaseServer(s grpc.ServiceRegistrar, srv DatabaseServer) {
+	s.RegisterService(&Database_ServiceDesc, srv)
+}
+
+func _Database_New_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Documents)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DatabaseServer).New(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/deploy.Database/new",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DatabaseServer).New(ctx, req.(*Documents))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Database_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Documents)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DatabaseServer).Update(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/deploy.Database/update",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DatabaseServer).Update(ctx, req.(*Documents))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Database_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Ids)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DatabaseServer).Get(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/deploy.Database/get",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DatabaseServer).Get(ctx, req.(*Ids))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Database_All_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Ids)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DatabaseServer).All(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/deploy.Database/all",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DatabaseServer).All(ctx, req.(*Ids))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Database_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Ids)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DatabaseServer).Delete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/deploy.Database/delete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DatabaseServer).Delete(ctx, req.(*Ids))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Database_ServiceDesc is the grpc.ServiceDesc for Database service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Database_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "deploy.Database",
+	HandlerType: (*DatabaseServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "new",
+			Handler:    _Database_New_Handler,
+		},
+		{
+			MethodName: "update",
+			Handler:    _Database_Update_Handler,
+		},
+		{
+			MethodName: "get",
+			Handler:    _Database_Get_Handler,
+		},
+		{
+			MethodName: "all",
+			Handler:    _Database_All_Handler,
+		},
+		{
+			MethodName: "delete",
+			Handler:    _Database_Delete_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "deploy.proto",
+}
+
 // DeployClient is the client API for Deploy service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.

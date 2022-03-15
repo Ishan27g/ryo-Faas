@@ -1,11 +1,13 @@
 package store
 
 import (
+	"github.com/Ishan27g/ryo-Faas/database"
 	"github.com/Ishan27g/ryo-Faas/types"
 )
 
 var (
-	st Store = &store{documents: types.NewMap(), new: types.NewDocData}
+	databaseAddress       = ""
+	st              Store = &store{new: types.NewDocData, database: database.Connect(databaseAddress)} // todo
 )
 
 const (
@@ -21,10 +23,10 @@ type Event func(document types.DocData)
 type Store interface {
 	// publish
 
-	Create(data string)
-	Update(id string, data string)
-	Get(id string) *types.DocData
-	Delete(id string)
+	Create(data map[string]interface{})
+	Update(id string, data map[string]interface{})
+	Get(id ...string) []*types.DocData
+	Delete(id ...string)
 
 	// subscribe
 
@@ -41,6 +43,6 @@ func GetStore() Store {
 }
 
 type store struct {
-	documents types.SyncMap
-	new       func(id, data string) types.DocData
+	new      func(id string, data map[string]interface{}) types.DocData
+	database database.Client
 }
