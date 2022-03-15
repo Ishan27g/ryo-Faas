@@ -24,23 +24,18 @@ var path = func() string {
 	// }
 	return cwd //+ "/remote"
 }
-var agentDir = "/registry"
+var registryDir = "/registry"
 
 const FnFw = "/deploy/"
 
-var pathToDeployment = path() + agentDir + FnFw
+var pathToDeployment = path() + registryDir + FnFw
 var PathToFns = pathToDeployment + "functions/"
-
-// func defaultPath() string {
-// 	unzipDir = pathToDeployment
-// 	return path() + agentDir + FnFw
-// }
 
 var getGenFilePath = func(fileName string) string {
 	return PathToFns + strings.ToLower(fileName) + "_generated.go"
 }
 var modFile = func() string {
-	return pathToDeployment + "template.go"
+	return path() + registryDir + "/tmplt/template.go"
 }
 
 type AgentHandler struct {
@@ -55,7 +50,7 @@ func (a *AgentHandler) Deploy(ctx context.Context, request *deploy.DeployRequest
 	defer timeIt(time.Now())
 	var rsp = new(deploy.DeployResponse)
 	r := a.registry.deploy(request.Functions)
-	rsp.Functions = append(rsp.Functions, r)
+	rsp.Functions = r
 	return rsp, nil
 }
 
@@ -68,7 +63,8 @@ func (a *AgentHandler) List(ctx context.Context, empty *deploy.Empty) (*deploy.D
 func (a *AgentHandler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
 	defer timeIt(time.Now())
 	var rsp = new(deploy.DeployResponse)
-	rsp.Functions = append(rsp.Functions, a.registry.stopped(request.GetEntrypoint()))
+	var fns []*deploy.Function
+	rsp.Functions = a.registry.stopped(append(fns, &deploy.Function{Entrypoint: request.GetEntrypoint()}))
 	return rsp, nil
 }
 
@@ -132,8 +128,18 @@ END:
 	fmt.Println("unzipping ", fileName, " to ", PathToFns)
 	err = archiver.Unarchive(tmpZip, PathToFns)
 	if err != nil {
-		fmt.Println("Un-archive error ", err.Error())
-		return err
+		if strings.Contains(err.Error(), "file already exists") {
+			err := os.RemoveAll(PathToFns + fname)
+			if err != nil {
+				fmt.Println("remove error ", err.Error())
+				return err
+			}
+			err = archiver.Unarchive(tmpZip, PathToFns)
+			if err != nil {
+				fmt.Println("Twice Un-archive error ", err.Error())
+				return err
+			}
+		}
 	}
 
 	a.registry.upload(entrypoint, unzipTo)

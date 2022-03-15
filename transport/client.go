@@ -103,6 +103,7 @@ func ProxyGrpcClient(agentAddr string) AgentWrapper {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	grpc.WaitForReady(true)
+	grpc.WithBlock()
 	fmt.Println("Connecting to rpc -", agentAddr)
 	grpcClient, err := grpc.DialContext(ctx, agentAddr, grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),

@@ -55,7 +55,7 @@ message Function {
 }
 
 message DeployRequest {
-  Function functions = 1;
+  repeated Function functions = 1;
 }
 message DeployResponse {
   repeated Function functions = 1;

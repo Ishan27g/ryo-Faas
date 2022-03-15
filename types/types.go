@@ -49,12 +49,14 @@ func JsonFunctionRspToRpc(jFn FunctionJsonRsp) *deploy.Function {
 		AtAgent:          jFn.AtAgent,
 	}
 }
-func JsonFunctionToRpc(jFn FunctionJson) *deploy.Function {
-	return &deploy.Function{
+func JsonFunctionToRpc(jFn FunctionJson) []*deploy.Function {
+	var d []*deploy.Function
+	d = append(d, &deploy.Function{
 		Entrypoint: jFn.Name,
 		FilePath:   jFn.FilePath,
 		Dir:        jFn.Dir,
-	}
+	})
+	return d
 }
 func RpcFunctionToJson(rFn *deploy.Function) FunctionJson {
 	return FunctionJson{

@@ -72,29 +72,35 @@ func (r *registry) nextPort() string {
 	}
 	return ""
 }
-func (r *registry) deployed(fnName string) {
-	fn := r.functions[fnName]
-	fn.Status = "DEPLOYED"
-	r.functions[fnName] = fn
+func (r *registry) deployed(fns []*deploy.Function) {
+	for _, f := range fns {
+		fn := r.functions[f.Entrypoint]
+		fn.Status = "DEPLOYED"
+		r.functions[fn.Entrypoint] = fn
+	}
 }
-func (r *registry) stopped(fnName string) *deploy.Function {
+func (r *registry) stopped(fns []*deploy.Function) []*deploy.Function {
+	var rsp []*deploy.Function
+	for _, f := range fns {
+		r.system.stop(f.Entrypoint)
+		port := r.functions[f.Entrypoint].port
+		r.ports[port] = true
 
-	r.system.stop(fnName)
-	port := r.functions[fnName].port
-	r.ports[port] = true
+		os.RemoveAll(r.functions[f.Entrypoint].Dir)
+		os.Remove(r.functions[f.Entrypoint].FilePath)
 
-	os.RemoveAll(r.functions[fnName].Dir)
-	os.Remove(r.functions[fnName].FilePath)
+		fn := &deploy.Function{Entrypoint: f.Entrypoint, Status: "STOPPED", AtAgent: r.address}
 
-	fn := &deploy.Function{Entrypoint: fnName, Status: "STOPPED", AtAgent: r.address}
+		delete(r.functions, f.Entrypoint)
+		r.functions[f.Entrypoint] = struct {
+			port string
+			*deploy.Function
+		}{"", fn}
 
-	delete(r.functions, fnName)
-	r.functions[fnName] = struct {
-		port string
-		*deploy.Function
-	}{"", fn}
+		rsp = append(rsp, f)
+	}
 
-	return fn
+	return rsp
 }
 
 func (r *registry) list(rFn *deploy.Empty) *deploy.DeployResponse {
@@ -109,47 +115,46 @@ func (r *registry) list(rFn *deploy.Empty) *deploy.DeployResponse {
 	}
 	return rsp
 }
-func (r *registry) deploy(rFn *deploy.Function) *deploy.Function {
-	entryPoint := rFn.Entrypoint
-
+func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
+	valid, genFile := astLocalCopy(fns)
+	if !valid {
+		r.Println("invalid file ")
+		return nil
+	}
+	var registered []*deploy.Function
 	hn := "localhost"
 	port := r.nextPort()
-	uFn := r.functions[entryPoint]
-	if uFn.Status == "" {
-		r.Println(entryPoint, "not uploaded")
-		return nil
-	}
-	_, file := filepath.Split(rFn.GetFilePath())
-	r.Println("File name is ", file)
-	uFn.FilePath = uFn.Dir + file
 
-	r.Println(prettyJson(uFn.Function))
-	valid, genFile := astLocalCopy(uFn.Function)
-	if !valid {
-		r.Println("invalid file ", uFn.Function)
-		return nil
+	for i, rFn := range fns {
+		entryPoint := rFn.Entrypoint
+		uFn := r.functions[entryPoint]
+		if uFn.Status == "" {
+			r.Println(entryPoint, "not uploaded")
+			return nil
+		}
+		_, file := filepath.Split(rFn.GetFilePath())
+		uFn.FilePath = uFn.Dir + file
+		registered = append(registered, &deploy.Function{
+			Entrypoint:       entryPoint,
+			Dir:              uFn.Dir,
+			Zip:              uFn.Zip,
+			AtAgent:          r.address,
+			FilePath:         genFile,
+			ProxyServiceAddr: "http://" + hn + ":" + port,
+			Url:              "http://" + hn + ":" + port + "/" + strings.ToLower(entryPoint),
+			Status:           "DEPLOYING",
+		})
+		r.functions[entryPoint] = struct {
+			port string
+			*deploy.Function
+		}{port, registered[i]}
 	}
-	registered := &deploy.Function{
-		Entrypoint:       entryPoint,
-		Dir:              uFn.Dir,
-		Zip:              uFn.Zip,
-		AtAgent:          r.address,
-		FilePath:         genFile,
-		ProxyServiceAddr: "http://" + hn + ":" + port,
-		Url:              "http://" + hn + ":" + port + "/" + strings.ToLower(entryPoint),
-		Status:           "DEPLOYING",
-	}
-
-	r.functions[entryPoint] = struct {
-		port string
-		*deploy.Function
-	}{port, registered}
 
 	go func() {
 		if r.system.run(registered, port) {
-			r.deployed(entryPoint)
+			r.deployed(registered)
 		} else {
-			r.stopped(entryPoint)
+			r.stopped(registered)
 		}
 	}()
 	r.Println("DEPLOYED", prettyJson(registered))

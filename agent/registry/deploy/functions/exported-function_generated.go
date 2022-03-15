@@ -3,45 +3,40 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	methodOtel "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/methodOtel"
+	"github.com/Ishan27g/ryo-Faas/agent/registry/deploy"
+	method1 "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/method1"
+	method2 "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/method2"
 	"github.com/Ishan27g/ryo-Faas/plugins"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-var handlerFunc func(w http.ResponseWriter, r *http.Request)
-var entrypoint string
-
-// init definition gets generated to call deploy()
+// init definition gets generated
 func init() {
-	handlerFunc = methodOtel.MethodWithOtel
-	entrypoint = "MethodWithOtel"
+	deploy.Export("Method2", "/method2", method2.Method2)
+	deploy.Export("Method1", "/method1", method1.Method1)
 
 }
 
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		return
+		log.Fatalln("missing env : PORT")
 	}
-	url := "/" + os.Getenv("URL")
-	fmt.Println("deploying at ", url)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	jp := plugins.InitJaeger(ctx, "ryo-Faas-agent", "deployed-service-"+entrypoint, "http://jaeger:14268/api/traces")	//match with docker hostname
+	jp := plugins.InitJaeger(ctx, "ryo-Faas-agent", "", "http://jaeger:14268/api/traces")	//match with docker hostname
 	defer jp.Close()
-	// _ = jp.Tracer("function-with-otel")
-
-	// https://github.com/open-telemetry/opentelemetry-go-contrib/tree/main/instrumentation/net/http/otelhttp/example
-	otelHandler := otelhttp.NewHandler(http.HandlerFunc(handlerFunc), "deployed-service-"+entrypoint)
-	http.Handle(url, otelHandler)
-
+	for entrypoint, function := range deploy.Get() {
+		otelHandler := otelhttp.NewHandler(http.HandlerFunc(function.HttpFn), "deployed-service-"+entrypoint)
+		http.Handle(function.UrlPath, otelHandler)
+	}
 	httpSrv := &http.Server{
 		Addr: ":" + port,
 	}
@@ -60,9 +55,6 @@ func main() {
 	} else {
 		fmt.Println(err.Error())
 	}
-	//if err := http.ListenAndServe(":"+port, nil); err != nil {
-	//	log.Fatalf("httpListenAndServe: %v\n", err)
-	//}
 }
 func catchExit() chan bool {
 	stop := make(chan bool, 1)

@@ -11,13 +11,25 @@ func TestAstGen(t *testing.T) {
 
 	pathToDeployment = path() + FnFw
 
-	packageName := "method1"
-	entrypoint := "Method1"
-
-	dotGo, err := rewriteDeployDotGo(packageName, entrypoint)
-	if err != nil {
-		return
+	var exports = []function{
+		{
+			pkgName:    "method1",
+			entrypoint: "Method1",
+		},
+		{
+			pkgName:    "methodOtel",
+			entrypoint: "MethodWithOtel",
+		},
 	}
+
+	// change relative path
+	pathToDeployment = path() + FnFw
+	PathToFns = pathToDeployment + "functions/"
+	modFile = func() string {
+		return path() + "/tmplt/template.go"
+	}
+
+	dotGo, err := rewriteDeployDotGo(exports...)
 	assert.NoError(t, err)
 	fmt.Println(dotGo)
 }

@@ -15,19 +15,20 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const Functions = "/functions"
+
+type definition struct {
+	fnName    string
+	proxyFrom string // /functions/fnName
+	proxyTo   string // fn.url -> hostname:service-port/entryPoint
+
+	agentAddr string // rpc or http
+}
 type proxy struct {
 	urlMap map[string]proxyFunction
 	*proxyDefinitions
 }
 
-func newProxy() proxy {
-	return proxy{
-		urlMap:           make(map[string]proxyFunction),
-		proxyDefinitions: &proxyDefinitions{functions: make(map[string]*definition)},
-	}
-}
-
-// fn-url and proxyDefinitions
 type proxyDefinitions struct {
 	functions map[string]*definition
 }
@@ -37,16 +38,12 @@ type proxyFunction struct {
 	remoteUrl string
 }
 
-// single function and its proxyDefinitions definition
-type definition struct {
-	fnName    string
-	proxyFrom string // /functions/fnName
-	proxyTo   string // fn.url -> hostname:service-port/entryPoint
-
-	agentAddr string // rpc or http
+func newProxy() proxy {
+	return proxy{
+		urlMap:           make(map[string]proxyFunction),
+		proxyDefinitions: &proxyDefinitions{functions: make(map[string]*definition)},
+	}
 }
-
-const Functions = "/functions"
 
 func (p *proxyDefinitions) details() []types.FunctionJsonRsp {
 	var str []types.FunctionJsonRsp

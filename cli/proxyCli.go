@@ -28,7 +28,7 @@ type definition struct {
 
 var getProxy = func() transport.AgentWrapper {
 	if proxyAddress == "" {
-		proxyAddress = ":9001"
+		proxyAddress = ":9019"
 	}
 	return transport.ProxyGrpcClient(proxyAddress)
 }
@@ -60,11 +60,10 @@ func printResonse(response *deploy.DeployResponse) {
 	}
 }
 
-var proxyAddr = "localhost:9002"
-
 // localhost:9000
 func sendHttp(url, agentAddr string) []byte {
-	resp, err := http.Get("http://" + proxyAddr + url + agentAddr)
+	var proxyHttpAddr = "localhost:9999"
+	resp, err := http.Get("http://" + proxyHttpAddr + url + agentAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -92,18 +91,22 @@ var deployCmd = cli.Command{
 		if proxy == nil {
 			return cli.Exit("cannot connect to "+proxyAddress, 1)
 		}
+
+		var fns []*deploy.Function
+
 		for _, s := range df.Deploy {
-			deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: &deploy.Function{
+			fns = append(fns, &deploy.Function{
 				Entrypoint: s.Name,
 				FilePath:   s.FilePath,
 				Dir:        s.PackageDir,
-			}})
-			if err != nil {
-				fmt.Println(err.Error())
-				continue
-			}
-			printResonse(deployResponse)
+			})
 		}
+		deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: fns})
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		printResonse(deployResponse)
 		return nil
 	},
 }

@@ -64,13 +64,15 @@ func (h *handler) getFunctionAgent(entrypoint string) (transport.AgentWrapper, s
 	return h.agent[h.functions[entrypoint]], h.functions[entrypoint]
 }
 
-func (h *handler) assignAgentToFunction(entrypoint string) (transport.AgentWrapper, string) {
+func (h *handler) assignAgentToFunction(fns []*deploy.Function) (transport.AgentWrapper, string) {
 	select {
 	case agentAddr := <-h.ready:
-		h.functions[entrypoint] = agentAddr
-		return h.agent[h.functions[entrypoint]], agentAddr
+		for _, fn := range fns {
+			h.functions[fn.Entrypoint] = agentAddr
+		}
+		return h.agent[h.functions[fns[0].Entrypoint]], agentAddr
 	default:
-		h.Println("No agent to assign to", entrypoint)
+		h.Println("No agent to assign")
 		return nil, ""
 	}
 }
@@ -92,30 +94,31 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 
 	now := time.Now()
 	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.Key("entrypoint").String(request.Functions.Entrypoint))
 
-	agent, address := h.assignAgentToFunction(request.Functions.Entrypoint)
+	agent, address := h.assignAgentToFunction(request.Functions)
 	if agent == nil {
-		return nil, errors.New("cannot assign an agent for" + request.Functions.Entrypoint)
+		return nil, errors.New("cannot assign an agent")
 	}
 	defer h.agentReady(address)
+	for _, function := range request.Functions {
+		span.SetAttributes(attribute.Key("entrypoint").String(function.Entrypoint))
+		ctx = trace.ContextWithSpan(ctx, span)
+		if !transport.UploadDir(agent, ctx, function.Dir, function.Entrypoint) {
+			span.AddEvent("Upload error", trace.WithAttributes(attribute.Key(function.Dir).String(function.AtAgent)))
+			return nil, errors.New("cannot upload directory to agent " + function.Entrypoint)
+		}
 
-	ctx = trace.ContextWithSpan(ctx, span)
-	if !transport.UploadDir(agent, ctx, request.Functions.Dir, request.Functions.Entrypoint) {
-		span.AddEvent("Upload error", trace.WithAttributes(attribute.Key(request.Functions.Dir).String(request.Functions.AtAgent)))
-		return nil, errors.New("cannot upload directory to agent " + request.Functions.Entrypoint)
+		span = trace.SpanFromContext(ctx)
+		span.SetAttributes(attribute.Key("upload-duration").String(time.Since(now).String()))
+
+		now = time.Now()
 	}
-
-	span = trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.Key("upload-duration").String(time.Since(now).String()))
-
-	now = time.Now()
 
 	ctx = trace.ContextWithSpan(ctx, span)
 	response := new(deploy.DeployResponse)
 	agentRsp, err := agent.Deploy(ctx, request)
 	if err != nil {
-		span.AddEvent("Deploy error at agent", trace.WithAttributes(attribute.Key(address).String(request.Functions.Entrypoint)))
+		span.AddEvent("Deploy error at agent")
 		return nil, err
 	}
 	span = trace.SpanFromContext(ctx)
@@ -357,7 +360,6 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g = gin.New()
 	h.g.Use(gin.Recovery())
 
-	// https://github.com/open-telemetry/opentelemetry-go-contrib/blob/main/instrumentation/github.com/gin-gonic/gin/otelgin/example/server.go
 	h.g.Use(otelgin.Middleware("proxy-server"))
 
 	// proxy curl -X POST http://localhost:9002/deploy -H 'Content-Type: application/json' -d '[
