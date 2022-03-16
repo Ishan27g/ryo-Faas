@@ -19,7 +19,7 @@ func (d *store) onNatsMsg(msg *nats.Msg, do EventCb) {
 	var document types.NatsDoc
 	err := json.Unmarshal(msg.Data, &docData)
 	if err == nil {
-		document = types.FromNats(docData)
+		document = types.FromJson(docData)
 	} else {
 		// if not be able to convert nats msg , go to db
 		fmt.Println("json.Unmarshal", err.Error())

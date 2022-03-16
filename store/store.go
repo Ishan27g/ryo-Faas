@@ -1,17 +1,14 @@
 package store
 
 import (
-	"github.com/Ishan27g/ryo-Faas/database"
+	databaseClient "github.com/Ishan27g/ryo-Faas/database/client"
 	"github.com/Ishan27g/ryo-Faas/types"
 )
 
 var (
 	databaseAddress          = ""
-	st              DocStore = &store{
-		new:      types.NewNatsDoc,
-		database: database.Connect(databaseAddress),
-	}
-	Documents = st
+	st              DocStore = &store{new: types.NewNatsDoc, database: databaseClient.Connect(databaseAddress)}
+	Documents                = st
 )
 
 type EventCb func(document types.NatsDoc)
@@ -39,5 +36,5 @@ type DocStore interface {
 
 type store struct {
 	new      func(id string, data map[string]interface{}) types.NatsDoc
-	database database.Client
+	database databaseClient.Client
 }

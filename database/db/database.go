@@ -13,8 +13,8 @@ import (
 const TFormat = time.RFC850
 
 var databaseStore = dbStore{
-	documents: types.NewMap(),
-	driver:    nil,
+	documents: types.NewMap(), // entityId:createdAt
+	driver:    nil,            // database driver
 	Mutex:     sync.Mutex{},
 	Logger:    mLogger.Get("DATABASE"),
 }
@@ -70,27 +70,27 @@ func (d *dbStore) New(doc types.NatsDoc) {
 	d.Lock()
 	defer d.Unlock()
 
-	document := toEntity(doc)
-	document.CreatedAt = time.Now()
-	document.EditAt = time.Now()
+	entity := toEntity(doc)
+	entity.CreatedAt = time.Now()
+	entity.EditAt = time.Now()
 
-	err := d.driver.Insert(document)
+	err := d.driver.Insert(entity)
 	if err != nil {
-		d.Logger.Error("driver.Insert", "id", document.Id)
+		d.Logger.Error("driver.Insert", "id", entity.Id)
 	}
-	d.documents.Add(doc.Id(), format(document.CreatedAt)) // value=createAttime
+	d.documents.Add(doc.Id(), format(entity.CreatedAt)) // value=createAttime
 }
 
 func (d *dbStore) Update(document types.NatsDoc) {
 	d.Lock()
 	defer d.Unlock()
 
-	docu := toEntity(document)
-	docu.EditAt = time.Now()
+	entity := toEntity(document)
+	entity.EditAt = time.Now()
 
-	err := databaseStore.driver.Update(docu)
+	err := databaseStore.driver.Update(entity)
 	if err != nil {
-		d.Logger.Error("driver.Update", "id", docu.Id)
+		d.Logger.Error("driver.Update", "id", entity.Id, "err", err.Error())
 	}
 	// no need to update d.document
 }

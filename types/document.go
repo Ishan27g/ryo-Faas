@@ -13,11 +13,20 @@ type NatsDoc interface {
 	Print()
 }
 
-func FromNats(doc map[string]interface{}) NatsDoc {
+func FromJson(doc map[string]interface{}, id ...string) NatsDoc {
 	var document NatsDoc
-	for id, data := range doc {
-		document = NewNatsDoc(id, data.(map[string]interface{}))
+	if doc["Id"] == nil && len(id) == 0 {
+		var m map[string]interface{} = make(map[string]interface{})
+		m["Id"] = doc
+		for _, data := range m {
+			document = NewNatsDoc("", data.(map[string]interface{}))
+		}
+	} else {
+		//for id, data := range doc {
+		document = NewNatsDoc(id[0], doc)
+		//}
 	}
+
 	return document
 }
 func NewNatsDoc(id string, data map[string]interface{}) NatsDoc {

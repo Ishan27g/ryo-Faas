@@ -1,4 +1,4 @@
-package database
+package main
 
 import (
 	"context"
@@ -7,13 +7,16 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Ishan27g/ryo-Faas/database/handler"
 	"github.com/Ishan27g/ryo-Faas/transport"
 )
 
-var DefaultPort = ":9000"
+var DefaultHttp = ":5000"
+var DefaultGrpc = ":5001"
 
 // Optional flags to change config
-var port = flag.String("port", DefaultPort, "--port :9000")
+var grpcPort = flag.String("grpc", DefaultHttp, "--grpc "+DefaultHttp)
+var httpPort = flag.String("htpp", DefaultGrpc, "--http "+DefaultGrpc)
 
 func main() {
 
@@ -21,7 +24,9 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	transport.Init(ctx, handler{GetDatabase()}, *port, nil, "").Start()
+
+	var handler = handler.GetHandler()
+	transport.Init(ctx, handler, *grpcPort, handler.Gin, *httpPort).Start()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
