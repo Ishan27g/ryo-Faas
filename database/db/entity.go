@@ -5,7 +5,7 @@ import "time"
 type Entity struct {
 	Id        string    `json:"Id"`
 	CreatedAt time.Time `json:"CreatedAt"`
-	EditAt    time.Time `json:"EditAt"`
+	EditedAt  time.Time `json:"EditedAt"`
 	Data      Data      `json:"Data"`
 }
 

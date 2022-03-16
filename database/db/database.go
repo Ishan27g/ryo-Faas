@@ -24,9 +24,9 @@ type Database interface {
 	New(doc types.NatsDoc)
 	Update(doc types.NatsDoc)
 	Delete(id string)
-	Get(id string) *types.NatsDoc
-	All() []*types.NatsDoc
-	After(fromTime string) []*types.NatsDoc
+	Get(id string) *Entity
+	All() []*Entity
+	After(fromTime string) []*Entity
 }
 
 type dbStore struct {
@@ -61,7 +61,7 @@ func toEntity(doc types.NatsDoc) Entity {
 	return Entity{
 		Id:        doc.Id(),
 		CreatedAt: time.Time{},
-		EditAt:    time.Time{},
+		EditedAt:  time.Time{},
 		Data:      Data{Value: doc.Document()},
 	}
 }
@@ -72,7 +72,7 @@ func (d *dbStore) New(doc types.NatsDoc) {
 
 	entity := toEntity(doc)
 	entity.CreatedAt = time.Now()
-	entity.EditAt = time.Now()
+	entity.EditedAt = time.Now()
 
 	err := d.driver.Insert(entity)
 	if err != nil {
@@ -82,11 +82,19 @@ func (d *dbStore) New(doc types.NatsDoc) {
 }
 
 func (d *dbStore) Update(document types.NatsDoc) {
+
+	var existing *Entity
+	if existing = d.Get(document.Id()); existing == nil {
+		d.Logger.Error("driver.Update - not found", "id", document.Id())
+		return
+	}
+
 	d.Lock()
 	defer d.Unlock()
 
 	entity := toEntity(document)
-	entity.EditAt = time.Now()
+	entity.EditedAt = time.Now()
+	entity.CreatedAt = existing.CreatedAt
 
 	err := databaseStore.driver.Update(entity)
 	if err != nil {
@@ -105,29 +113,26 @@ func (d *dbStore) Delete(id string) {
 	d.documents.Delete(id)
 }
 
-func (d *dbStore) get(id string) types.NatsDoc {
+func (d *dbStore) get(id string) Entity {
 	var entity Entity
-	var document types.NatsDoc
-
 	err := d.driver.Open(Entity{}).Where("Id", "=", id).First().AsEntity(&entity)
 	if err != nil {
 		panic(err)
 	}
-	document = types.NewNatsDoc(entity.Id, entity.Data.Value)
-	return document
+	return entity
 }
 
-func (d *dbStore) Get(id string) *types.NatsDoc {
+func (d *dbStore) Get(id string) *Entity {
 	d.Lock()
 	defer d.Unlock()
 	document := d.get(id)
 	return &document
 }
 
-func (d *dbStore) All() []*types.NatsDoc {
+func (d *dbStore) All() []*Entity {
 	d.Lock()
 	defer d.Unlock()
-	var documents []*types.NatsDoc
+	var documents []*Entity
 	for id := range d.documents.All() {
 		doc := d.get(id)
 		documents = append(documents, &doc)
@@ -135,12 +140,12 @@ func (d *dbStore) All() []*types.NatsDoc {
 	return documents
 }
 
-func (d *dbStore) After(fromTime string) []*types.NatsDoc {
+func (d *dbStore) After(fromTime string) []*Entity {
 	d.Lock()
 	defer d.Unlock()
 	from := parse(fromTime)
 
-	var documents []*types.NatsDoc
+	var documents []*Entity
 	for id, at := range d.documents.All() {
 		createdAt := format(at.(time.Time))
 		if createdAt.Before(from) {

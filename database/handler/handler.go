@@ -56,10 +56,10 @@ func (d handle) Update(ctx context.Context, documents *deploy.Documents) (*deplo
 func (d handle) Get(ctx context.Context, ids *deploy.Ids) (*deploy.Documents, error) {
 	var documents []*deploy.Document
 	for _, id := range ids.Id {
-		if doc := d.Database.Get(id); doc != nil {
-			data, _ := json.Marshal((*doc).Document())
+		if entity := d.Database.Get(id); entity != nil {
+			data, _ := json.Marshal(entity.Data)
 			documents = append(documents, &deploy.Document{
-				Id:   (*doc).Id(),
+				Id:   entity.Id,
 				Data: data,
 			})
 		}
@@ -93,8 +93,9 @@ func (d *handle) UpdateHttp(c *gin.Context) {
 		c.JSON(400, nil)
 		return
 	}
+	fmt.Println(doc)
 	d.Database.Update(doc)
-	c.JSON(http.StatusOK, doc.Document())
+	c.JSON(http.StatusOK, doc.Id())
 }
 func (d *handle) DeleteHttp(c *gin.Context) {
 	id, found := c.Params.Get("id")
@@ -108,23 +109,45 @@ func (d *handle) DeleteHttp(c *gin.Context) {
 func (d *handle) GetHttp(c *gin.Context) {
 	id, found := c.Params.Get("id")
 	if !found {
+		fmt.Println("no id", c.Request.URL)
 		c.JSON(400, nil)
 		return
 	}
-	doc := d.Database.Get(id)
-	c.JSON(http.StatusOK, (*doc).Document())
+	// var document types.NatsDoc
+	// document = types.NewNatsDoc(entity.Id, entity.Data.Value)
+
+	// var documents []*types.NatsDoc
+	// for id := range  {
+	// 	doc := d.get(id)
+	// 	documents = append(documents, &doc)
+	// }
+	entity := d.Database.Get(id)
+	c.JSON(http.StatusOK, *entity)
+}
+func (d *handle) AfterHttp(c *gin.Context) {
+	id, found := c.Params.Get("time")
+	if !found {
+		c.JSON(400, nil)
+		return
+	}
+	entities := d.Database.After(id)
+	var documents []database.Entity
+	for _, entity := range entities {
+		documents = append(documents, *entity)
+	}
+	c.JSON(http.StatusOK, entities)
 }
 func (d *handle) AllHttp(c *gin.Context) {
-	var docs []map[string]interface{}
+	var docs []database.Entity
 	for _, v := range d.Database.All() {
-		docs = append(docs, (*v).Document())
+		docs = append(docs, (*v))
 	}
 	c.JSON(http.StatusOK, docs)
 }
 func (d *handle) AllHttpIds(c *gin.Context) {
 	var docs []string
 	for _, v := range d.Database.All() {
-		docs = append(docs, (*v).Id())
+		docs = append(docs, (*v).Id)
 	}
 	c.JSON(http.StatusOK, docs)
 }
@@ -152,6 +175,7 @@ func GetHandler() handle {
 	{
 		g.GET("/get/:id", h.GetHttp)
 		g.GET("/all", h.AllHttp)
+		g.GET("/after/:time", h.AfterHttp)
 		g.GET("/ids", h.AllHttpIds)
 		g.POST("/new", h.AddHttp)
 		g.PATCH("/update/:id", h.UpdateHttp)
