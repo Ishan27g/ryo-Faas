@@ -35,7 +35,7 @@ var getGenFilePath = func(fileName string) string {
 	return PathToFns + strings.ToLower(fileName) + "_generated.go"
 }
 var modFile = func() string {
-	return path() + registryDir + "/tmplt/template.go"
+	return path() + registryDir + "/template/template.go"
 }
 
 type AgentHandler struct {
@@ -165,8 +165,7 @@ func Init(rpcAddress string) *AgentHandler {
 	agent.Logger = log.New(os.Stdout, "[AGENT-HANDLER]", log.Ltime)
 	*agent.registry = setup(rpcAddress)
 	agent.Println("AgentInterface configured at ", agent.address)
-
-	os.Mkdir(PathToFns, os.ModePerm)
+	os.MkdirAll(PathToFns, os.ModePerm)
 
 	return agent
 }

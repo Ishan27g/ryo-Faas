@@ -383,7 +383,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	// curl -X POST http://localhost:9002/functions/method1 -H 'Content-Type: application/json' -d '{
 	//    "data": "http://host.docker.internal:9002/functions/method2"
 	//  }'
-	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp) // todo method=ANY
+	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
 
 	//h.g.GET("/stop/:entrypoint", h.StopHttp)
 	//h.g.POST("/file/:entrypoint", h.UploadHttp)

@@ -6,31 +6,44 @@ import (
 	"github.com/google/uuid"
 )
 
-type DocData interface {
+type NatsDoc interface {
 	Id() string
 	Data() string
-	DataJson() map[string]interface{}
+	Document() map[string]interface{} // natsDoc as map
+	Print()
 }
 
-func NewDocData(id string, data map[string]interface{}) DocData {
-	if id == "" {
-		return &docData{id: uuid.New().String(), data: data}
+func FromNats(doc map[string]interface{}) NatsDoc {
+	var document NatsDoc
+	for id, data := range doc {
+		document = NewNatsDoc(id, data.(map[string]interface{}))
 	}
-	return &docData{id: id, data: data}
+	return document
+}
+func NewNatsDoc(id string, data map[string]interface{}) NatsDoc {
+	if id == "" {
+		return &natsDoc{id: uuid.New().String(), data: data}
+	}
+	return &natsDoc{id: id, data: data}
 }
 
-type docData struct {
+type natsDoc struct {
 	id   string
 	data map[string]interface{}
 }
 
-func (d *docData) DataJson() map[string]interface{} {
-	return d.data
+func (d *natsDoc) Print() {
+	fmt.Println(d.Id(), fmt.Sprintf("%v", d.data))
+}
+func (d *natsDoc) Document() map[string]interface{} {
+	m := make(map[string]interface{})
+	m[d.id] = d.data
+	return m
 }
 
-func (d *docData) Data() string {
+func (d *natsDoc) Data() string {
 	return fmt.Sprintf("%v", d.data)
 }
-func (d *docData) Id() string {
+func (d *natsDoc) Id() string {
 	return d.id
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"runtime"
-	"strings"
 
 	"github.com/DavidGamba/dgtools/run"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
@@ -230,7 +229,8 @@ func (s *shell) run(filePath, entrypoint, port string) bool {
 
 func buildCommand(filePath string, entrypoint string, port string, ctx context.Context) *run.RunInfo {
 	cmd := run.CMD("go", "run", filePath).
-		Env("PORT="+port, "URL="+strings.ToLower(entrypoint)).SaveErr().Ctx(ctx)
+		Env("PORT=" + port).SaveErr().Ctx(ctx)
+	// Env("PORT="+port, "URL="+strings.ToLower(entrypoint)).SaveErr().Ctx(ctx)
 	return cmd
 }
 func (p *process) Logs() []string {

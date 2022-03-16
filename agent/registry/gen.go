@@ -131,7 +131,7 @@ func rewriteDeployDotGo(fns ...function) (string, error) {
 					newCallStmt := &ast.ExprStmt{ // functions.HTTP(
 						X: &ast.CallExpr{
 							Fun: &ast.Ident{
-								Name: "deploy.Export",
+								Name: "FuncFw.Export.Http",
 							},
 							Args: []ast.Expr{
 								&ast.BasicLit{

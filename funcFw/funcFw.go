@@ -19,7 +19,7 @@ var (
 )
 
 func Start(port string) {
-	for entrypoint, function := range Get() {
+	for entrypoint, function := range Export.Get() {
 		otelHandler := otelhttp.NewHandler(http.HandlerFunc(function.HttpFn), "deployed-service-"+entrypoint)
 		http.Handle(function.UrlPath, otelHandler)
 		logger.Println(function.Entrypoint + " at " + function.UrlPath)

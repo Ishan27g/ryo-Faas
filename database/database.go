@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
-	"github.com/Ishan27g/ryo-Faas/store"
-	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
 	"github.com/hashicorp/go-hclog"
 	db "github.com/sonyarouje/simdb"
 )
+
+const TFormat = time.RFC850
 
 var databaseStore = dbStore{
 	documents: types.NewMap(),
@@ -19,17 +19,14 @@ var databaseStore = dbStore{
 	Logger:    mLogger.Get("DATABASE"),
 }
 
-// Database publishes corresponding event to Nats after doing the DB operation
+// Simple Json Database over grpc
 type Database interface {
-	New(doc types.DocData)
-	Update(doc types.DocData)
+	New(doc types.NatsDoc)
+	Update(doc types.NatsDoc)
 	Delete(id string)
-	Get(id string) *types.DocData
-	All() []*types.DocData
-}
-
-func GetDatabase() Database {
-	return &databaseStore
+	Get(id string) *types.NatsDoc
+	All() []*types.NatsDoc
+	After(fromTime string) []*types.NatsDoc
 }
 
 type dbStore struct {
@@ -39,52 +36,63 @@ type dbStore struct {
 	hclog.Logger
 }
 
+func parse(when string) time.Time {
+	t, _ := time.Parse(TFormat, when)
+	return t
+}
+func format(when time.Time) time.Time {
+	t, _ := time.Parse(TFormat, when.String())
+	return t
+}
 func init() {
 	var err error
 	databaseStore.driver, err = db.New("data")
 	if err != nil {
 		panic(err)
 	}
+
 }
 
-var publish = func(subjId, data string) {
-	transport.NatsPublish(subjId, data, nil)
+func GetDatabase() Database {
+	return &databaseStore
 }
 
-func toEntity(doc types.DocData) Entity {
+func toEntity(doc types.NatsDoc) Entity {
 	return Entity{
 		Id:        doc.Id(),
 		CreatedAt: time.Time{},
 		EditAt:    time.Time{},
-		Data:      Data{Value: doc.DataJson()},
+		Data:      Data{Value: doc.Document()},
 	}
 }
-func (d *dbStore) New(doc types.DocData) {
+
+func (d *dbStore) New(doc types.NatsDoc) {
 	d.Lock()
 	defer d.Unlock()
+
 	document := toEntity(doc)
 	document.CreatedAt = time.Now()
 	document.EditAt = time.Now()
-	err := databaseStore.driver.Insert(document)
+
+	err := d.driver.Insert(document)
 	if err != nil {
 		d.Logger.Error("driver.Insert", "id", document.Id)
 	}
-	d.documents.Add(doc.Id(), doc.Id()) // value unused
-	defer publish(store.DocumentCREATE+doc.Id(), doc.Data())
+	d.documents.Add(doc.Id(), format(document.CreatedAt)) // value=createAttime
 }
 
-func (d *dbStore) Update(doc types.DocData) {
+func (d *dbStore) Update(document types.NatsDoc) {
 	d.Lock()
 	defer d.Unlock()
-	document := toEntity(doc)
-	document.EditAt = time.Now()
-	err := databaseStore.driver.Update(document)
-	if err != nil {
-		d.Logger.Error("driver.Update", "id", document.Id)
-	}
-	d.documents.Add(doc.Id(), doc.Id()) // value unused
-	defer publish(store.DocumentUPDATE+doc.Id(), doc.Data())
 
+	docu := toEntity(document)
+	docu.EditAt = time.Now()
+
+	err := databaseStore.driver.Update(docu)
+	if err != nil {
+		d.Logger.Error("driver.Update", "id", docu.Id)
+	}
+	// no need to update d.document
 }
 
 func (d *dbStore) Delete(id string) {
@@ -94,56 +102,51 @@ func (d *dbStore) Delete(id string) {
 	if err != nil {
 		d.Logger.Error("driver.Delete", "id", id)
 	}
-	defer publish(store.DocumentDELETE+id, "deleted")
 	d.documents.Delete(id)
 }
 
-func (d *dbStore) get(id string) types.DocData {
+func (d *dbStore) get(id string) types.NatsDoc {
 	var entity Entity
-	var document types.DocData
+	var document types.NatsDoc
 
 	err := d.driver.Open(Entity{}).Where("Id", "=", id).First().AsEntity(&entity)
 	if err != nil {
 		panic(err)
 	}
-	defer publish(store.DocumentGET+id, "deleted")
-
-	document = types.NewDocData(entity.Id, entity.Data.Value)
+	document = types.NewNatsDoc(entity.Id, entity.Data.Value)
 	return document
 }
 
-func (d *dbStore) Get(id string) *types.DocData {
+func (d *dbStore) Get(id string) *types.NatsDoc {
 	d.Lock()
 	defer d.Unlock()
 	document := d.get(id)
 	return &document
 }
 
-func (d *dbStore) All() []*types.DocData {
+func (d *dbStore) All() []*types.NatsDoc {
 	d.Lock()
 	defer d.Unlock()
-	var documents []*types.DocData
-	for id, _ := range d.documents.All() {
+	var documents []*types.NatsDoc
+	for id := range d.documents.All() {
 		doc := d.get(id)
 		documents = append(documents, &doc)
 	}
 	return documents
 }
 
-type Data struct {
-	Value map[string]interface{}
-}
-type Entity struct {
-	Id        string    `json:"Id"`
-	CreatedAt time.Time `json:"CreatedAt"`
-	EditAt    time.Time `json:"EditAt"`
-	Data      Data      `json:"Data"`
-}
+func (d *dbStore) After(fromTime string) []*types.NatsDoc {
+	d.Lock()
+	defer d.Unlock()
+	from := parse(fromTime)
 
-//ID any struct that needs to persist should implement this function defined
-//in Entity interface.
-func (e Entity) ID() (jsonField string, value interface{}) {
-	value = e.Id
-	jsonField = "Id"
-	return
+	var documents []*types.NatsDoc
+	for id, at := range d.documents.All() {
+		createdAt := format(at.(time.Time))
+		if createdAt.Before(from) {
+			doc := d.get(id)
+			documents = append(documents, &doc)
+		}
+	}
+	return documents
 }

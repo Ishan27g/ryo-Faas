@@ -11,9 +11,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type Wrapped interface {
-	Database
-}
 type Client interface {
 	New(ctx context.Context, in *deploy.Documents) (*deploy.Ids, error)
 	Update(ctx context.Context, in *deploy.Documents) (*deploy.Ids, error)

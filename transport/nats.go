@@ -10,9 +10,16 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+const (
+	DocumentCREATE string = "new"
+	DocumentUPDATE string = "update"
+	DocumentGET    string = "get"
+	DocumentDELETE string = "delete"
+)
+
 var opts []nats.Option
-var urls = flag.String("s", nats.DefaultURL, "The nats server URLs (separated by comma)")
-var showTime = flag.Bool("t", false, "Display timestamps")
+var urls = nats.DefaultURL
+var showTime = false
 
 var subjects map[string]*subjectMeta
 
@@ -56,62 +63,15 @@ func init() {
 
 	subjects = make(map[string]*subjectMeta)
 
-	var userCreds = flag.String("creds", "", "User Credentials File")
-	var nkeyFile = flag.String("nkey", "", "NKey Seed File")
-	var tlsClientCert = flag.String("tlscert", "", "TLS client certificate file")
-	var tlsClientKey = flag.String("tlskey", "", "Private key file for client certificate")
-	var tlsCACert = flag.String("tlscacert", "", "CA certificate to verify peer against")
-	var showHelp = flag.Bool("h", false, "Show help message")
-
-	log.SetFlags(0)
-	flag.Usage = usage
-	flag.Parse()
-
-	if *showHelp {
-		showUsageAndExit(0)
-	}
-
-	args := flag.Args()
-	if len(args) != 1 {
-		showUsageAndExit(1)
-	}
-
 	// Connect Options.
 	opts := []nats.Option{nats.Name("NATS Sample Subscriber")}
 	opts = setupConnOptions(opts)
 
-	if *userCreds != "" && *nkeyFile != "" {
-		log.Fatal("specify -seed or -creds")
-	}
-
-	// Use UserCredentials
-	if *userCreds != "" {
-		opts = append(opts, nats.UserCredentials(*userCreds))
-	}
-
-	// Use TLS client authentication
-	if *tlsClientCert != "" && *tlsClientKey != "" {
-		opts = append(opts, nats.ClientCert(*tlsClientCert, *tlsClientKey))
-	}
-
-	// Use specific CA certificate
-	if *tlsCACert != "" {
-		opts = append(opts, nats.RootCAs(*tlsCACert))
-	}
-
-	// Use Nkey authentication.
-	if *nkeyFile != "" {
-		opt, err := nats.NkeyOptionFromSeed(*nkeyFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		opts = append(opts, opt)
-	}
 }
 
 func sub(subj string, cb func(msg *nats.Msg)) {
 	// Connect to NATS
-	nc, err := nats.Connect(*urls, opts...)
+	nc, err := nats.Connect(urls, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -127,7 +87,7 @@ func sub(subj string, cb func(msg *nats.Msg)) {
 	}
 
 	log.Printf("Listening on [%s]", subj)
-	if *showTime {
+	if showTime {
 		log.SetFlags(log.LstdFlags)
 	}
 }
@@ -153,7 +113,7 @@ func NatsPublish(subj string, msg string, reply *string) bool {
 	}
 	var err error
 	var nc *nats.Conn
-	nc, err = nats.Connect(*urls, opts...)
+	nc, err = nats.Connect(urls, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
