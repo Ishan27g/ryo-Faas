@@ -43,18 +43,22 @@ func (c *client) All(ctx context.Context, in *deploy.Ids) (*deploy.Documents, er
 	return c.DatabaseClient.All(ctx, in)
 }
 
+// Connect to database, never closed
 func Connect(addr string) Client {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	fmt.Println("Connecting to database : ", addr)
+
 	grpc.WaitForReady(true)
 	grpc.WithBlock()
-	fmt.Println("Connecting to rpc -", addr)
-	grpcClient, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()),
+	grpcClient, err := grpc.DialContext(ctx, addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil
 	}
+
 	return &client{DatabaseClient: deploy.NewDatabaseClient(grpcClient)}
 }

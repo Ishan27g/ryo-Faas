@@ -7,9 +7,14 @@ import (
 
 var (
 	databaseAddress          = ""
-	st              DocStore = &store{new: types.NewNatsDoc, database: database.Connect(databaseAddress)} // todo
-	Documents                = st
+	st              DocStore = &store{
+		new:      types.NewNatsDoc,
+		database: database.Connect(databaseAddress),
+	}
+	Documents = st
 )
+
+type EventCb func(document types.NatsDoc)
 
 // DocStore exposes methods that
 // - publish a nats-message after completing the respective database action
@@ -27,7 +32,7 @@ type DocStore interface {
 	OnCreate(do EventCb)
 	OnUpdate(do EventCb, ids ...string) // subscribe to all ids if nil
 	OnDelete(do EventCb, ids ...string) // subscribe to all ids if nil
-	OnGet(do EventCb, ids ...string)
+	OnGet(do EventCb, ids ...string)    // subscribe to all ids if nil
 
 	On(subjId string, do EventCb)
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
-	"github.com/Ishan27g/ryo-Faas/store"
 )
 
 func Method2(w http.ResponseWriter, r *http.Request) {
@@ -18,17 +17,17 @@ func Method1(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	fmt.Fprint(w, "Accepted at method 1 ..."+"\n")
 }
-func Events() store.StoreEvents {
-	return store.StoreEvents{
-		OnCreate: []store.EventCb{},
-		OnGet:    []store.EventCb{},
-		OnUpdate: []store.EventCb{},
-		OnDelete: []store.EventCb{},
-	}
+func Events() FuncFw.StoreEvents {
+	return FuncFw.StoreEvents{}
 }
 func main() {
 
-	Events().Apply()
+	FuncFw.Export.Events(FuncFw.StoreEvents{
+		OnCreate: FuncFw.EventCbs{},
+		OnGet:    FuncFw.EventCbs{},
+		OnUpdate: FuncFw.EventCbs{},
+		OnDelete: FuncFw.EventCbs{},
+	})
 
 	FuncFw.Export.Http("Method2", "/method2", Method2)
 	FuncFw.Export.Http("Method1", "/method1", Method1)

@@ -13,3 +13,5 @@ type Client interface {
     All(ctx context.Context, in *deploy.Ids) (*deploy.Documents, error)
 }
 ```
+
+- uses <https://github.com/sonyarouje/simdb> as the database
