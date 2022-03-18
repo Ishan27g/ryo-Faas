@@ -7,7 +7,7 @@ tasks:
     cmds:
       - rm ./agent/registry/deploy/functions/exported-function_generated.go
       - rm -rf ./agent/registry/deploy/functions/method*
-      - rm ./database/handler/ok*
+      - rm -rf ./database/handler/ok*
   test:
     cmds:
       - defer: { task: testCleanup }
