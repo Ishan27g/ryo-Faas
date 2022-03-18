@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	client "github.com/Ishan27g/ryo-Faas/database/client"
 	database "github.com/Ishan27g/ryo-Faas/database/db"
@@ -46,6 +47,8 @@ func Test_Grpc(t *testing.T) {
 		Server   interface{}
 	}{IsDeploy: false, Server: &handler.Rpc}, ":5001", nil, "").Start()
 
+	<-time.After(5 * time.Second)
+	
 	c := client.Connect("localhost:5001")
 
 	d, err := json.Marshal(table1["Data"])
