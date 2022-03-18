@@ -13,6 +13,7 @@ import (
 )
 
 func (d *store) onNatsMsg(msg *nats.Msg, do EventCb) {
+	// subject.table.id
 	subJ := strings.Split(".", msg.Subject) // todo strings.Trim(subj.DataId)
 	var docData map[string]interface{}      // map[id]:data
 	var document NatsDoc
@@ -52,21 +53,21 @@ func (d *store) on(subject string, do EventCb, ids ...string) {
 	}
 }
 func (d *store) OnCreate(do EventCb) {
-	transport.NatsSubscribe(transport.DocumentCREATE, func(msg *nats.Msg) {
+	transport.NatsSubscribe(transport.DocumentCREATE+"."+d.table, func(msg *nats.Msg) {
 		d.onNatsMsg(msg, do)
 	})
 }
 func (d *store) OnGet(do EventCb, ids ...string) {
-	d.on(transport.DocumentGET, do, ids...)
+	d.on(transport.DocumentGET+"."+d.table, do, ids...)
 }
 func (d *store) OnUpdate(do EventCb, ids ...string) {
-	d.on(transport.DocumentUPDATE, do, ids...)
+	d.on(transport.DocumentUPDATE+"."+d.table, do, ids...)
 }
 func (d *store) OnDelete(do EventCb, ids ...string) {
-	d.on(transport.DocumentDELETE, do, ids...)
+	d.on(transport.DocumentDELETE+"."+d.table, do, ids...)
 }
 
 // On For all ids in dbClient, subscribe to subject and call do() on subscription
 func (d *store) On(subject string, do EventCb) {
-	d.on(subject, do)
+	d.on(subject+"."+d.table, do)
 }

@@ -25,7 +25,9 @@ func Start(port string) {
 		if database.Connect(databaseAddress) == nil {
 			log.Fatal("Store: Cannot connect to database")
 		}
-		Export.s.Apply()
+		if !Export.s.Apply() {
+			log.Fatal("Store: Unable to aplly event cbs")
+		}
 	}
 	for entrypoint, function := range Export.Get() {
 		otelHandler := otelhttp.NewHandler(http.HandlerFunc(function.HttpFn), "deployed-service-"+entrypoint)

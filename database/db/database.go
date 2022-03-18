@@ -121,6 +121,7 @@ func (d *dbStore) Delete(id string) {
 	d.Lock()
 	defer d.Unlock()
 	tableName := d.documents.Get(id)
+	fmt.Println("Deleting ", id, " from ", tableName)
 	err := d.getDriver(tableName.(string)).Delete(Entity{Id: id})
 	if err != nil {
 		d.Logger.Error("driver.Delete", "id", id)

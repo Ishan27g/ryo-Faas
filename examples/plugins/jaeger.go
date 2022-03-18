@@ -25,7 +25,6 @@ func InitJaeger(ctx context.Context, app, service, url string) *JaegerProvider {
 		fmt.Println("CANNOT CONNECT TO JAEGER ", err.Error())
 		return nil
 	}
-	fmt.Println("CONNECTED TO JAEGER ", url)
 	tp := tracesdk.NewTracerProvider(
 		tracesdk.WithBatcher(exporter),
 		tracesdk.WithSampler(tracesdk.TraceIDRatioBased(1)),

@@ -1,29 +1,72 @@
 # Pub/Sub Document store
 
-Acts as a client for the database operations and `publishes` a nats-message after completing the respective database action
+Wraps around the `database-client` per document/table name
 
-- provides methods to `subscribe`  against respective database operations
+- `publishes` a nats-message after completing the respective database action
+
+- provides methods to `subscribe`  against database operations
 
 ```go
-import "github.com/Ishan27g/ryo-Faas/store"
+package main
 
+import (
+    "github.com/Ishan27g/ryo-Faas/store"
+)
 
-type DocStore interface {
-    // publish
+func main() {
+    // get handler for `payments` document
+    docStore := store.Get("payments")
 
-    Create(id string, data map[string]interface{})
-    Update(id string, data map[string]interface{})
-    Get(id ...string) []*types.NatsDoc
-    Delete(id ...string)
+    // data to add
+    data := map[string]interface{}{
+        "from":   "bob",
+        "to":     "alice",
+        "amount": 42,
+    }
 
-    // subscribe
+    // subscribe event functions for this document
+    go func() {
+        go func() {
+            docStore.OnCreate(func(document NatsDoc) { // document.Document() == data
+                fmt.Println("New payment ")
+                document.Print()
+            })
+        }()
+        go func() {
+            docStore.OnGet(func(document NatsDoc) {
+                fmt.Println("Retrived payment ")
+                document.Print()
+            })
+        }()
+        go func() {
+            docStore.OnUpdate(func(document NatsDoc) {
+                fmt.Println("Updated payment ")
+                document.Print()
+            })
+        }()
+        go func() {
+            docStore.OnDelete(func(document NatsDoc) {
+                fmt.Println("Deleted payment ")
+                document.Print()
+            })
+        }()
+    }()
 
-    OnCreate(do EventCb)
-    OnUpdate(do EventCb, ids ...string) // subscribe to all ids if nil
-    OnDelete(do EventCb, ids ...string) // subscribe to all ids if nil
-    OnGet(do EventCb, ids ...string)
+    // add a new `payment` to the db
+    id := docStore.Create("", data)
 
-    On(subjId string, do EventCb)
+    // get it from the db
+    dataReturned := docStore.Get(id)
+
+    // dataReturned == data
+    fmt.Println(dataReturned)
+
+    // update some field
+    data["amount"] = 43
+    docStore.Update(id, data)
+
+    // delete it
+    docStore.Delete(id)
+
 }
-
 ```

@@ -347,7 +347,7 @@ func (h *handler) MetricsPrometheus(c *gin.Context) {
 	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
 }
 
-func Start(ctx context.Context, grpcPort, http string) {
+func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h := new(handler)
 	h.agent = make(map[string]transport.AgentWrapper)
 	h.functions = make(map[string]string)
@@ -355,6 +355,12 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.proxies = newProxy()
 	h.Logger = log.New(os.Stdout, "[PROXY-HANDLER] ", log.Ltime)
 	h.ready = make(chan string)
+
+	for _, v := range agents {
+		if h.AddAgent(v) {
+			log.Fatal("Unable to add agent ", v)
+		}
+	}
 
 	gin.SetMode(gin.DebugMode)
 	h.g = gin.New()
@@ -389,5 +395,9 @@ func Start(ctx context.Context, grpcPort, http string) {
 	//h.g.POST("/file/:entrypoint", h.UploadHttp)
 	//h.g.GET("/log", h.LogHttp) // /log?entrypoint=
 
-	transport.Init(ctx, h, grpcPort, h.g, http).Start()
+	transport.Init(ctx, struct {
+		IsDeploy bool
+		Server   interface{}
+	}{IsDeploy: true, Server: h}, grpcPort, h.g, http).Start()
+
 }

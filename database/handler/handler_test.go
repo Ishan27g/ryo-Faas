@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,34 +11,67 @@ import (
 	"strings"
 	"testing"
 
+	client "github.com/Ishan27g/ryo-Faas/database/client"
 	database "github.com/Ishan27g/ryo-Faas/database/db"
+	deploy "github.com/Ishan27g/ryo-Faas/proto"
+
+	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
 var id string
 var entity database.Entity
+var data = map[string]interface{}{
+	"Num":  1,
+	"From": 300,
+	"To":   302,
+}
 var table1 = map[string]interface{}{
 	"Table": "ok",
-	"Data": struct {
-		Num  int `json:"Num"`
-		From int `json:"From"`
-		To   int `json:"To"`
-	}{
-		Num: 1, From: 200, To: 201,
-	},
+	"Data":  data,
 }
 var table2 = map[string]interface{}{
 	"Table": "ok2",
-	"Data": struct {
-		Num  int `json:"Num"`
-		From int `json:"From"`
-		To   int `json:"To"`
-	}{
-		Num: 1, From: 200, To: 201,
-	},
+	"Data":  data,
 }
 
+func Test_Grpc(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var handler = GetHandler()
+	transport.Init(ctx, struct {
+		IsDeploy bool
+		Server   interface{}
+	}{IsDeploy: false, Server: &handler.Rpc}, ":5001", nil, "").Start()
+
+	c := client.Connect("localhost:5001")
+
+	d, err := json.Marshal(table1["Data"])
+	assert.NoError(t, err)
+
+	id, err := c.New(ctx, &deploy.Documents{Document: []*deploy.Document{{Table: table1["Table"].(string), Id: "", Data: d}}})
+	docId := id.GetId()[0]
+	assert.NoError(t, err)
+
+	doc, err := c.Get(ctx, &deploy.Ids{Id: id.Id})
+	for _, d := range doc.Document {
+		assert.Equal(t, docId, d.GetId())
+		returnedData := make(map[string]interface{})
+		err = json.Unmarshal(d.Data, &returnedData)
+		da := returnedData["Value"].(map[string]interface{})
+
+		assert.NotNil(t, da[docId].(map[string]interface{})["Num"])
+		assert.NotNil(t, da[docId].(map[string]interface{})["From"])
+		assert.NotNil(t, da[docId].(map[string]interface{})["To"])
+	}
+
+	deletedIds, err := c.Delete(ctx, &deploy.Ids{Id: id.Id})
+	assert.NoError(t, err)
+	assert.Equal(t, docId, deletedIds.GetId()[0])
+
+}
 func Test_Http(t *testing.T) {
 
 	w := httptest.NewRecorder()

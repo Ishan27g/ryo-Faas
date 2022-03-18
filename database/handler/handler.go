@@ -22,7 +22,7 @@ type handle struct {
 type rpc struct{}
 
 func toStoreDoc(document *deploy.Document) store.NatsDoc {
-	var data map[string]interface{}
+	data := make(map[string]interface{})
 	err := json.Unmarshal(document.Data, &data)
 	if err != nil {
 		fmt.Println("toStoreDoc", err.Error())
@@ -77,7 +77,7 @@ func (d *rpc) Delete(ctx context.Context, ids *deploy.Ids) (*deploy.Ids, error) 
 	for _, id := range ids.Id {
 		db.Delete(id)
 	}
-	return nil, nil
+	return &deploy.Ids{Id: ids.Id}, nil
 }
 
 func (d *rpc) All(ctx context.Context, ids *deploy.Ids) (*deploy.Documents, error) {

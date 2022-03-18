@@ -25,7 +25,10 @@ func printJson(js interface{}) {
 func setup(ctx context.Context, registryPort string) *registry.AgentHandler {
 	registry.SetBuildCommand(run.CMD("sleep", "10").Ctx(ctx))
 	agent := registry.Init(registryPort)
-	transport.Init(ctx, agent, DefaultPort, nil, "").Start()
+	transport.Init(ctx, struct {
+		IsDeploy bool
+		Server   interface{}
+	}{IsDeploy: true, Server: agent}, DefaultPort, nil, "").Start()
 	return agent
 }
 
@@ -93,10 +96,10 @@ func TestList(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "DEPLOYED", list.Functions[0].Status)
 		printJson(list)
-		for _, function := range list.Functions {
-			if e.entrypoint == function.Entrypoint {
-				os.RemoveAll(function.Dir)
-			}
-		}
+		// for _, function := range list.Functions {
+		// 	if e.entrypoint == function.Entrypoint {
+		// 		os.RemoveAll(function.Dir)
+		// 	}
+		// }
 	}
 }

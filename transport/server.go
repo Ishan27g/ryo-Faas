@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -63,14 +62,11 @@ func (l *listener) startGrpc() {
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 		grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
 	)
-	ok := false
 	if l.grpc.server.IsDeploy {
 		deploy.RegisterDeployServer(grpcServer, l.grpc.server.Server.(deploy.DeployServer))
 	} else {
 		deploy.RegisterDatabaseServer(grpcServer, l.grpc.server.Server.(deploy.DatabaseServer))
-		ok = true
 	}
-	fmt.Println(ok)
 	grpcAddr, err := net.Listen("tcp", l.grpc.port)
 	if err != nil {
 		l.Println(err.Error())

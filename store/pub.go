@@ -27,14 +27,14 @@ func (d *store) natsSub(id string) string {
 	return "." + d.table + "." + id
 }
 
-func (d *store) Create(id string, data map[string]interface{}) bool {
+func (d *store) Create(id string, data map[string]interface{}) string {
 	ctx, can := context.WithTimeout(context.Background(), time.Second*2)
 	defer can()
 	doc := d.new(d.table, id, data)
 	docData, done := marshal(doc)
 	if !done {
 		fmt.Println("Cannot marshal")
-		return false
+		return ""
 	}
 	ids, err := d.dbClient.New(ctx, &deploy.Documents{Document: []*deploy.Document{
 		{
@@ -45,11 +45,15 @@ func (d *store) Create(id string, data map[string]interface{}) bool {
 	}})
 	if err != nil {
 		fmt.Println("store.New()", err.Error())
-		return false
+		return ""
 	}
-	fmt.Println(ids.Id)
-	return publish(transport.DocumentCREATE+d.natsSub(doc.Id()), doc.DocumentString()) // map[id]:data
-
+	if ids.Id[0] != doc.Id() {
+		fmt.Println("who dun it")
+	}
+	if publish(transport.DocumentCREATE+d.natsSub(doc.Id()), doc.DocumentString()) { // map[id]:data
+		return ids.Id[0]
+	}
+	return ""
 }
 
 func (d *store) Update(id string, data map[string]interface{}) bool {

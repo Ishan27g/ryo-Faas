@@ -16,7 +16,7 @@ func MakePayment(w http.ResponseWriter, r *http.Request) {
 	payment := controller.RandomPayment()
 
 	// add to database
-	store.Get("payments").Create(payment.Id, payment.Marshal())
+	_ = store.Get("payments").Create(payment.Id, payment.Marshal())
 	w.WriteHeader(http.StatusAccepted)
 	fmt.Fprint(w, "Made payment:"+fmt.Sprintf("%v", payment)+"\n")
 

@@ -1,0 +1,49 @@
+version: '3'
+
+tasks:
+
+  # cleanup test dirs/
+  testCleanup:
+    cmds:
+      - rm ./agent/registry/deploy/functions/exported-function_generated.go
+      - rm -rf ./agent/registry/deploy/functions/method*
+      - rm ./database/handler/ok*
+  test:
+    cmds:
+      - defer: { task: testCleanup }
+      - go test --v ./...
+
+  # run database
+  database:
+    dir: database
+    cmds:
+      - go run main.go
+
+  # run proxy
+  proxy:
+    dir: proxy
+    cmds:
+      - go run main.go
+  
+  # run agent
+  agent:
+    dir: agent
+    cmds:
+      - go run main.go
+
+  # add agent to proxy
+  add-agent:
+    cmds:
+        - curl http://localhost:9002/addAgent\?address\=localhost:9000
+  
+  # run database events example 
+  examples-db:
+     dir: examples/database-events
+     cmds:
+      - go run main.go httpFn.go subscribe.go
+  
+  # test database events example 
+  examples-db-test:
+    cmds:
+    - curl http://localhost:9999/pay
+    - curl http://localhost:9999/get

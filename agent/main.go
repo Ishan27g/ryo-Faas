@@ -27,7 +27,10 @@ func main() {
 	defer jp.Close()
 
 	agent := registry.Init(*port)
-	transport.Init(ctx, agent, rpcAddr, nil, "").Start()
+	transport.Init(ctx, struct {
+		IsDeploy bool
+		Server   interface{}
+	}{IsDeploy: true, Server: agent}, rpcAddr, nil, "").Start()
 
 	agent.Println(*agent)
 	<-make(chan bool)

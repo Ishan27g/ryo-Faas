@@ -1,30 +1,24 @@
 package store
 
 import (
+	"fmt"
 	"log"
 
-	"github.com/Ishan27g/ryo-Faas/database/client"
+	database "github.com/Ishan27g/ryo-Faas/database/client"
 )
 
 var (
 	defaultTable    = "data"
-	databaseAddress = "localhost:5000" // os.Getenv("Database")
-	documents       = make(map[string]DocStore)
+	databaseAddress = "localhost:5000"          // os.Getenv("Database")
+	documents       = make(map[string]DocStore) // per table
 )
-
-func init() {
-
-}
 
 type EventCb func(document NatsDoc)
 
-// DocStore exposes methods that
-// - publish a nats-message after completing the respective dbClient action
-// - register EventCb's against respective dbClient operations
 type DocStore interface {
 	// publish
 
-	Create(id string, data map[string]interface{}) bool
+	Create(id string, data map[string]interface{}) string
 	Update(id string, data map[string]interface{}) bool
 	Get(id ...string) []*NatsDoc
 	Delete(id ...string) bool
@@ -54,6 +48,7 @@ func new(table string) DocStore {
 		table = defaultTable
 	}
 	documents[table] = &store{table: table, new: NewDocument, dbClient: dbClient}
+
 	return documents[table]
 }
 
@@ -62,4 +57,62 @@ func Get(table string) DocStore {
 		return new(table)
 	}
 	return documents[table]
+}
+
+func ok() {
+	// get handler for `payments` document
+	docStore := Get("payments")
+
+	// data to add
+	data := map[string]interface{}{
+		"from":   "bob",
+		"to":     "alice",
+		"amount": 42,
+	}
+
+	// subscribe event functions for this document
+	go func() {
+		go func() {
+			docStore.OnCreate(func(document NatsDoc) {
+				fmt.Println("New payment ")
+				document.Print()
+			})
+		}()
+		go func() {
+			docStore.OnGet(func(document NatsDoc) {
+				fmt.Println("Retrived payment ")
+				document.Print()
+			})
+		}()
+		go func() {
+			docStore.OnUpdate(func(document NatsDoc) {
+				fmt.Println("Updated payment ")
+				document.Print()
+			})
+		}()
+		go func() {
+			docStore.OnDelete(func(document NatsDoc) {
+				fmt.Println("Deleted payment ")
+				document.Print()
+			})
+		}()
+
+	}()
+
+	// add a new `payment` to the db
+	id := docStore.Create("", data)
+
+	// get it from the db
+	dataReturned := docStore.Get(id)
+
+	// dataReturned == data
+	fmt.Println(dataReturned)
+
+	// update some field
+	data["amount"] = 43
+	docStore.Update(id, data)
+
+	// delete it
+	docStore.Delete(id)
+
 }
