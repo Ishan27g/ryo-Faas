@@ -11,7 +11,10 @@ tasks:
     cmds:
       - defer: { task: testCleanup }
       - go test --v ./...
-
+  test-ci:
+    cmds:
+      - go test --v ./...
+      
   # run database
   database:
     dir: database
