@@ -1,28 +1,33 @@
 package store
 
 import (
-	databaseClient "github.com/Ishan27g/ryo-Faas/database/client"
-	"github.com/Ishan27g/ryo-Faas/types"
+	"log"
+
+	"github.com/Ishan27g/ryo-Faas/database/client"
 )
 
 var (
-	databaseAddress          = ""
-	st              DocStore = &store{new: types.NewNatsDoc, database: databaseClient.Connect(databaseAddress)}
-	Documents                = st
+	defaultTable    = "data"
+	databaseAddress = "localhost:5000" // os.Getenv("Database")
+	documents       = make(map[string]DocStore)
 )
 
-type EventCb func(document types.NatsDoc)
+func init() {
+
+}
+
+type EventCb func(document NatsDoc)
 
 // DocStore exposes methods that
-// - publish a nats-message after completing the respective database action
-// - register EventCb's against respective database operations
+// - publish a nats-message after completing the respective dbClient action
+// - register EventCb's against respective dbClient operations
 type DocStore interface {
 	// publish
 
-	Create(id string, data map[string]interface{})
-	Update(id string, data map[string]interface{})
-	Get(id ...string) []*types.NatsDoc
-	Delete(id ...string)
+	Create(id string, data map[string]interface{}) bool
+	Update(id string, data map[string]interface{}) bool
+	Get(id ...string) []*NatsDoc
+	Delete(id ...string) bool
 
 	// subscribe
 
@@ -35,6 +40,26 @@ type DocStore interface {
 }
 
 type store struct {
-	new      func(id string, data map[string]interface{}) types.NatsDoc
-	database databaseClient.Client
+	table    string
+	new      func(table, id string, data map[string]interface{}) NatsDoc
+	dbClient database.Client
+}
+
+func new(table string) DocStore {
+	var dbClient database.Client
+	if dbClient = database.Connect(databaseAddress); dbClient == nil {
+		log.Fatal("cannot connect to database")
+	}
+	if table == "" {
+		table = defaultTable
+	}
+	documents[table] = &store{table: table, new: NewDocument, dbClient: dbClient}
+	return documents[table]
+}
+
+func Get(table string) DocStore {
+	if documents[table] == nil {
+		return new(table)
+	}
+	return documents[table]
 }

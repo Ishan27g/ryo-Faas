@@ -26,7 +26,10 @@ func main() {
 	defer cancel()
 
 	var handler = handler.GetHandler()
-	transport.Init(ctx, handler, *grpcPort, handler.Gin, *httpPort).Start()
+	transport.Init(ctx, struct {
+		IsDeploy bool
+		Server   interface{}
+	}{IsDeploy: false, Server: &handler.Rpc}, *grpcPort, handler.Gin, *httpPort).Start()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

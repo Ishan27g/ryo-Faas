@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/plugins"
+	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"

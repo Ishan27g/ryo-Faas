@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Ishan27g/ryo-Faas/plugins"
+	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"

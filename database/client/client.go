@@ -1,4 +1,4 @@
-package databaseClient
+package database
 
 import (
 	"context"
@@ -20,45 +20,45 @@ type Client interface {
 }
 
 func (c *client) New(ctx context.Context, in *deploy.Documents) (*deploy.Ids, error) {
-	return c.DatabaseClient.New(ctx, in)
+	return c.dc.New(ctx, in)
 }
 
 func (c *client) Update(ctx context.Context, in *deploy.Documents) (*deploy.Ids, error) {
-	return c.DatabaseClient.Update(ctx, in)
+	return c.dc.Update(ctx, in)
 }
 
 func (c *client) Get(ctx context.Context, in *deploy.Ids) (*deploy.Documents, error) {
-	return c.DatabaseClient.Get(ctx, in)
+	return c.dc.Get(ctx, in)
 }
 
 func (c *client) Delete(ctx context.Context, in *deploy.Ids) (*deploy.Ids, error) {
-	return c.DatabaseClient.Delete(ctx, in)
+	return c.dc.Delete(ctx, in)
 }
 
 type client struct {
-	deploy.DatabaseClient
+	dc deploy.DatabaseClient
 }
 
 func (c *client) All(ctx context.Context, in *deploy.Ids) (*deploy.Documents, error) {
-	return c.DatabaseClient.All(ctx, in)
+	return c.dc.All(ctx, in)
 }
 
 // Connect to database, never closed
 func Connect(addr string) Client {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	fmt.Println("Connecting to database : ", addr)
+	fmt.Println("Connecting to database...", addr)
 
 	grpc.WaitForReady(true)
-	grpc.WithBlock()
 	grpcClient, err := grpc.DialContext(ctx, addr,
+		grpc.FailOnNonTempDialError(true),
+		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil
 	}
-
-	return &client{DatabaseClient: deploy.NewDatabaseClient(grpcClient)}
+	fmt.Println("Connected to database...")
+	return &client{dc: deploy.NewDatabaseClient(grpcClient)}
 }

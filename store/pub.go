@@ -8,14 +8,13 @@ import (
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
-	"github.com/Ishan27g/ryo-Faas/types"
 )
 
-var publish = func(subjId, data string) {
-	transport.NatsPublish(subjId, data, nil)
+var publish = func(subjId, data string) bool {
+	return transport.NatsPublish(subjId, data, nil)
 }
 
-func marshal(doc types.NatsDoc) ([]byte, bool) {
+func marshal(doc NatsDoc) ([]byte, bool) {
 	docData, err := json.Marshal(doc.Document())
 	if err != nil {
 		fmt.Println("json.Marshal", err.Error())
@@ -24,50 +23,68 @@ func marshal(doc types.NatsDoc) ([]byte, bool) {
 	return docData, true
 }
 
-func (d *store) Create(id string, data map[string]interface{}) {
-	ctx, can := context.WithTimeout(context.Background(), time.Second*6)
+func (d *store) natsSub(id string) string {
+	return "." + d.table + "." + id
+}
+
+func (d *store) Create(id string, data map[string]interface{}) bool {
+	ctx, can := context.WithTimeout(context.Background(), time.Second*2)
 	defer can()
-	doc := d.new(id, data)
+	doc := d.new(d.table, id, data)
 	docData, done := marshal(doc)
 	if !done {
-		return
+		fmt.Println("Cannot marshal")
+		return false
 	}
-	d.database.New(ctx, &deploy.Documents{Document: []*deploy.Document{
+	ids, err := d.dbClient.New(ctx, &deploy.Documents{Document: []*deploy.Document{
 		{
-			Id:   doc.Id(),
-			Data: docData,
+			Table: d.table,
+			Id:    doc.Id(),
+			Data:  docData,
 		},
 	}})
-	defer publish(transport.DocumentCREATE+doc.Id(), doc.Data()) // map[id]:data
+	if err != nil {
+		fmt.Println("store.New()", err.Error())
+		return false
+	}
+	fmt.Println(ids.Id)
+	return publish(transport.DocumentCREATE+d.natsSub(doc.Id()), doc.DocumentString()) // map[id]:data
 
 }
 
-func (d *store) Update(id string, data map[string]interface{}) {
+func (d *store) Update(id string, data map[string]interface{}) bool {
 	ctx, can := context.WithTimeout(context.Background(), time.Second*6)
 	defer can()
-	document := d.new(id, data)
+	document := d.new(d.table, id, data)
 	docData, done := marshal(document)
 	if !done {
-		return
+		return false
 	}
-	d.database.Update(ctx, &deploy.Documents{Document: []*deploy.Document{
+	_, err := d.dbClient.Update(ctx, &deploy.Documents{Document: []*deploy.Document{
 		{
-			Id:   document.Id(),
-			Data: docData,
+			Table: d.table,
+			Id:    document.Id(),
+			Data:  docData,
 		},
 	}})
-	defer publish(transport.DocumentUPDATE+"."+document.Id(), document.Data())
+	if err != nil {
+		fmt.Println("store.Update()", err.Error())
+		return false
+	}
+	return publish(transport.DocumentUPDATE+d.natsSub(id), document.DocumentString())
 
 }
 
-func (d *store) Get(ids ...string) []*types.NatsDoc {
+func (d *store) Get(ids ...string) []*NatsDoc {
 	ctx, can := context.WithTimeout(context.Background(), time.Second*6)
 	defer can()
-	var docs []*types.NatsDoc
-	documents, err := d.database.Get(ctx, &deploy.Ids{Id: ids})
+	var docs []*NatsDoc
+	documents, err := d.dbClient.Get(ctx, &deploy.Ids{Id: ids})
 	if err != nil {
+		fmt.Println("store.Get()", err.Error())
 		return nil
 	}
+	fmt.Println(documents)
 	for _, document := range documents.Document {
 		var data map[string]interface{}
 		err := json.Unmarshal(document.GetData(), &data)
@@ -75,15 +92,20 @@ func (d *store) Get(ids ...string) []*types.NatsDoc {
 			fmt.Println("json.Unmarshal", err.Error())
 			return nil
 		}
-		d := types.NewNatsDoc(document.Id, data)
-		docs = append(docs, &d)
-		go publish(transport.DocumentGET+"."+d.Id(), d.Data())
+		doc := NewDocument(d.table, document.Id, data)
+		docs = append(docs, &doc)
+		go publish(transport.DocumentGET+d.natsSub(doc.Id()), doc.DocumentString())
 	}
 	return docs
 }
 
-func (d *store) Delete(ids ...string) {
+func (d *store) Delete(ids ...string) bool {
 	ctx, can := context.WithTimeout(context.Background(), time.Second*6)
 	defer can()
-	d.database.Delete(ctx, &deploy.Ids{Id: ids})
+	_, err := d.dbClient.Delete(ctx, &deploy.Ids{Id: ids})
+	if err != nil {
+		fmt.Println("store.Delete()", err.Error())
+		return false
+	}
+	return true
 }

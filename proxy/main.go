@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 
-	"github.com/Ishan27g/ryo-Faas/plugins"
+	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 )
 

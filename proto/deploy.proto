@@ -19,8 +19,9 @@ message Documents {
   repeated Document document = 1;
 }
 message Document {
-  string Id = 1;
-  bytes data = 2;
+  string table = 1;
+  string Id = 2;
+  bytes data = 3;
 }
 message Ids {
   repeated string id = 1;

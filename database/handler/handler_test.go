@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,27 +17,34 @@ import (
 
 var id string
 var entity database.Entity
-var document = `{
-	"Something": {
-		"title": "example",
-		"1": {
-			"2": {
-				"3": {
-					"4": {
-						"5": ["GML", "XML"]
-					}
-				}
-			}
-		}
-	}
-}`
+var table1 = map[string]interface{}{
+	"Table": "ok",
+	"Data": struct {
+		Num  int `json:"Num"`
+		From int `json:"From"`
+		To   int `json:"To"`
+	}{
+		Num: 1, From: 200, To: 201,
+	},
+}
+var table2 = map[string]interface{}{
+	"Table": "ok2",
+	"Data": struct {
+		Num  int `json:"Num"`
+		From int `json:"From"`
+		To   int `json:"To"`
+	}{
+		Num: 1, From: 200, To: 201,
+	},
+}
 
 func Test_Http(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
-	payload := strings.NewReader(document)
+	payload := new(bytes.Buffer)
+	json.NewEncoder(payload).Encode(table2)
 
 	h := GetHandler()
 	{

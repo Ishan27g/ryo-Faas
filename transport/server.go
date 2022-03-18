@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -21,7 +22,7 @@ type Listener interface {
 type listener struct {
 	ctx  context.Context
 	grpc struct {
-		server interface{}
+		server RpcServer
 		port   string
 	}
 	http struct {
@@ -30,12 +31,16 @@ type listener struct {
 	}
 	*log.Logger
 }
+type RpcServer struct {
+	IsDeploy bool
+	Server   interface{}
+}
 
-func Init(ctx context.Context, server interface{}, rpcPort string, engine *gin.Engine, httpPort string) Listener {
+func Init(ctx context.Context, server RpcServer, rpcPort string, engine *gin.Engine, httpPort string) Listener {
 	return &listener{
 		ctx: ctx,
 		grpc: struct {
-			server interface{}
+			server RpcServer
 			port   string
 		}{
 			server: server,
@@ -58,17 +63,20 @@ func (l *listener) startGrpc() {
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 		grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
 	)
-	switch l.grpc.server.(type) {
-	case deploy.DeployServer:
-		deploy.RegisterDeployServer(grpcServer, l.grpc.server.(deploy.DeployServer))
-	case deploy.DatabaseServer: //todo:
-		deploy.RegisterDatabaseServer(grpcServer, l.grpc.server.(deploy.DatabaseServer))
+	ok := false
+	if l.grpc.server.IsDeploy {
+		deploy.RegisterDeployServer(grpcServer, l.grpc.server.Server.(deploy.DeployServer))
+	} else {
+		deploy.RegisterDatabaseServer(grpcServer, l.grpc.server.Server.(deploy.DatabaseServer))
+		ok = true
 	}
+	fmt.Println(ok)
 	grpcAddr, err := net.Listen("tcp", l.grpc.port)
 	if err != nil {
 		l.Println(err.Error())
 		os.Exit(1)
 	}
+
 	go func() {
 		l.Println("GRPC server started on " + grpcAddr.Addr().String())
 		if err := grpcServer.Serve(grpcAddr); err != nil {

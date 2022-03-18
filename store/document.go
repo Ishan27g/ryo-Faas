@@ -1,4 +1,4 @@
-package types
+package store
 
 import (
 	"fmt"
@@ -7,38 +7,43 @@ import (
 )
 
 type NatsDoc interface {
+	Table() string
 	Id() string
-	Data() string
 	Document() map[string]interface{} // natsDoc as map
+	DocumentString() string
+
 	Print()
 }
 
-func FromJson(doc map[string]interface{}, id ...string) NatsDoc {
+func FromJson(table string, doc map[string]interface{}, id ...string) NatsDoc {
 	var document NatsDoc
 	if doc["Id"] == nil && len(id) == 0 {
 		var m map[string]interface{} = make(map[string]interface{})
 		m["Id"] = doc
 		for _, data := range m {
-			document = NewNatsDoc("", data.(map[string]interface{}))
+			document = NewDocument(table, "", data.(map[string]interface{}))
 		}
 	} else {
-		//for id, data := range doc {
-		document = NewNatsDoc(id[0], doc)
-		//}
+		document = NewDocument(table, id[0], doc)
 	}
 
 	return document
 }
-func NewNatsDoc(id string, data map[string]interface{}) NatsDoc {
+func NewDocument(table, id string, data map[string]interface{}) NatsDoc {
 	if id == "" {
-		return &natsDoc{id: uuid.New().String(), data: data}
+		return &natsDoc{table: table, id: uuid.New().String(), data: data}
 	}
-	return &natsDoc{id: id, data: data}
+	return &natsDoc{table: table, id: id, data: data}
 }
 
 type natsDoc struct {
-	id   string
-	data map[string]interface{}
+	table string
+	id    string
+	data  map[string]interface{}
+}
+
+func (d *natsDoc) Table() string {
+	return d.table
 }
 
 func (d *natsDoc) Print() {
@@ -50,8 +55,8 @@ func (d *natsDoc) Document() map[string]interface{} {
 	return m
 }
 
-func (d *natsDoc) Data() string {
-	return fmt.Sprintf("%v", d.data)
+func (d *natsDoc) DocumentString() string {
+	return fmt.Sprintf("%v", d.Document())
 }
 func (d *natsDoc) Id() string {
 	return d.id

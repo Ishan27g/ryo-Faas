@@ -8,28 +8,17 @@ import (
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 )
 
-// var events = func() store.StoreEvents {
-// 	return store.StoreEvents{
-// 		OnCreate: []store.EventCb{paymentMade},
-// 		OnGet:    []store.EventCb{paymentsRetrieved},
-// 		OnUpdate: []store.EventCb{paymentsUpdated},
-// 		OnDelete: []store.EventCb{paymentsDeleted},
-// 	}
-
-// }
-
-//var _ = events().Apply()
-
 func main() {
 
 	FuncFw.Export.Http("MakePayment", "/pay", MakePayment)
+	FuncFw.Export.Http("GetPayment", "/get", GetPayment)
 
-	FuncFw.Export.Events(FuncFw.StoreEvents{
-		OnCreate: FuncFw.EventCbs{paymentMade},
-		OnGet:    FuncFw.EventCbs{paymentsRetrieved},
-		OnUpdate: FuncFw.EventCbs{paymentsUpdated},
-		OnDelete: FuncFw.EventCbs{paymentsDeleted},
-	})
+	//FuncFw.Export.Events(FuncFw.StoreEvents{
+	//	OnCreate: FuncFw.Events{paymentMade},
+	//	OnGet:    FuncFw.Events{paymentsRetrieved},
+	//	OnUpdate: FuncFw.Events{paymentsUpdated},
+	//	OnDelete: FuncFw.Events{paymentsDeleted},
+	//})
 
 	FuncFw.Start("9999")
 

@@ -23,10 +23,10 @@ func Events() FuncFw.StoreEvents {
 func main() {
 
 	FuncFw.Export.Events(FuncFw.StoreEvents{
-		OnCreate: FuncFw.EventCbs{},
-		OnGet:    FuncFw.EventCbs{},
-		OnUpdate: FuncFw.EventCbs{},
-		OnDelete: FuncFw.EventCbs{},
+		OnCreate: FuncFw.Events{},
+		OnGet:    FuncFw.Events{},
+		OnUpdate: FuncFw.Events{},
+		OnDelete: FuncFw.Events{},
 	})
 
 	FuncFw.Export.Http("Method2", "/method2", Method2)

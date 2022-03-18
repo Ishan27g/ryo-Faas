@@ -7,19 +7,24 @@ import (
 	"os"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/plugins"
+	database "github.com/Ishan27g/ryo-Faas/database/client"
+	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
-	port                 = ""
-	jp                   = plugins.InitJaeger(context.Background(), "ryo-Faas-agent", "", "http://jaeger:14268/api/traces")
-	httpSrv *http.Server = nil
-	logger               = log.New(os.Stdout, "func-fw", log.LstdFlags)
+	databaseAddress              = "localhost:5000"
+	port                         = ""
+	jp                           = plugins.InitJaeger(context.Background(), "ryo-Faas-agent", "", "http://jaeger:14268/api/traces")
+	httpSrv         *http.Server = nil
+	logger                       = log.New(os.Stdout, "func-fw", log.LstdFlags)
 )
 
 func Start(port string) {
-	if !applied && Export.s != nil {
+	if Export.s != nil {
+		if database.Connect(databaseAddress) == nil {
+			log.Fatal("Store: Cannot connect to database")
+		}
 		Export.s.Apply()
 	}
 	for entrypoint, function := range Export.Get() {
@@ -42,6 +47,6 @@ func Stop() {
 	if err := httpSrv.Shutdown(cx); err != nil {
 		logger.Println("Http-Shutdown " + err.Error())
 	} else {
-		logger.Println(err.Error())
+		logger.Println("Http-Shutdown complete")
 	}
 }

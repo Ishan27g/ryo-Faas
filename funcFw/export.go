@@ -7,8 +7,7 @@ import (
 )
 
 var (
-	applied = false
-	Export  = funcFw{fns: make(map[string]*HttpFunction), s: nil} // entrypoint:fn
+	Export = funcFw{fns: make(map[string]*HttpFunction), s: nil} // entrypoint:fn
 )
 
 type HttpFn func(w http.ResponseWriter, r *http.Request)
@@ -26,8 +25,6 @@ type funcFw struct {
 func (f funcFw) Events(s StoreEvents) {
 	f.s = new(StoreEvents)
 	f.s = &s
-	s.Apply()
-	applied = true
 }
 func (f funcFw) Http(entrypoint, url string, fn HttpFn) {
 	f.fns[entrypoint] = &HttpFunction{

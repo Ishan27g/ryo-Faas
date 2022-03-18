@@ -3,31 +3,36 @@ package types
 import "sync"
 
 type SyncMap struct {
-	s sync.Map
+	sync.RWMutex
+	data map[string]interface{}
 }
 
 func NewMap() SyncMap {
 	return SyncMap{
-		s: sync.Map{},
+		RWMutex: sync.RWMutex{},
+		data:    make(map[string]interface{}),
 	}
 }
 func (sm *SyncMap) Add(id string, val interface{}) {
-	sm.s.Store(id, val)
+	sm.Lock()
+	defer sm.Unlock()
+	sm.data[id] = val
+}
+
+func (sm *SyncMap) Delete(id string) {
+	sm.Lock()
+	defer sm.Unlock()
+	delete(sm.data, id)
 }
 func (sm *SyncMap) Get(id string) interface{} {
-	if s, f := sm.s.Load(id); f {
-		return s
-	}
-	return nil
-}
-func (sm *SyncMap) Delete(id string) {
-	sm.s.Delete(id)
+	sm.RLock()
+	defer sm.RUnlock()
+	return sm.data[id]
 }
 func (sm *SyncMap) All() map[string]interface{} {
+	sm.RLock()
+	defer sm.RUnlock()
 	var m = make(map[string]interface{})
-	sm.s.Range(func(key, value interface{}) bool {
-		m[key.(string)] = value
-		return true
-	})
+	m = sm.data
 	return m
 }

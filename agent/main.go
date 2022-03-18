@@ -5,7 +5,7 @@ import (
 	"flag"
 
 	"github.com/Ishan27g/ryo-Faas/agent/registry"
-	"github.com/Ishan27g/ryo-Faas/plugins"
+	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	"github.com/Ishan27g/ryo-Faas/transport"
 )
 

@@ -73,7 +73,8 @@ func sub(subj string, cb func(msg *nats.Msg)) {
 	// Connect to NATS
 	nc, err := nats.Connect(urls, opts...)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	i := 0
 	nc.Subscribe(subj, func(msg *nats.Msg) {
@@ -115,7 +116,8 @@ func NatsPublish(subj string, msg string, reply *string) bool {
 	var nc *nats.Conn
 	nc, err = nats.Connect(urls, opts...)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return false
 	}
 	defer nc.Close()
 	if reply != nil && *reply != "" {
