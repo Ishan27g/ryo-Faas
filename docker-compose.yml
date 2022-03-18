@@ -7,10 +7,67 @@
 version: "3.7"
 
 services:
+  database:
+      image: cloud-database:v0.1
+      container_name: cloud-database
+      hostname: cloud-database
+      networks:
+        faas_nw:
+      ports: # 
+        - "5000:5000" 
+        - "5001:5001"
+      volumes:
+        - ./:/app:rw
+
+  agent:
+      image: cloud-agent:v0.1
+      container_name: cloud-agent
+      hostname: cloud-agent
+      networks:
+        faas_nw:
+      environment: # deployed functions
+        "PORT_START": "5000"
+        "NUM_PORTS" : "5"
+      ports: # 
+        - "5000-5004:5000-5004" # deployed functions
+        - "9000:9000"      # agent
+      stdin_open: true # docker run -i
+      tty: true        # docker run -t
+      volumes:
+        - ./:/app:rw
+      depends_on:
+        - database
+
+  proxy:
+      image: cloud-proxy:v0.1
+      container_name: cloud-proxy
+      hostname: cloud-proxy
+      networks:
+        faas_nw:
+      ports: # 
+        - "9001:9001"
+        - "9002:9002"
+      # stdin_open: true # docker run -i
+      # tty: true        # docker run -t
+      volumes:
+        - ./:/app:rw
+      depends_on:
+        - agent
+
+  nats:
+      image: nats
+      container_name: cloud-nats
+      hostname: cloud-nats
+      ports:
+        - "8222:8222"
+      networks:
+        faas_nw:
+      depends_on:
+        - proxy
 
   jaeger:
-      container_name: jaeger
-      hostname: jaeger
+      container_name: cloud-jaeger
+      hostname: cloud-jaeger
       image: jaegertracing/all-in-one:1.31
       networks:
         faas_nw:
@@ -23,31 +80,6 @@ services:
             cpus: '0.05'
             memory: 250M
 
-  rms:
-    image: cloud-agent:v0.1
-    networks:
-      faas_nw:
-    environment: # deployed functions
-      "PORT_START": "5000"
-      "NUM_PORTS" : "5"
-    ports: # 
-      - "5000-5004:5000-5004" # deployed functions
-      - "9000:9000"      # agent
-    container_name: cloud-agent
-    hostname: agent-faas
-    stdin_open: true # docker run -i
-    tty: true        # docker run -t
-    volumes:
-      - ./:/app:rw
-    
-  redis:
-      image: "redis:alpine3.13"
-      ports:
-        - "6379:6379"
-      container_name: redis
-      hostname: redis  
-      networks:
-        faas_nw:
 
 networks:
   faas_nw:

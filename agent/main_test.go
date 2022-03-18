@@ -35,8 +35,8 @@ func setup(ctx context.Context, registryPort string) *registry.AgentHandler {
 func TestSetup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		<-time.After(3 * time.Second)
 		cancel()
+		<-time.After(3 * time.Second)
 	}()
 	assert.NotNil(t, setup(ctx, DefaultPort))
 }
