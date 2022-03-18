@@ -22,5 +22,5 @@ jobs:
       uses: arduino/setup-task@v1
     
     - name: Test
-      run: tast test
+      run: task test
     
