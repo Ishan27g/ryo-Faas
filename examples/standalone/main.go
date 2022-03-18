@@ -8,6 +8,13 @@ import (
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 )
 
+func Method3(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Processing method 3 ...")
+	<-time.After(2 * time.Second)
+	fmt.Println("Processing method 3 done")
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprint(w, "Accepted at method 3 ..."+"\n")
+}
 func Method2(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	fmt.Fprint(w, "Accepted at method 2 ..."+"\n")
@@ -22,18 +29,20 @@ func Events() FuncFw.StoreEvents {
 }
 func main() {
 
-	FuncFw.Export.Events(FuncFw.StoreEvents{
-		OnCreate: FuncFw.Events{},
-		OnGet:    FuncFw.Events{},
-		OnUpdate: FuncFw.Events{},
-		OnDelete: FuncFw.Events{},
-	})
+	//FuncFw.Export.Events(FuncFw.StoreEvents{
+	//	OnCreate: FuncFw.Events{},
+	//	OnGet:    FuncFw.Events{},
+	//	OnUpdate: FuncFw.Events{},
+	//	OnDelete: FuncFw.Events{},
+	//})
 
 	FuncFw.Export.Http("Method2", "/method2", Method2)
 	FuncFw.Export.Http("Method1", "/method1", Method1)
 
+	FuncFw.Export.HttpAsync("TodoAsync", "/todoAsync", Method3)
+
 	FuncFw.Start("9999")
 
-	<-time.After(10 * time.Second)
+	<-time.After(10000 * time.Second)
 	FuncFw.Stop()
 }

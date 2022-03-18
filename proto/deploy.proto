@@ -76,6 +76,8 @@ message Function {
   string url = 7;
   string status = 8;
 
+  bool async = 9;
+
 }
 
 message DeployRequest {

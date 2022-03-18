@@ -57,6 +57,7 @@ func TestList(t *testing.T) {
 		dir        string
 		filepath   string
 		entrypoint string
+		isAsync    bool
 	}
 	var exports = []export{
 		{
@@ -67,6 +68,12 @@ func TestList(t *testing.T) {
 			dir:        "../examples/method2",
 			filepath:   "../examples/method2/method2.go",
 			entrypoint: "Method2",
+		},
+		{
+			dir:        "../examples/async",
+			filepath:   "../examples/async/main.go",
+			entrypoint: "Async",
+			isAsync:    true,
 		},
 	}
 	c := transport.ProxyGrpcClient(DefaultPort)
@@ -85,6 +92,7 @@ func TestList(t *testing.T) {
 			ProxyServiceAddr: "",
 			Url:              "",
 			Status:           "",
+			Async:            e.isAsync,
 		})
 	}
 	deployRsp, err := c.Deploy(ctx, &deploy.DeployRequest{Functions: fns})

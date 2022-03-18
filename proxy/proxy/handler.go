@@ -347,6 +347,31 @@ func (h *handler) MetricsPrometheus(c *gin.Context) {
 	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
 }
 
+func (h *handler) DeployHttpAsync(c *gin.Context) {
+	var req []types.FunctionJson
+	var r []types.FunctionJsonRsp
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		fmt.Println(err.Error())
+		c.JSON(400, nil)
+		return
+	}
+	ctx, can := context.WithTimeout(c, 2*time.Second)
+	defer can()
+	for _, json := range req {
+		fn := types.JsonFunctionToRpc(json)
+		fn[0].Async = true
+		response, err := h.Deploy(ctx, &deploy.DeployRequest{Functions: fn})
+		if err != nil {
+			return
+		}
+		for _, function := range response.Functions {
+			r = append(r, types.RpcFunctionRspToJson(function))
+		}
+	}
+	c.JSON(200, r)
+}
+
 func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h := new(handler)
 	h.agent = make(map[string]transport.AgentWrapper)
@@ -375,6 +400,7 @@ func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	//    "filePath": "/Users/ishan/Desktop/multi/method1.go"
 	//  }
 	//]'
+	h.g.POST("/deploy/async", h.DeployHttpAsync)
 
 	h.g.POST("/deploy", h.DeployHttp)
 	// curl  http://localhost:9002/details

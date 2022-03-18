@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -15,6 +16,8 @@ const (
 	DocumentUPDATE string = "update"
 	DocumentGET    string = "get"
 	DocumentDELETE string = "delete"
+
+	HttpAsync string = "httpAsync"
 )
 
 var opts []nats.Option
@@ -108,18 +111,15 @@ func NatsSubscribe(subj string, cb func(msg *nats.Msg)) {
 	sub(subj, cb)
 }
 func NatsPublish(subj string, msg string, reply *string) bool {
-
-	if subjects[subj] == nil {
-		subjects[subj] = &subjectMeta{subjectName: subj, docId: ""}
-	}
-	var err error
-	var nc *nats.Conn
-	nc, err = nats.Connect(urls, opts...)
+	nc, err := nats.Connect(urls, opts...)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
 	defer nc.Close()
+	if subjects[subj] == nil {
+		subjects[subj] = &subjectMeta{subjectName: subj, docId: ""}
+	}
 	if reply != nil && *reply != "" {
 		err = nc.PublishRequest(subj, *reply, []byte(msg))
 		if err != nil {
@@ -146,4 +146,89 @@ func NatsPublish(subj string, msg string, reply *string) bool {
 		log.Printf("Published [%s] : '%s'\n", subj, msg)
 	}
 	return true
+}
+func NatsPublishJson(subj string, msg interface{}, reply *string) bool {
+	nc, err := nats.Connect(urls, opts...)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	defer nc.Close()
+	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	defer ec.Close()
+	// Publish the message
+	if reply != nil && *reply != "" {
+		err = ec.PublishRequest(subj, *reply, &msg)
+		if err != nil {
+			fmt.Println(err.Error())
+			return false
+		}
+	}
+	if err := ec.Publish(subj, &msg); err != nil {
+		log.Println(err)
+		return false
+	}
+
+	err = ec.Flush()
+	if err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+
+	if err := ec.LastError(); err != nil {
+		log.Fatal(err)
+	} else {
+		log.Printf("Published [%s] : '%s'\n", subj, msg)
+	}
+	return true
+}
+
+func NatsSubscribeJson(subj string, cb func(msg interface{})) {
+	if subjects[subj] == nil {
+		subjects[subj] = &subjectMeta{subjectName: subj, docId: ""}
+	}
+	opts = append(opts, nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {
+		if s != nil {
+			log.Printf("Async error in %q/%q: %v", s.Subject, s.Queue, err)
+		} else {
+			log.Printf("Async error outside subscription: %v", err)
+		}
+	}))
+	nc, err := nats.Connect(urls, opts...)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer nc.Close()
+	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer ec.Close()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	if _, err := ec.Subscribe("updates", func(s interface{}) {
+		cb(s)
+		wg.Done()
+	}); err != nil {
+		log.Fatal(err)
+	}
+
+	// Wait for a message to come in
+	wg.Wait()
+
+	if err := nc.LastError(); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("Listening on [%s]", subj)
+	if showTime {
+		log.SetFlags(log.LstdFlags)
+	}
+
 }

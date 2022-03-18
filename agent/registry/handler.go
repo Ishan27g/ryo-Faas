@@ -47,6 +47,9 @@ func timeIt(since time.Time) {
 	fmt.Println("\n----- took : ", time.Since(since).String())
 }
 func (a *AgentHandler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
+	isAsync := ctx.Value("isAsync")
+	if isAsync != nil {
+	}
 	defer timeIt(time.Now())
 	var rsp = new(deploy.DeployResponse)
 	r := a.registry.deploy(request.Functions)

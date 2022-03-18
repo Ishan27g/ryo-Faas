@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"time"
 
@@ -21,19 +22,30 @@ var (
 )
 
 func Start(port string) {
-	if Export.s != nil {
+	// apply store event handlers
+	if Export.storeEvents != nil {
 		if database.Connect(databaseAddress) == nil {
 			log.Fatal("Store: Cannot connect to database")
 		}
-		if !Export.s.Apply() {
+		if !Export.storeEvents.Apply() {
 			log.Fatal("Store: Unable to aplly event cbs")
 		}
 	}
-	for entrypoint, function := range Export.Get() {
-		otelHandler := otelhttp.NewHandler(http.HandlerFunc(function.HttpFn), "deployed-service-"+entrypoint)
+
+	// apply http handlers
+	for entrypoint, function := range Export.GetHttp() {
+		otelHandler := otelhttp.NewHandler(http.HandlerFunc(wrapHttp(function.HttpFn)), "deployed-service-"+entrypoint)
 		http.Handle(function.UrlPath, otelHandler)
 		logger.Println(function.Entrypoint + " at " + function.UrlPath)
 	}
+
+	// apply http async handlers
+	for entrypoint, httpAsync := range Export.GetHttpAsync() {
+		otelHandler := otelhttp.NewHandler(http.HandlerFunc(wrapAsync(httpAsync)), "deployed-service-async-"+entrypoint)
+		http.Handle(httpAsync.UrlPath, otelHandler)
+		logger.Println(httpAsync.Entrypoint + " at " + httpAsync.UrlPath)
+	}
+
 	httpSrv = &http.Server{Addr: ":" + port}
 	logger.Println("HTTP listening on " + httpSrv.Addr)
 	go func() {
@@ -41,6 +53,35 @@ func Start(port string) {
 			logger.Println("HTTP-Error", err.Error())
 		}
 	}()
+}
+
+func wrapHttp(fn HttpFn) HttpFn {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		fn(writer, request)
+	}
+}
+
+func wrapAsync(httpAsync *HttpAsync) HttpFn {
+	return func(w http.ResponseWriter, r *http.Request) {
+		callback := r.Header.Get("X-Callback-Url")
+		if callback == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("missing header, X-Callback-Url"))
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte("Will respond at " + callback + "\n"))
+		go runAsyncFn(httpAsync, callback, r)
+	}
+}
+
+func runAsyncFn(httpAsync *HttpAsync, callback string, r *http.Request) {
+	ww := httptest.NewRecorder()
+	httpAsync.HttpFn(ww, r)
+	_, err := http.Post(callback, "application/json", ww.Result().Body)
+	if err != nil {
+		log.Println(err.Error())
+	}
 }
 func Stop() {
 	jp.Close()

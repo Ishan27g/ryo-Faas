@@ -18,6 +18,9 @@ import (
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 )
 
+var httpFn = "FuncFw.Export.Http"
+var httpAsyncFn = "FuncFw.Export.HttpAsync"
+
 func astLocalCopy(fns []*deploy.Function) (bool, string) {
 	var deployments []function
 	for _, fn := range fns {
@@ -28,7 +31,7 @@ func astLocalCopy(fns []*deploy.Function) (bool, string) {
 		dir, _ := filepath.Split(fn.GetFilePath())
 		pn := filepath.Base(dir)
 		deployments = append(deployments, function{
-			pn, fn.GetEntrypoint(),
+			pn, fn.GetEntrypoint(), fn.Async,
 		})
 	}
 
@@ -77,6 +80,7 @@ func validate(fileName, entrypoint string) bool {
 type function struct {
 	pkgName    string
 	entrypoint string
+	isAsync    bool
 }
 
 func rewriteDeployDotGo(fns ...function) (string, error) {
@@ -91,6 +95,10 @@ func rewriteDeployDotGo(fns ...function) (string, error) {
 	dir := importPath
 
 	for _, fn := range fns {
+		var fnFwCall = httpFn
+		if fn.isAsync {
+			fnFwCall = httpAsyncFn
+		}
 		packageAlias := strings.ReplaceAll(fn.pkgName, "-", "")
 		for i := 0; i < len(node.Decls); i++ {
 			d := node.Decls[i]
@@ -131,7 +139,7 @@ func rewriteDeployDotGo(fns ...function) (string, error) {
 					newCallStmt := &ast.ExprStmt{ // functions.HTTP(
 						X: &ast.CallExpr{
 							Fun: &ast.Ident{
-								Name: "FuncFw.Export.Http",
+								Name: fnFwCall,
 							},
 							Args: []ast.Expr{
 								&ast.BasicLit{
