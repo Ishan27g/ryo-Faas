@@ -6,6 +6,7 @@ import (
 	"time"
 
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
+	"github.com/Ishan27g/ryo-Faas/store"
 )
 
 func Method3(w http.ResponseWriter, r *http.Request) {
@@ -24,17 +25,20 @@ func Method1(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	fmt.Fprint(w, "Accepted at method 1 ..."+"\n")
 }
-func Events() FuncFw.StoreEvents {
-	return FuncFw.StoreEvents{}
+ 
+func GenericCb() func(document store.NatsDoc) {
+	return func(document store.NatsDoc) {
+		fmt.Println(document.Table() + " " + document.Id() + " ---- at GenericCb()")
+		// ...
+	}
 }
 func main() {
 
-	//FuncFw.Export.Events(FuncFw.StoreEvents{
-	//	OnCreate: FuncFw.Events{},
-	//	OnGet:    FuncFw.Events{},
-	//	OnUpdate: FuncFw.Events{},
-	//	OnDelete: FuncFw.Events{},
-	//})
+	FuncFw.EventsForTable("payments").OnCreate(GenericCb())
+	FuncFw.EventsForTable("bills").OnUpdate(GenericCb())
+	FuncFw.EventsForTable("payments").OnUpdateIds(GenericCb(), "some-known-id")
+	FuncFw.EventsForTable("bills").OnDeleteIds(GenericCb(), "some-known-id")
+	FuncFw.EventsForTable("payments").OnGetIds(GenericCb(), "some-known-id")
 
 	FuncFw.Export.Http("Method2", "/method2", Method2)
 	FuncFw.Export.Http("Method1", "/method1", Method1)

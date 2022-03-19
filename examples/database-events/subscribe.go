@@ -9,7 +9,7 @@ import (
 
 var toPayment = func(doc store.NatsDoc) model.Payment {
 	m := doc.Document()
-	return m["payment"].(model.Payment)
+	return m[TableName].(model.Payment)
 }
 
 func paymentMade(document store.NatsDoc) {

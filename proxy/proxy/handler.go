@@ -28,6 +28,9 @@ const UrlLookup = "proxy-lookup"
 const HttpProxy = "http-proxy"
 const TracerName = "proxy"
 
+const DefaultRpc = ":9998"
+const DefaultHttp = ":9999"
+
 type handler struct {
 	g               *gin.Engine
 	agent           map[string]transport.AgentWrapper // agentAddr : client
@@ -169,15 +172,8 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 func (h *handler) List(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
 
 	span := trace.SpanFromContext(ctx)
-	//
-	//tr := otel.Tracer("Function list")
-	//ctx, span := tr.Start(ctx, "proxy-list")
 	span.SetAttributes(attribute.Key("entrypoint").String(empty.GetEntrypoint()))
 
-	//defer func() {
-	//	span.End()
-	//}()
-	// ctx = trace.ContextWithSpan(ctx, span)
 	agent, address := h.getFunctionAgent(empty.GetEntrypoint())
 	if agent == nil {
 		span.AddEvent("cannot find agent for" + empty.GetEntrypoint())
@@ -382,12 +378,12 @@ func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h.ready = make(chan string)
 
 	for _, v := range agents {
-		if h.AddAgent(v) {
+		if !h.AddAgent(v) {
 			log.Fatal("Unable to add agent ", v)
 		}
 	}
 
-	gin.SetMode(gin.DebugMode)
+	gin.SetMode(gin.ReleaseMode)
 	h.g = gin.New()
 	h.g.Use(gin.Recovery())
 

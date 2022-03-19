@@ -56,7 +56,6 @@ func setup(atAgent string) registry {
 		*deploy.Function
 	})
 	reg.system = newSystem()
-	reg.Logger.Println("initialised at AgentHandler-", reg)
 	return reg
 
 }
@@ -89,7 +88,7 @@ func (r *registry) stopped(fns []*deploy.Function) []*deploy.Function {
 		os.RemoveAll(r.functions[f.Entrypoint].Dir)
 		os.Remove(r.functions[f.Entrypoint].FilePath)
 
-		fn := &deploy.Function{Entrypoint: f.Entrypoint, Status: "STOPPED", AtAgent: r.address}
+		fn := &deploy.Function{Entrypoint: f.Entrypoint, Status: "STOPPED", AtAgent: r.address, Async: f.GetAsync()}
 
 		delete(r.functions, f.Entrypoint)
 		r.functions[f.Entrypoint] = struct {
@@ -116,6 +115,15 @@ func (r *registry) list(rFn *deploy.Empty) *deploy.DeployResponse {
 	return rsp
 }
 func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
+	for _, rFn := range fns {
+		entryPoint := rFn.Entrypoint
+		uFn := r.functions[entryPoint]
+		if uFn.Status == "" {
+			r.Println(entryPoint, "not uploaded")
+			return nil
+		}
+		//fns[i].FilePath = uFn.FilePath
+	}
 	valid, genFile := astLocalCopy(fns)
 	if !valid {
 		r.Println("invalid file ")
@@ -143,6 +151,7 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 			ProxyServiceAddr: "http://" + hn + ":" + port,
 			Url:              "http://" + hn + ":" + port + "/" + strings.ToLower(entryPoint),
 			Status:           "DEPLOYING",
+			Async:            uFn.GetAsync(),
 		})
 		r.functions[entryPoint] = struct {
 			port string

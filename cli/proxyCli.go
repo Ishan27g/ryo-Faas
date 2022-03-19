@@ -11,6 +11,7 @@ import (
 
 	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
+	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
 	"github.com/urfave/cli/v2"
@@ -23,12 +24,13 @@ type definition struct {
 		Name       string `json:"name"`
 		FilePath   string `json:"filePath"`
 		PackageDir string `json:"packageDir"`
+		Async      bool   `json:"Async"`
 	} `json:"deploy"`
 }
 
 var getProxy = func() transport.AgentWrapper {
 	if proxyAddress == "" {
-		proxyAddress = ":9019"
+		proxyAddress = proxy.DefaultRpc
 	}
 	return transport.ProxyGrpcClient(proxyAddress)
 }
@@ -62,7 +64,7 @@ func printResonse(response *deploy.DeployResponse) {
 
 // localhost:9000
 func sendHttp(url, agentAddr string) []byte {
-	var proxyHttpAddr = "localhost:9999"
+	var proxyHttpAddr = proxy.DefaultHttp
 	resp, err := http.Get("http://" + proxyHttpAddr + url + agentAddr)
 	if err != nil {
 		log.Fatal(err)
@@ -99,6 +101,7 @@ var deployCmd = cli.Command{
 				Entrypoint: s.Name,
 				FilePath:   s.FilePath,
 				Dir:        s.PackageDir,
+				Async:      s.Async,
 			})
 		}
 		deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: fns})

@@ -32,6 +32,6 @@ func main() {
 		Server   interface{}
 	}{IsDeploy: true, Server: agent}, rpcAddr, nil, "").Start()
 
-	agent.Println(*agent)
+	//agent.Println(*agent)
 	<-make(chan bool)
 }

@@ -9,13 +9,11 @@ import (
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 )
 
-var DefaultRpc = ":9001"
-var DefaultHttp = ":9002"
 var host = "localhost"
 
 // Optional flags to change ports
-var httpPort = flag.String("http", DefaultHttp, "http port")
-var grpcPort = flag.String("rpc", DefaultRpc, "rpc port")
+var httpPort = flag.String("http", proxy.DefaultHttp, "http port")
+var grpcPort = flag.String("rpc", proxy.DefaultRpc, "rpc port")
 
 var agents = flag.String("agents", "", "agent address's")
 

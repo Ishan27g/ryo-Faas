@@ -27,7 +27,7 @@ func Start(port string) {
 		if database.Connect(databaseAddress) == nil {
 			log.Fatal("Store: Cannot connect to database")
 		}
-		if !Export.storeEvents.Apply() {
+		if !ApplyEvents() {
 			log.Fatal("Store: Unable to aplly event cbs")
 		}
 	}

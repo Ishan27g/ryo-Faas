@@ -1,24 +1,49 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/Ishan27g/ryo-Faas/examples/database-events/controller"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
+	"github.com/Ishan27g/ryo-Faas/store"
 )
 
+const TableName = "payments"
+
+// MakePayment creates random payment and adds to `payments` table in the db
+func MakePayment(w http.ResponseWriter, r *http.Request) {
+	// create random payment
+	payment := controller.RandomPayment()
+	// add to database
+	_ = store.Get(TableName).Create(payment.Id, payment.Marshal())
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprint(w, "Made payment:"+fmt.Sprintf("%v", payment)+"\n")
+}
+
+// GetPayments return all entries from the `payments` table in the db
+func GetPayments(w http.ResponseWriter, r *http.Request) {
+	// retrieve from db
+	docs := store.Get(TableName).Get()
+	for _, doc := range docs {
+		(*doc).Print()
+	}
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprint(w, "All payments:"+fmt.Sprintf("%v", (*docs[0]).Document())+"\n")
+}
 func main() {
 
 	FuncFw.Export.Http("MakePayment", "/pay", MakePayment)
-	FuncFw.Export.Http("GetPayment", "/get", GetPayment)
+	FuncFw.Export.Http("GetPayment", "/get", GetPayments)
 
-	//FuncFw.Export.Events(FuncFw.StoreEvents{
-	//	OnCreate: FuncFw.Events{paymentMade},
-	//	OnGet:    FuncFw.Events{paymentsRetrieved},
-	//	OnUpdate: FuncFw.Events{paymentsUpdated},
-	//	OnDelete: FuncFw.Events{paymentsDeleted},
-	//})
+	// register functions that subscribe to respective queries to the `payments` table
+	FuncFw.EventsForTable("payments").OnCreate(paymentMade)
+	FuncFw.EventsForTable("payments").OnGet(paymentsRetrieved)
+	// or subscribe to respective queries for a specific documents in the table
+	FuncFw.EventsForTable("payments").OnUpdateIds(paymentsRetrieved, "some-known-id")
 
 	FuncFw.Start("9999")
 

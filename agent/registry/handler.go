@@ -32,7 +32,7 @@ var pathToDeployment = path() + registryDir + FnFw
 var PathToFns = pathToDeployment + "functions/"
 
 var getGenFilePath = func(fileName string) string {
-	return PathToFns + strings.ToLower(fileName) + "_generated.go"
+	return PathToFns + strings.ToLower(fileName) + "_generated" + time.Now().String() + ".go"
 }
 var modFile = func() string {
 	return path() + registryDir + "/template/template.go"
@@ -161,13 +161,12 @@ func (a *AgentHandler) Logs(ctx context.Context, function *deploy.Function) (*de
 func Init(rpcAddress string) *AgentHandler {
 	// pathToFnFw = defaultPath()
 
-	fmt.Println(rpcAddress)
 	agent := new(AgentHandler)
 	agent.registry = new(registry)
 	agent.address = rpcAddress
 	agent.Logger = log.New(os.Stdout, "[AGENT-HANDLER]", log.Ltime)
 	*agent.registry = setup(rpcAddress)
-	agent.Println("AgentInterface configured at ", agent.address)
+	os.RemoveAll(PathToFns)
 	os.MkdirAll(PathToFns, os.ModePerm)
 
 	return agent

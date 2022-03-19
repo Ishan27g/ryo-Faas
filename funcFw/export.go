@@ -26,13 +26,9 @@ type HttpFunction struct {
 type funcFw struct {
 	httpFns     map[string]*HttpFunction
 	httpAsync   map[string]*HttpAsync
-	storeEvents *StoreEvents
+	storeEvents map[string]StoreEventsI
 }
 
-func (f funcFw) Events(s StoreEvents) {
-	f.storeEvents = new(StoreEvents)
-	f.storeEvents = &s
-}
 func (f funcFw) Http(entrypoint, url string, fn HttpFn) {
 	f.httpFns[entrypoint] = &HttpFunction{
 		Entrypoint: entrypoint,
