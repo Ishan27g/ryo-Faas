@@ -16,10 +16,10 @@ func (d *store) onNatsMsg(msg *nats.Msg, do EventCb) {
 	// subject.table.id
 	subJ := strings.Split(".", msg.Subject) // todo strings.Trim(subj.DataId)
 	var docData map[string]interface{}      // map[id]:data
-	var document NatsDoc
+	var document Doc
 	err := json.Unmarshal(msg.Data, &docData)
 	if err == nil {
-		document = FromJson(subJ[1], docData)
+		//		document = database.FromJson(subJ[1], docData)
 	} else {
 		// if not be able to convert nats msg , go to db
 		fmt.Println("json.Unmarshal", err.Error())
@@ -27,7 +27,7 @@ func (d *store) onNatsMsg(msg *nats.Msg, do EventCb) {
 			fmt.Println("dbClient.Get: ", subJ[2]+" not found")
 			return
 		} else {
-			document = *doc[0]
+			document = doc[0]
 		}
 	}
 	do(document)

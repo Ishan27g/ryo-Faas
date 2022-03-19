@@ -5,6 +5,7 @@ import (
 	"log"
 
 	database "github.com/Ishan27g/ryo-Faas/database/client"
+	db "github.com/Ishan27g/ryo-Faas/database/db"
 )
 
 var (
@@ -20,14 +21,14 @@ const (
 	DocumentDELETE string = "delete"
 )
 
-type EventCb func(document NatsDoc)
-
+type EventCb func(document Doc)
+type Doc db.Entity
 type DocStore interface {
 	// publish
 
 	Create(id string, data map[string]interface{}) string
 	Update(id string, data map[string]interface{}) bool
-	Get(id ...string) []*NatsDoc
+	Get(id ...string) []Doc
 	Delete(id ...string) bool
 
 	// subscribe
@@ -44,7 +45,7 @@ type DocStore interface {
 
 type store struct {
 	table    string
-	new      func(table, id string, data map[string]interface{}) NatsDoc
+	new      func(table, id string, data map[string]interface{}) db.NatsDoc
 	dbClient database.Client
 }
 
@@ -56,7 +57,7 @@ func new(table string) DocStore {
 	if table == "" {
 		table = defaultTable
 	}
-	documents[table] = &store{table: table, new: NewDocument, dbClient: dbClient}
+	documents[table] = &store{table: table, new: db.NewDocument, dbClient: dbClient}
 
 	return documents[table]
 }

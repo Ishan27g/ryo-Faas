@@ -15,6 +15,7 @@ import (
 	client "github.com/Ishan27g/ryo-Faas/database/client"
 	database "github.com/Ishan27g/ryo-Faas/database/db"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
+	"github.com/Ishan27g/ryo-Faas/store"
 
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/gin-gonic/gin"
@@ -48,7 +49,7 @@ func Test_Grpc(t *testing.T) {
 	}{IsDeploy: false, Server: &handler.Rpc}, ":5001", nil, "").Start()
 
 	<-time.After(5 * time.Second)
-	
+
 	c := client.Connect("localhost:5001")
 
 	d, err := json.Marshal(table1["Data"])
@@ -59,15 +60,14 @@ func Test_Grpc(t *testing.T) {
 	assert.NoError(t, err)
 
 	doc, err := c.Get(ctx, &deploy.Ids{Id: id.Id})
-	for _, d := range doc.Document {
-		assert.Equal(t, docId, d.GetId())
-		returnedData := make(map[string]interface{})
-		err = json.Unmarshal(d.Data, &returnedData)
-		da := returnedData["Value"].(map[string]interface{})
 
-		assert.NotNil(t, da[docId].(map[string]interface{})["Num"])
-		assert.NotNil(t, da[docId].(map[string]interface{})["From"])
-		assert.NotNil(t, da[docId].(map[string]interface{})["To"])
+	docs := store.ToDocs(doc, "Table")
+
+	for _, d := range docs {
+		assert.Equal(t, docId, d.Id)
+		assert.NotNil(t, d.Data.Value["Num"])
+		assert.NotNil(t, d.Data.Value["From"])
+		assert.NotNil(t, d.Data.Value["To"])
 	}
 
 	deletedIds, err := c.Delete(ctx, &deploy.Ids{Id: id.Id})

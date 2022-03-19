@@ -26,9 +26,9 @@ func Method1(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Accepted at method 1 ..."+"\n")
 }
 
-func GenericCb() func(document store.NatsDoc) {
-	return func(document store.NatsDoc) {
-		fmt.Println(document.Table() + " " + document.Id() + " ---- at GenericCb()")
+func GenericCb() func(document store.Doc) {
+	return func(document store.Doc) {
+		fmt.Println(document.CreatedAt + " " + document.Id + " ---- at GenericCb()")
 		// ...
 	}
 }

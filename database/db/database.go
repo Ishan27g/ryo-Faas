@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
-	"github.com/Ishan27g/ryo-Faas/store"
 	"github.com/Ishan27g/ryo-Faas/types"
 	"github.com/hashicorp/go-hclog"
 	db "github.com/sonyarouje/simdb"
@@ -23,8 +22,8 @@ var databaseStore = dbStore{
 
 // Simple Json Database over grpc
 type Database interface {
-	New(doc store.NatsDoc)
-	Update(doc store.NatsDoc)
+	New(doc NatsDoc)
+	Update(doc NatsDoc)
 	Delete(id string)
 	Get(id string) *Entity
 	All() []*Entity
@@ -59,11 +58,11 @@ func GetDatabase() Database {
 	return &databaseStore
 }
 
-func toEntity(doc store.NatsDoc) Entity {
+func toEntity(doc NatsDoc) Entity {
 	return Entity{
 		Id:        doc.Id(),
-		CreatedAt: time.Time{},
-		EditedAt:  time.Time{},
+		CreatedAt: "",
+		EditedAt:  "",
 		Data:      Data{Value: doc.Document()},
 	}
 }
@@ -75,13 +74,13 @@ func (d *dbStore) getDriver(table string) *db.Driver {
 	}
 	return d.driver[table]
 }
-func (d *dbStore) New(doc store.NatsDoc) {
+func (d *dbStore) New(doc NatsDoc) {
 	d.Lock()
 	defer d.Unlock()
 
 	entity := toEntity(doc)
-	entity.CreatedAt = time.Now()
-	entity.EditedAt = time.Now()
+	entity.CreatedAt = time.Now().String()
+	entity.EditedAt = time.Now().String()
 
 	err := d.getDriver(doc.Table()).Insert(entity)
 	if err != nil {
@@ -91,7 +90,7 @@ func (d *dbStore) New(doc store.NatsDoc) {
 	fmt.Println("Added", doc.Id(), " to", doc.Table())
 }
 
-func (d *dbStore) Update(doc store.NatsDoc) {
+func (d *dbStore) Update(doc NatsDoc) {
 
 	var existing *Entity
 	if existing = d.Get(doc.Id()); existing == nil {
@@ -103,7 +102,7 @@ func (d *dbStore) Update(doc store.NatsDoc) {
 	defer d.Unlock()
 
 	entity := toEntity(doc)
-	entity.EditedAt = time.Now()
+	entity.EditedAt = time.Now().String()
 	entity.CreatedAt = existing.CreatedAt
 
 	// for k, v := range existing.Data.Value {

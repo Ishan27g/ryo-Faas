@@ -1,4 +1,4 @@
-package store
+package database
 
 import (
 	"fmt"
@@ -50,9 +50,9 @@ func (d *natsDoc) Print() {
 	fmt.Println(d.Id(), fmt.Sprintf("%v", d.data))
 }
 func (d *natsDoc) Document() map[string]interface{} {
-	m := make(map[string]interface{})
-	m[d.id] = d.data
-	return m
+	//m := make(map[string]interface{})
+	//m[d.id] = d.data
+	return d.data
 }
 
 func (d *natsDoc) DocumentString() string {

@@ -7,32 +7,28 @@ import (
 	"github.com/Ishan27g/ryo-Faas/store"
 )
 
-var toPayment = func(doc store.NatsDoc) model.Payment {
-	m := doc.Document()
-	return m[TableName].(model.Payment)
+var toPayment = func(doc store.Doc) model.Payment {
+	m := doc.Data.Value["Value"]
+	return m.(model.Payment)
 }
 
-func paymentMade(document store.NatsDoc) {
+func paymentMade(document store.Doc) {
 	fmt.Println("Document.OnCreate")
-	document.Print()
 	payment := toPayment(document)
 	fmt.Println("New payment:", payment)
 }
-func paymentsRetrieved(document store.NatsDoc) {
+func paymentsRetrieved(document store.Doc) {
 	fmt.Println("Document.OnGet")
-	document.Print()
 	payment := toPayment(document)
 	fmt.Println("Retrived payment:", payment)
 }
-func paymentsUpdated(document store.NatsDoc) {
+func paymentsUpdated(document store.Doc) {
 	fmt.Println("Document.OnUpdate")
-	document.Print()
 	payment := toPayment(document)
 	fmt.Println("Updated payment:", payment)
 }
-func paymentsDeleted(document store.NatsDoc) {
+func paymentsDeleted(document store.Doc) {
 	fmt.Println("Document.OnDelete")
-	document.Print()
 	payment := toPayment(document)
 	fmt.Println("Deleted payment:", payment)
 }

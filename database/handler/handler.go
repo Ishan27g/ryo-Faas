@@ -8,7 +8,6 @@ import (
 
 	database "github.com/Ishan27g/ryo-Faas/database/db"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
-	"github.com/Ishan27g/ryo-Faas/store"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
@@ -21,17 +20,17 @@ type handle struct {
 }
 type rpc struct{}
 
-func toStoreDoc(document *deploy.Document) store.NatsDoc {
+func toStoreDoc(document *deploy.Document) database.NatsDoc {
 	data := make(map[string]interface{})
 	err := json.Unmarshal(document.Data, &data)
 	if err != nil {
 		fmt.Println("toStoreDoc", err.Error())
 		return nil
 	}
-	return store.NewDocument(document.Table, document.Id, data)
+	return database.NewDocument(document.Table, document.Id, data)
 }
 
-func (d *rpc) forEachDoc(documents *deploy.Documents, cb func(data store.NatsDoc)) (*deploy.Ids, error) {
+func (d *rpc) forEachDoc(documents *deploy.Documents, cb func(data database.NatsDoc)) (*deploy.Ids, error) {
 	var ids = new(deploy.Ids)
 	var err error
 	for _, document := range documents.Document {
@@ -45,13 +44,13 @@ func (d *rpc) forEachDoc(documents *deploy.Documents, cb func(data store.NatsDoc
 	return ids, nil
 }
 func (d *rpc) New(ctx context.Context, documents *deploy.Documents) (*deploy.Ids, error) {
-	return d.forEachDoc(documents, func(doc store.NatsDoc) {
+	return d.forEachDoc(documents, func(doc database.NatsDoc) {
 		db.New(doc)
 	})
 }
 
 func (d *rpc) Update(ctx context.Context, documents *deploy.Documents) (*deploy.Ids, error) {
-	return d.forEachDoc(documents, func(doc store.NatsDoc) {
+	return d.forEachDoc(documents, func(doc database.NatsDoc) {
 		db.Update(doc)
 	})
 }
@@ -63,7 +62,7 @@ func (d *rpc) Get(ctx context.Context, ids *deploy.Ids) (*deploy.Documents, erro
 	var documents []*deploy.Document
 	for _, id := range ids.Id {
 		if entity := db.Get(id); entity != nil {
-			data, _ := json.Marshal(entity.Data)
+			data, _ := json.Marshal(entity)
 			documents = append(documents, &deploy.Document{
 				Id:   entity.Id,
 				Data: data,
@@ -83,7 +82,7 @@ func (d *rpc) Delete(ctx context.Context, ids *deploy.Ids) (*deploy.Ids, error) 
 func (d *rpc) All(ctx context.Context, ids *deploy.Ids) (*deploy.Documents, error) {
 	var documents []*deploy.Document
 	for _, entity := range db.All() {
-		data, _ := json.Marshal(entity.Data)
+		data, _ := json.Marshal(*entity)
 		documents = append(documents, &deploy.Document{
 			Id:   entity.Id,
 			Data: data,
@@ -175,14 +174,14 @@ type Document struct {
 	Data  map[string]interface{} `json:"Data"`
 }
 
-func (*handle) isValid(c *gin.Context, id ...string) (store.NatsDoc, bool) {
+func (*handle) isValid(c *gin.Context, id ...string) (database.NatsDoc, bool) {
 	var data Document
 	err := c.ShouldBindJSON(&data)
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, false
 	}
-	doc := store.FromJson(data.Table, data.Data, id...)
+	doc := database.FromJson(data.Table, data.Data, id...)
 	return doc, true
 }
 func GetHandler() handle {

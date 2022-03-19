@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/Ishan27g/ryo-Faas/examples/database-events/controller"
+	"github.com/Ishan27g/ryo-Faas/examples/database-events/model"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/store"
 )
@@ -29,10 +30,11 @@ func GetPayments(w http.ResponseWriter, r *http.Request) {
 	// retrieve from db
 	docs := store.Get(TableName).Get()
 	for _, doc := range docs {
-		(*doc).Print()
+		v := doc.Data.Value
+		fmt.Println(v["Value"].(model.Payment))
 	}
 	w.WriteHeader(http.StatusAccepted)
-	fmt.Fprint(w, "All payments:"+fmt.Sprintf("%v", (*docs[0]).Document())+"\n")
+	fmt.Fprint(w, "All payments:"+fmt.Sprintf("%v", docs))
 }
 func main() {
 
