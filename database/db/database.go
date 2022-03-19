@@ -141,6 +141,7 @@ func (d *dbStore) get(id string) Entity {
 	} else {
 		fmt.Println("Table not found for ", id)
 	}
+	fmt.Println("Found", entity)
 	return entity
 }
 
