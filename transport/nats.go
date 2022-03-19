@@ -12,16 +12,11 @@ import (
 )
 
 const (
-	DocumentCREATE string = "new"
-	DocumentUPDATE string = "update"
-	DocumentGET    string = "get"
-	DocumentDELETE string = "delete"
-
 	HttpAsync string = "httpAsync"
 )
 
 var opts []nats.Option
-var urls = nats.DefaultURL
+var urls = "nats://localhost:4222"
 var showTime = false
 
 var subjects map[string]*subjectMeta
@@ -46,7 +41,7 @@ func printMsg(m *nats.Msg, i int) {
 	log.Printf("[#%d] Received on [%s]: '%s'", i, m.Subject, string(m.Data))
 }
 func setupConnOptions(opts []nats.Option) []nats.Option {
-	totalWait := 10 * time.Minute
+	totalWait := 10 * time.Second
 	reconnectDelay := time.Second
 
 	opts = append(opts, nats.ReconnectWait(reconnectDelay))
@@ -74,7 +69,8 @@ func init() {
 
 func sub(subj string, cb func(msg *nats.Msg)) {
 	// Connect to NATS
-	nc, err := nats.Connect(urls, opts...)
+	// nc, err := nats.Connect(urls, opts...)
+	nc, err := nats.Connect(nats.DefaultURL)
 	if err != nil {
 		log.Println(err)
 		return
@@ -111,7 +107,7 @@ func NatsSubscribe(subj string, cb func(msg *nats.Msg)) {
 	sub(subj, cb)
 }
 func NatsPublish(subj string, msg string, reply *string) bool {
-	nc, err := nats.Connect(urls, opts...)
+	nc, err := nats.Connect(nats.DefaultURL)
 	if err != nil {
 		log.Println(err)
 		return false
@@ -147,7 +143,15 @@ func NatsPublish(subj string, msg string, reply *string) bool {
 	}
 	return true
 }
-func NatsPublishJson(subj string, msg interface{}, reply *string) bool {
+
+type AsyncNats struct {
+	Callback   string
+	Entrypoint string
+	Req        []byte
+	// HttpFunction
+}
+
+func NatsPublishJson(subj string, msg AsyncNats, reply *string) bool {
 	nc, err := nats.Connect(urls, opts...)
 	if err != nil {
 		log.Println(err)
@@ -187,7 +191,7 @@ func NatsPublishJson(subj string, msg interface{}, reply *string) bool {
 	return true
 }
 
-func NatsSubscribeJson(subj string, cb func(msg interface{})) {
+func NatsSubscribeJson(subj string, cb func(msg *AsyncNats)) {
 	if subjects[subj] == nil {
 		subjects[subj] = &subjectMeta{subjectName: subj, docId: ""}
 	}
@@ -212,7 +216,7 @@ func NatsSubscribeJson(subj string, cb func(msg interface{})) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	if _, err := ec.Subscribe("updates", func(s interface{}) {
+	if _, err := ec.Subscribe(subj, func(s *AsyncNats) {
 		cb(s)
 		wg.Done()
 	}); err != nil {
@@ -222,7 +226,7 @@ func NatsSubscribeJson(subj string, cb func(msg interface{})) {
 	// Wait for a message to come in
 	wg.Wait()
 
-	if err := nc.LastError(); err != nil {
+	if err := ec.LastError(); err != nil {
 		log.Fatal(err)
 	}
 

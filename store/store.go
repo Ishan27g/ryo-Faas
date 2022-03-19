@@ -13,6 +13,13 @@ var (
 	documents       = make(map[string]DocStore) // per table
 )
 
+const (
+	DocumentCREATE string = "new"
+	DocumentUPDATE string = "update"
+	DocumentGET    string = "get"
+	DocumentDELETE string = "delete"
+)
+
 type EventCb func(document NatsDoc)
 
 type DocStore interface {
@@ -25,12 +32,14 @@ type DocStore interface {
 
 	// subscribe
 
-	OnCreate(do EventCb)
-	OnUpdate(do EventCb, ids ...string) // subscribe to all ids if nil
-	OnDelete(do EventCb, ids ...string) // subscribe to all ids if nil
-	OnGet(do EventCb, ids ...string)    // subscribe to all ids if nil
+	// OnCreate(do EventCb)
+	// OnUpdate(do EventCb, ids ...string) // subscribe to all ids if nil
+	// OnDelete(do EventCb, ids ...string) // subscribe to all ids if nil
+	// OnGet(do EventCb, ids ...string)    // subscribe to all ids if nil
 
-	On(subjId string, do EventCb)
+	On(eventType string, do EventCb, ids ...string) (ok bool) // subscribe to all ids if nil
+
+	//	On(subjId string, do EventCb)
 }
 
 type store struct {
@@ -71,33 +80,33 @@ func ok() {
 	}
 
 	// subscribe event functions for this document
-	go func() {
-		go func() {
-			docStore.OnCreate(func(document NatsDoc) {
-				fmt.Println("New payment ")
-				document.Print()
-			})
-		}()
-		go func() {
-			docStore.OnGet(func(document NatsDoc) {
-				fmt.Println("Retrived payment ")
-				document.Print()
-			})
-		}()
-		go func() {
-			docStore.OnUpdate(func(document NatsDoc) {
-				fmt.Println("Updated payment ")
-				document.Print()
-			})
-		}()
-		go func() {
-			docStore.OnDelete(func(document NatsDoc) {
-				fmt.Println("Deleted payment ")
-				document.Print()
-			})
-		}()
+	// go func() {
+	// 	go func() {
+	// 		docStore.OnCreate(func(document NatsDoc) {
+	// 			fmt.Println("New payment ")
+	// 			document.Print()
+	// 		})
+	// 	}()
+	// 	go func() {
+	// 		docStore.OnGet(func(document NatsDoc) {
+	// 			fmt.Println("Retrived payment ")
+	// 			document.Print()
+	// 		})
+	// 	}()
+	// 	go func() {
+	// 		docStore.OnUpdate(func(document NatsDoc) {
+	// 			fmt.Println("Updated payment ")
+	// 			document.Print()
+	// 		})
+	// 	}()
+	// 	go func() {
+	// 		docStore.OnDelete(func(document NatsDoc) {
+	// 			fmt.Println("Deleted payment ")
+	// 			document.Print()
+	// 		})
+	// 	}()
 
-	}()
+	// }()
 
 	// add a new `payment` to the db
 	id := docStore.Create("", data)

@@ -72,7 +72,7 @@ func TestList(t *testing.T) {
 		{
 			dir:        "../examples/async",
 			filepath:   "../examples/async/main.go",
-			entrypoint: "Async",
+			entrypoint: "MethodAsync",
 			isAsync:    true,
 		},
 	}
@@ -102,12 +102,15 @@ func TestList(t *testing.T) {
 	for _, e := range exports {
 		list, err := c.List(ctx, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: e.entrypoint}})
 		assert.NoError(t, err)
-		assert.Equal(t, "DEPLOYED", list.Functions[0].Status)
 		printJson(list)
-		// for _, function := range list.Functions {
-		// 	if e.entrypoint == function.Entrypoint {
-		// 		os.RemoveAll(function.Dir)
-		// 	}
-		// }
+		assert.Equal(t, "DEPLOYED", list.Functions[0].Status)
+		stop, err := c.Stop(ctx, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: e.entrypoint}})
+		assert.Equal(t, "STOPPED", stop.Functions[0].Status)
+		printJson(stop)
+		for _, function := range list.Functions {
+			if e.entrypoint == function.Entrypoint {
+				os.RemoveAll(function.Dir)
+			}
+		}
 	}
 }

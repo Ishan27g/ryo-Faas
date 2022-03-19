@@ -25,8 +25,10 @@ import (
 
 // init definition gets generated
 func init() {
-    FuncFw.Export.Http("Method2", "/method2", method2.Method2)
+	// http 
     FuncFw.Export.Http("Method1", "/method1", method1.Method1)
+	// async http
+	FuncFw.Export.HttpAsync("Async", "/async", method2.Method2)
 }
 
 func main() {

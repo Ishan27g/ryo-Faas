@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -8,9 +9,6 @@ import (
 )
 
 func TestAstGen(t *testing.T) {
-
-	pathToDeployment = path() + FnFw
-
 	var exports = []function{
 		{
 			pkgName:    "method1",
@@ -28,6 +26,11 @@ func TestAstGen(t *testing.T) {
 	modFile = func() string {
 		return path() + "/template/template.go"
 	}
+	os.MkdirAll(PathToFns, os.ModePerm)
+
+	fmt.Println("pathToDeployment", pathToDeployment)
+	fmt.Println("PathToFns", PathToFns)
+	fmt.Println("modFile", modFile())
 
 	dotGo, err := rewriteDeployDotGo(exports...)
 	assert.NoError(t, err)

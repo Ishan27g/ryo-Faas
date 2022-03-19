@@ -40,10 +40,13 @@ func main() {
 	FuncFw.Export.Http("GetPayment", "/get", GetPayments)
 
 	// register functions that subscribe to respective queries to the `payments` table
-	FuncFw.EventsForTable("payments").OnCreate(paymentMade)
-	FuncFw.EventsForTable("payments").OnGet(paymentsRetrieved)
+	FuncFw.Export.EventsFor("payments").On(store.DocumentCREATE, paymentMade)
+	FuncFw.Export.EventsFor("payments").On(store.DocumentGET, paymentsRetrieved)
+	FuncFw.Export.EventsFor("payments").On(store.DocumentDELETE, paymentsDeleted)
+
 	// or subscribe to respective queries for a specific documents in the table
-	FuncFw.EventsForTable("payments").OnUpdateIds(paymentsRetrieved, "some-known-id")
+	FuncFw.Export.EventsFor("payments").OnIds(store.DocumentUPDATE, paymentsUpdated,
+		"some-known-id", "another-known-id")
 
 	FuncFw.Start("9999")
 

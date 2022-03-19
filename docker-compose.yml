@@ -56,14 +56,15 @@ services:
 
   nats:
       image: nats
-      container_name: cloud-nats
-      hostname: cloud-nats
+#      container_name: cloud-nats
+#      hostname: cloud-nats
       ports:
-        - "8222:8222"
+        - "127.0.0.1:4222:4222"
+        - "127.0.0.1:8222:8222"
       networks:
         faas_nw:
-      depends_on:
-        - proxy
+#      depends_on:
+#        - proxy
 
   jaeger:
       container_name: cloud-jaeger

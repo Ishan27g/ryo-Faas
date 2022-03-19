@@ -20,6 +20,7 @@ import (
 
 var httpFn = "FuncFw.Export.Http"
 var httpAsyncFn = "FuncFw.Export.HttpAsync"
+var httpNatsAsyncFn = "FuncFw.Export.NatsAsync" // todo with Pxy{}
 
 func astLocalCopy(fns []*deploy.Function) (bool, string) {
 	var deployments []function
@@ -71,6 +72,8 @@ func validate(fileName, entrypoint string) bool {
 					valid = true
 				}
 			}
+			// returns := ret.Type.Results.List
+			// returns[0].Names[0]
 		}
 		return true
 	})
@@ -195,7 +198,11 @@ func rewriteDeployDotGo(fns ...function) (string, error) {
 	}
 	out := buffer.Bytes()
 	genFile = getGenFilePath("exported-function")
-	os.Create(genFile)
+	_, err = os.Create(genFile)
+	if err != nil {
+		log.Println("cant create", err.Error())
+		return "", err
+	}
 	err = ioutil.WriteFile(genFile, out, os.ModePerm)
 	if err != nil {
 		log.Println(err)

@@ -25,7 +25,7 @@ func Method1(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	fmt.Fprint(w, "Accepted at method 1 ..."+"\n")
 }
- 
+
 func GenericCb() func(document store.NatsDoc) {
 	return func(document store.NatsDoc) {
 		fmt.Println(document.Table() + " " + document.Id() + " ---- at GenericCb()")
@@ -34,16 +34,18 @@ func GenericCb() func(document store.NatsDoc) {
 }
 func main() {
 
-	FuncFw.EventsForTable("payments").OnCreate(GenericCb())
-	FuncFw.EventsForTable("bills").OnUpdate(GenericCb())
-	FuncFw.EventsForTable("payments").OnUpdateIds(GenericCb(), "some-known-id")
-	FuncFw.EventsForTable("bills").OnDeleteIds(GenericCb(), "some-known-id")
-	FuncFw.EventsForTable("payments").OnGetIds(GenericCb(), "some-known-id")
-
 	FuncFw.Export.Http("Method2", "/method2", Method2)
 	FuncFw.Export.Http("Method1", "/method1", Method1)
 
-	FuncFw.Export.HttpAsync("TodoAsync", "/todoAsync", Method3)
+	FuncFw.Export.HttpAsync("Async", "/async", Method3)
+
+	FuncFw.Export.NatsAsync("AsyncNats", "/asyncNats", Method3)
+
+	FuncFw.Export.EventsFor("payments").On(store.DocumentCREATE, GenericCb())
+	FuncFw.Export.EventsFor("bills").On(store.DocumentCREATE, GenericCb())
+	FuncFw.Export.EventsFor("payments").OnIds(store.DocumentGET, GenericCb(), "some-known-id")
+	FuncFw.Export.EventsFor("bills").OnIds(store.DocumentGET, GenericCb(), "some-known-id")
+	FuncFw.Export.EventsFor("payments").OnIds(store.DocumentUPDATE, GenericCb(), "some-known-id")
 
 	FuncFw.Start("9999")
 

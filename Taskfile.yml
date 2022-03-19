@@ -6,6 +6,7 @@ tasks:
     cmds:
       - rm -rf ./agent/registry/deploy/
       - rm -rf ./database/handler/ok*
+      # - ps -aef | grep generated2022 | awk '{print $2}'|xargs kill -9
   test:
     cmds:
       - defer: { task: testCleanup }

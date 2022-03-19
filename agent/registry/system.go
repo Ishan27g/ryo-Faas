@@ -22,10 +22,8 @@ type system struct {
 	process map[string]*shell
 }
 
-func (s *system) run(fns []*deploy.Function, port string) bool {
+func (s *system) run(fn *deploy.Function, port string) bool {
 	var runs []string
-	fn := fns[0]
-	// for _, fn := range fns {
 	s.process[fn.Entrypoint] = newShell(fn.GetEntrypoint())
 	if !s.process[fn.Entrypoint].run(fn.FilePath, fn.Entrypoint, port) {
 		for _, name := range runs {
@@ -33,7 +31,6 @@ func (s *system) run(fns []*deploy.Function, port string) bool {
 		}
 	} else {
 		runs = append(runs, fn.Entrypoint)
-
 	}
 	return len(runs) != 0
 }

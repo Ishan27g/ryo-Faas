@@ -50,7 +50,7 @@ func (d *store) Create(id string, data map[string]interface{}) string {
 	if ids.Id[0] != doc.Id() {
 		fmt.Println("who dun it")
 	}
-	if publish(transport.DocumentCREATE+d.natsSub(doc.Id()), doc.DocumentString()) { // map[id]:data
+	if publish(DocumentCREATE+d.natsSub(doc.Id()), doc.DocumentString()) { // map[id]:data
 		return ids.Id[0]
 	}
 	return ""
@@ -75,7 +75,7 @@ func (d *store) Update(id string, data map[string]interface{}) bool {
 		fmt.Println("store.Update()", err.Error())
 		return false
 	}
-	return publish(transport.DocumentUPDATE+d.natsSub(id), document.DocumentString())
+	return publish(DocumentUPDATE+d.natsSub(id), document.DocumentString())
 
 }
 
@@ -98,7 +98,7 @@ func (d *store) Get(ids ...string) []*NatsDoc {
 		}
 		doc := NewDocument(d.table, document.Id, data)
 		docs = append(docs, &doc)
-		go publish(transport.DocumentGET+d.natsSub(doc.Id()), doc.DocumentString())
+		go publish(DocumentGET+d.natsSub(doc.Id()), doc.DocumentString())
 	}
 	return docs
 }

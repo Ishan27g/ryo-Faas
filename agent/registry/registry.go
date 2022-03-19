@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 )
@@ -71,14 +73,14 @@ func (r *registry) nextPort() string {
 	}
 	return ""
 }
-func (r *registry) deployed(fns []*deploy.Function) {
+func (r *registry) deployed(fns ...*deploy.Function) {
 	for _, f := range fns {
 		fn := r.functions[f.Entrypoint]
 		fn.Status = "DEPLOYED"
 		r.functions[fn.Entrypoint] = fn
 	}
 }
-func (r *registry) stopped(fns []*deploy.Function) []*deploy.Function {
+func (r *registry) stopped(fns ...*deploy.Function) []*deploy.Function {
 	var rsp []*deploy.Function
 	for _, f := range fns {
 		r.system.stop(f.Entrypoint)
@@ -96,7 +98,7 @@ func (r *registry) stopped(fns []*deploy.Function) []*deploy.Function {
 			*deploy.Function
 		}{"", fn}
 
-		rsp = append(rsp, f)
+		rsp = append(rsp, fn)
 	}
 
 	return rsp
@@ -122,7 +124,6 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 			r.Println(entryPoint, "not uploaded")
 			return nil
 		}
-		//fns[i].FilePath = uFn.FilePath
 	}
 	valid, genFile := astLocalCopy(fns)
 	if !valid {
@@ -157,19 +158,41 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 			port string
 			*deploy.Function
 		}{port, registered[i]}
-	}
 
+	}
 	go func() {
-		if r.system.run(registered, port) {
-			r.deployed(registered)
+		// run functions as one process
+		if r.system.run(registered[0], port) {
+			r.deployed(registered...)
 		} else {
-			r.stopped(registered)
+			r.stopped(registered...)
 		}
 	}()
-	r.Println("DEPLOYED", prettyJson(registered))
+	<-time.After(3 * time.Second)
+	for _, fn := range registered {
+		if checkHealth(fn.ProxyServiceAddr) {
+			r.deployed(fn)
+		} else {
+			r.stopped(fn)
+		}
+	}
+	registered = nil
+	for _, fn := range r.functions {
+		registered = append(registered, fn.Function)
+		// if fn.Async{
+		// 	FuncFw.NewNatsAsync(fn.Entrypoint, fn.Url, )
+		// }
+	}
+	r.Println("Deploy response", prettyJson(registered))
 	return registered
 }
-
+func checkHealth(addr string) bool {
+	resp, err := http.Get(addr + "/healthcheck")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return resp.StatusCode == http.StatusOK
+}
 func (r *registry) upload(entrypoint string, dir string) {
 	registered := &deploy.Function{
 		Entrypoint: entrypoint,

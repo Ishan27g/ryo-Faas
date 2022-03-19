@@ -52,22 +52,35 @@ func (d *store) on(subject string, do EventCb, ids ...string) {
 		}
 	}
 }
-func (d *store) OnCreate(do EventCb) {
-	transport.NatsSubscribe(transport.DocumentCREATE+"."+d.table, func(msg *nats.Msg) {
-		d.onNatsMsg(msg, do)
-	})
-}
-func (d *store) OnGet(do EventCb, ids ...string) {
-	d.on(transport.DocumentGET+"."+d.table, do, ids...)
-}
-func (d *store) OnUpdate(do EventCb, ids ...string) {
-	d.on(transport.DocumentUPDATE+"."+d.table, do, ids...)
-}
-func (d *store) OnDelete(do EventCb, ids ...string) {
-	d.on(transport.DocumentDELETE+"."+d.table, do, ids...)
-}
+
+// func (d *store) OnCreate(do EventCb) {
+// 	transport.NatsSubscribe(transport.DocumentCREATE+"."+d.table, func(msg *nats.Msg) {
+// 		d.onNatsMsg(msg, do)
+// 	})
+// }
+// func (d *store) OnGet(do EventCb, ids ...string) {
+// 	d.on(transport.DocumentGET+"."+d.table, do, ids...)
+// }
+// func (d *store) OnUpdate(do EventCb, ids ...string) {
+// 	d.on(transport.DocumentUPDATE+"."+d.table, do, ids...)
+// }
+// func (d *store) OnDelete(do EventCb, ids ...string) {
+// 	d.on(transport.DocumentDELETE+"."+d.table, do, ids...)
+// }
 
 // On For all ids in dbClient, subscribe to subject and call do() on subscription
-func (d *store) On(subject string, do EventCb) {
-	d.on(subject+"."+d.table, do)
+func (d *store) On(eventType string, do EventCb, ids ...string) (ok bool) {
+	ok = false
+	switch eventType {
+	case DocumentGET, DocumentUPDATE, DocumentDELETE:
+		d.on(eventType+"."+d.table, do, ids...)
+		ok = true
+	case DocumentCREATE:
+		d.on(eventType+"."+d.table, do)
+		ok = true
+	}
+	if !ok {
+		fmt.Println("Invalid eventType", eventType)
+	}
+	return
 }

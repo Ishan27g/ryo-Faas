@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,7 +34,8 @@ var pathToDeployment = path() + registryDir + FnFw
 var PathToFns = pathToDeployment + "functions/"
 
 var getGenFilePath = func(fileName string) string {
-	return PathToFns + strings.ToLower(fileName) + "_generated" + time.Now().String() + ".go"
+
+	return PathToFns + strings.ToLower(fileName) + "_generated" + strconv.Itoa(rand.Intn(10000)) + ".go"
 }
 var modFile = func() string {
 	return path() + registryDir + "/template/template.go"
@@ -47,9 +50,6 @@ func timeIt(since time.Time) {
 	fmt.Println("\n----- took : ", time.Since(since).String())
 }
 func (a *AgentHandler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
-	isAsync := ctx.Value("isAsync")
-	if isAsync != nil {
-	}
 	defer timeIt(time.Now())
 	var rsp = new(deploy.DeployResponse)
 	r := a.registry.deploy(request.Functions)
@@ -66,8 +66,7 @@ func (a *AgentHandler) List(ctx context.Context, empty *deploy.Empty) (*deploy.D
 func (a *AgentHandler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
 	defer timeIt(time.Now())
 	var rsp = new(deploy.DeployResponse)
-	var fns []*deploy.Function
-	rsp.Functions = a.registry.stopped(append(fns, &deploy.Function{Entrypoint: request.GetEntrypoint()}))
+	rsp.Functions = a.registry.stopped(&deploy.Function{Entrypoint: request.GetEntrypoint()})
 	return rsp, nil
 }
 
