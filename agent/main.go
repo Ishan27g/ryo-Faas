@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/Ishan27g/ryo-Faas/agent/registry"
 	"github.com/Ishan27g/ryo-Faas/examples/plugins"
@@ -32,6 +36,9 @@ func main() {
 		Server   interface{}
 	}{IsDeploy: true, Server: agent}, rpcAddr, nil, "").Start()
 
-	//agent.Println(*agent)
-	<-make(chan bool)
+	closeLogs := make(chan os.Signal, 1)
+	signal.Notify(closeLogs, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	<-closeLogs
+
+	fmt.Println("EXITING?")
 }

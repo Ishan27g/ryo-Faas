@@ -63,16 +63,6 @@ func newShell(fnName string) *shell {
 	}
 }
 
-type command struct {
-	done chan bool
-	Fn   *deploy.Function
-	p    *process
-}
-type process struct {
-	io.ReadCloser
-	logs []string
-}
-
 var cmd *run.RunInfo
 
 func SetBuildCommand(c *run.RunInfo) {
@@ -119,7 +109,4 @@ func buildCommand(filePath string, entrypoint string, port string, ctx context.C
 		Env("PORT=" + port).SaveErr().Ctx(ctx)
 	// Env("PORT="+port, "URL="+strings.ToLower(entrypoint)).SaveErr().Ctx(ctx)
 	return cmd
-}
-func (p *process) Logs() []string {
-	return p.logs
 }

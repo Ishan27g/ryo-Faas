@@ -11,10 +11,10 @@ require (
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v1.12.1
 	github.com/sonyarouje/simdb v0.1.0
 	github.com/stretchr/testify v1.7.0
-	github.com/thedevsaddam/gojsonq/v2 v2.5.2
 	github.com/urfave/cli/v2 v2.3.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.29.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.29.0

@@ -6,7 +6,7 @@ tasks:
     cmds:
       - rm -rf ./agent/registry/deploy/
       - rm -rf ./database/handler/ok*
-      # - ps -aef | grep generated2022 | awk '{print $2}'|xargs kill -9
+      # - c
   test:
     cmds:
       - defer: { task: testCleanup }
@@ -14,7 +14,10 @@ tasks:
   test-ci:
     cmds:
       - go test --v ./...
-      
+  nats:
+    cmds:
+      - docker compose run --service-ports --rm nats
+
   # run database
   database:
     dir: database
