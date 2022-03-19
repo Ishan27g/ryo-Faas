@@ -12,7 +12,7 @@ import (
 )
 
 func (hn HttpAsyncNats) SubscribeAsync(fn HttpFn) {
-	transport.NatsSubscribeJson(hn.getSubj(), func(msg *transport.AsyncNats) {
+	go transport.NatsSubscribeJson(hn.getSubj(), func(msg *transport.AsyncNats) {
 		ww := httptest.NewRecorder()
 		req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(msg.Req)))
 		fn(ww, req)

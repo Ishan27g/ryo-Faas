@@ -3,14 +3,17 @@ package FuncFw
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/store"
 	"github.com/Ishan27g/ryo-Faas/transport"
+	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 )
@@ -65,4 +68,71 @@ func TestNatsJson(t *testing.T) {
 	if !ok {
 		t.Error("no sub")
 	}
+}
+
+var (
+	mockCbServerPort = ":9090"
+	mockCbServerUrl  = "/any"
+	callBackAddress  = "http://localhost" + mockCbServerPort + mockCbServerUrl
+
+	serverCallbackHit = false
+)
+
+func mockCallBackServer(ctx context.Context) {
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+
+	r.Any(mockCbServerUrl, func(c *gin.Context) {
+		serverCallbackHit = true
+		fmt.Println("serverCallbackHit", c.Request.URL.RequestURI(), " from ", c.Request.RemoteAddr)
+		c.JSON(http.StatusOK, nil)
+	})
+	httpSrv := &http.Server{Addr: mockCbServerPort, Handler: r}
+	go func() {
+		fmt.Println("mockCallBackServer started on " + callBackAddress)
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Println("HTTP", err.Error())
+		}
+	}()
+	<-ctx.Done()
+	cx, can := context.WithTimeout(context.Background(), 2*time.Second)
+	defer can()
+	if err := httpSrv.Shutdown(cx); err != nil {
+		fmt.Println("Http-Shutdown " + err.Error())
+	}
+}
+func mockIncomingRequest(t *testing.T, cb func(w http.ResponseWriter, r *http.Request)) {
+
+	ww := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "", nil)
+	req.Header.Set("X-Callback-Url", callBackAddress)
+	cb(ww, req)
+	assert.Equal(t, http.StatusAccepted, ww.Result().StatusCode)
+}
+func TestNatsHttpFunction(t *testing.T) {
+	var method2 = func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Println("method2 hit....")
+		fmt.Fprint(w, "Accepted at method 2 ..."+"\n")
+	}
+
+	Export.NatsAsync("testAsync", "/testAsync", method2)
+
+	for _, na := range Export.GetHttpAsyncNats() {
+		an := NewAsyncNats(na.Entrypoint, "")
+		an.SubscribeAsync(na.HttpFn)
+	}
+	<-time.After(3 * time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go mockCallBackServer(ctx)
+	for _, na := range Export.GetHttpAsyncNats() {
+		an := NewAsyncNats(na.Entrypoint, "")
+		mockIncomingRequest(t, an.HandleAsyncNats)
+	}
+
+	<-time.After(3 * time.Second)
+	assert.Equal(t, true, serverCallbackHit)
+
 }
