@@ -5,6 +5,11 @@ import (
 )
 
 type HttpFn func(w http.ResponseWriter, r *http.Request)
+
+func (h HttpFunction) wrap() http.HandlerFunc {
+	return http.HandlerFunc(h.HttpFn)
+}
+
 type HttpFunction struct {
 	Entrypoint string
 	UrlPath    string

@@ -13,12 +13,13 @@
     {
       "packageDir": "/Users/ishan/Desktop/multi/methodOtel",
       "name" : "MethodWithOtel",
-      "filePath": "/Users/ishan/Desktop/multi/methodOtel/MethodWithOtel.go"
-    },
+      "filePath": "/Users/ishan/Desktop/multi/methodOtel/methodOtel.go"
+    }, 
     {
-      "packageDir": "/Users/ishan/Desktop/multi/rateLimit",
-      "name" : "RateLimit",
-      "filePath": "/Users/ishan/Desktop/multi/rateLimit/entrypoint.go"
+      "packageDir": "/Users/ishan/Desktop/multi/async",
+      "name" : "MethodAsync",
+      "filePath": "/Users/ishan/Desktop/multi/async/main.go",
+      "async": true
     }
   ]
 }

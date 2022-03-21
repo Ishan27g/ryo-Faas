@@ -20,6 +20,7 @@ var (
 	httpSrv         *http.Server = nil
 	logger                       = log.New(os.Stdout, "func-fw", log.LstdFlags)
 	healthCheckUrl               = "/healthcheck"
+	stopUrl                      = "/stop"
 	Export                       = funcFw{
 		httpFns:       make(map[string]*HttpFunction),
 		httpAsync:     make(map[string]*HttpAsync),
@@ -43,25 +44,29 @@ func Start(port string) {
 	for entrypoint, function := range Export.GetHttp() {
 		otelHandler := otelhttp.NewHandler(http.HandlerFunc(wrapHttp(function.HttpFn)), "deployed-service-"+entrypoint)
 		http.Handle(function.UrlPath, otelHandler)
-		logger.Println("[http]" + function.Entrypoint + " at " + function.UrlPath)
+		logger.Println("[http] " + function.Entrypoint + " at " + function.UrlPath)
 	}
 
 	// apply http async handlers
 	for entrypoint, httpAsync := range Export.GetHttpAsync() {
 		otelHandler := otelhttp.NewHandler(http.HandlerFunc(wrapAsync(httpAsync)), "deployed-service-async-"+entrypoint)
 		http.Handle(httpAsync.UrlPath, otelHandler)
-		logger.Println("[http][Async]" + httpAsync.Entrypoint + " at " + httpAsync.UrlPath)
+		logger.Println("[http-Async] " + httpAsync.Entrypoint + " at " + httpAsync.UrlPath)
 	}
 
 	// apply http async nats handlers
 	for _, httpAsync := range Export.GetHttpAsyncNats() {
 		an := NewAsyncNats(httpAsync.Entrypoint, "")
 		an.SubscribeAsync(httpAsync.HttpFn)
-		logger.Println("[http][Async][Nats]" + httpAsync.Entrypoint + " at " + an.getSubj())
+		logger.Println("[http-Async-Nats] " + httpAsync.Entrypoint + " at " + an.getSubj())
 	}
 
 	// healthcheck
 	http.Handle(healthCheckUrl, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	http.Handle(stopUrl, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer Stop()
 		w.WriteHeader(http.StatusOK)
 	}))
 

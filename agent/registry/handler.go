@@ -34,7 +34,6 @@ var pathToDeployment = path() + registryDir + FnFw
 var PathToFns = pathToDeployment + "functions/"
 
 var getGenFilePath = func(fileName string) string {
-
 	return PathToFns + strings.ToLower(fileName) + "_generated" + strconv.Itoa(rand.Intn(10000)) + ".go"
 }
 var modFile = func() string {
@@ -46,6 +45,11 @@ type AgentHandler struct {
 	*log.Logger
 }
 
+func (a *AgentHandler) Close() {
+	for _, stop := range a.registry.systemCmd {
+		stop()
+	}
+}
 func timeIt(since time.Time) {
 	fmt.Println("\n----- took : ", time.Since(since).String())
 }
@@ -125,23 +129,16 @@ END:
 		return err
 	}
 	_, fname := filepath.Split(fileName)
+
+	// pathToFns := PathToFns + "deploy-" + strconv.Itoa(rand.Intn(10000)) + "/"
+
 	unzipTo := PathToFns + strings.TrimSuffix(fname, ".zip") + "/"
 
 	fmt.Println("unzipping ", fileName, " to ", PathToFns)
 	err = archiver.Unarchive(tmpZip, PathToFns)
 	if err != nil {
-		if strings.Contains(err.Error(), "file already exists") {
-			err := os.RemoveAll(PathToFns + fname)
-			if err != nil {
-				fmt.Println("remove error ", err.Error())
-				return err
-			}
-			err = archiver.Unarchive(tmpZip, PathToFns)
-			if err != nil {
-				fmt.Println("Twice Un-archive error ", err.Error())
-				return err
-			}
-		}
+		fmt.Println("unarchive error ", err.Error())
+		return err
 	}
 
 	a.registry.upload(entrypoint, unzipTo)
@@ -151,14 +148,13 @@ END:
 
 func (a *AgentHandler) Logs(ctx context.Context, function *deploy.Function) (*deploy.Logs, error) {
 	defer timeIt(time.Now())
-	logs := a.registry.system.logs(function.Entrypoint)
+	//logs := a.registry.system.logs(function.Entrypoint)
 	return &deploy.Logs{
-		Data: logs,
+		Data: nil,
 	}, nil
 }
 
 func Init(rpcAddress string) *AgentHandler {
-	// pathToFnFw = defaultPath()
 
 	agent := new(AgentHandler)
 	agent.registry = new(registry)

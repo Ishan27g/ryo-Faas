@@ -122,10 +122,17 @@ func ProxyGrpcClient(agentAddr string) AgentWrapper {
 }
 
 func compress(dir string) string {
+	//now := time.Now()
 	tmpName := dir + ".zip"
 	err := archiver.Archive([]string{dir}, tmpName)
 	if err != nil {
-		fmt.Println("compress error - ", err.Error())
+		fmt.Println("compress error - ", err)
+		// if f, e := os.Stat(tmpName); e == nil && f.ModTime().After(now) {
+		// 	fmt.Println("compressed ", dir, " to Zip file ", tmpName)
+		// 	return tmpName
+		// }
+		os.RemoveAll(tmpName)
+		fmt.Println("deleted - ", tmpName)
 		return ""
 	}
 	fmt.Println("compressed ", dir, " to Zip file ", tmpName)
@@ -133,6 +140,7 @@ func compress(dir string) string {
 }
 func UploadDir(c deploy.DeployClient, ctx context.Context, dir string, entrypoint string) bool {
 	var result = false
+	var zipFile string
 	now := time.Now()
 	span := trace.SpanFromContext(ctx)
 	defer func() {
@@ -140,7 +148,9 @@ func UploadDir(c deploy.DeployClient, ctx context.Context, dir string, entrypoin
 		span.SetAttributes(attribute.Key("upload").String(time.Since(now).String()))
 	}()
 
-	zipFile := compress(dir)
+	if zipFile = compress(dir); zipFile == "" {
+		return result
+	}
 
 	span.SetAttributes(attribute.Key("compress").String(time.Since(now).String()))
 	now = time.Now()

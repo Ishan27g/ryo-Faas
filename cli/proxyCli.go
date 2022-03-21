@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/transport"
@@ -18,6 +17,7 @@ import (
 )
 
 var proxyAddress string // rpc address of proxy (default :9001)
+var proxyHttpAddr = proxy.DefaultHttp
 
 type definition struct {
 	Deploy []struct {
@@ -64,7 +64,6 @@ func printResonse(response *deploy.DeployResponse) {
 
 // localhost:9000
 func sendHttp(url, agentAddr string) []byte {
-	var proxyHttpAddr = proxy.DefaultHttp
 	resp, err := http.Get("http://" + proxyHttpAddr + url + agentAddr)
 	if err != nil {
 		log.Fatal(err)
@@ -226,20 +225,28 @@ var agentAddCmd = cli.Command{
 		return nil
 	},
 }
+var proxyResetCmd = cli.Command{
+	Name:            "reset",
+	Usage:           "reset the proxy",
+	ArgsUsage:       "server-cli reset",
+	HideHelp:        false,
+	HideHelpCommand: false,
+	Action: func(c *cli.Context) error {
+		sendHttp("/reset", "")
+		return nil
+	},
+}
 
 func main() {
-	var jp = plugins.InitJaeger(context.Background(), "ryo-Faas-cli", "cli", "http://localhost:14268/api/traces") //match with docker hostname
-	defer jp.Close()
-
-	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd,
-		&statusProxyCmd, &logsCmd}, Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:        "proxy",
-			Aliases:     []string{"p"},
-			DefaultText: "RPC port of the proxy server, default ",
-			Destination: &proxyAddress,
-		},
-	}}
+	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd, &statusProxyCmd, &logsCmd, &proxyResetCmd},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:        "proxy",
+				Aliases:     []string{"p"},
+				DefaultText: "RPC port of the proxy server, default ",
+				Destination: &proxyAddress,
+			},
+		}}
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)

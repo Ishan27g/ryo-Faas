@@ -1,29 +1,26 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 )
+
+var port = flag.String("port", "", "--port :9000")
 
 // init definition gets generated
 func init() {
 }
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
+	flag.Parse()
+
+	if *port == "" {
 		return
 	}
-	FuncFw.Start(port)
+	FuncFw.Start(*port)
 
-	closeLogs := make(chan os.Signal, 1)
-	signal.Notify(closeLogs, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	<-closeLogs
-
-	fmt.Println("EXITING?")
-	FuncFw.Stop()
+	<-make(chan byte)
+	fmt.Println("exited.....")
 }

@@ -275,7 +275,13 @@ func (h *handler) AgentJoinHttp(c *gin.Context) {
 	}
 	c.String(400, "Cannot connect to address -"+agentAddr+"\n")
 }
-
+func (h *handler) reset(c *gin.Context) {
+	h.proxies = newProxy()
+	h.agent = make(map[string]transport.AgentWrapper)
+	h.functions = make(map[string]string)
+	c.Status(http.StatusAccepted)
+	h.Println("reset")
+}
 func (h *handler) DetailsHttp(c *gin.Context) {
 
 	var details []types.FunctionJsonRsp
@@ -396,7 +402,14 @@ func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h.g = gin.New()
 	h.g.Use(gin.Recovery())
 
+	h.g.Use(func(ctx *gin.Context) {
+		h.Println(fmt.Sprintf("[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
+		ctx.Next()
+	})
+
 	h.g.Use(otelgin.Middleware("proxy-server"))
+
+	h.g.GET("/reset", h.reset)
 
 	// proxy curl -X POST http://localhost:9002/deploy -H 'Content-Type: application/json' -d '[
 	//  {

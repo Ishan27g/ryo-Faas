@@ -39,6 +39,6 @@ func main() {
 	closeLogs := make(chan os.Signal, 1)
 	signal.Notify(closeLogs, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-closeLogs
-
+	agent.Close()
 	fmt.Println("EXITING?")
 }

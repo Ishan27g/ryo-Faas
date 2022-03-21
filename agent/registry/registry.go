@@ -1,8 +1,10 @@
 package registry
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
+	"github.com/Ishan27g/ryo-Faas/shell"
 )
 
 type registry struct {
@@ -23,7 +26,12 @@ type registry struct {
 		port string
 		*deploy.Function
 	}
-	system *system
+	//system *system
+
+	// systems   map[string]shell.Shell
+	systemCmd map[string]context.CancelFunc
+	logs      map[string]io.ReadCloser
+
 	*log.Logger
 }
 
@@ -57,7 +65,10 @@ func setup(atAgent string) registry {
 		port string
 		*deploy.Function
 	})
-	reg.system = newSystem()
+	//reg.system = newSystem()
+
+	reg.systemCmd = make(map[string]context.CancelFunc)
+	reg.logs = make(map[string]io.ReadCloser)
 	return reg
 
 }
@@ -83,9 +94,13 @@ func (r *registry) deployed(fns ...*deploy.Function) {
 func (r *registry) stopped(fns ...*deploy.Function) []*deploy.Function {
 	var rsp []*deploy.Function
 	for _, f := range fns {
-		r.system.stop(f.Entrypoint)
+		if r.systemCmd[f.Entrypoint] != nil {
+			r.systemCmd[f.Entrypoint]()
+		}
 		port := r.functions[f.Entrypoint].port
 		r.ports[port] = true
+
+		sendStop(r.functions[f.Entrypoint].ProxyServiceAddr)
 
 		os.RemoveAll(r.functions[f.Entrypoint].Dir)
 		os.Remove(r.functions[f.Entrypoint].FilePath)
@@ -97,8 +112,8 @@ func (r *registry) stopped(fns ...*deploy.Function) []*deploy.Function {
 			port string
 			*deploy.Function
 		}{"", fn}
-
 		rsp = append(rsp, fn)
+
 	}
 
 	return rsp
@@ -117,6 +132,7 @@ func (r *registry) list(rFn *deploy.Empty) *deploy.DeployResponse {
 	return rsp
 }
 func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
+	var uploadedFns []*deploy.Function
 	for _, rFn := range fns {
 		entryPoint := rFn.Entrypoint
 		uFn := r.functions[entryPoint]
@@ -124,8 +140,10 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 			r.Println(entryPoint, "not uploaded")
 			return nil
 		}
+		rFn.FilePath = uFn.Dir + filepath.Base(rFn.FilePath)
+		uploadedFns = append(uploadedFns, rFn)
 	}
-	valid, genFile := astLocalCopy(fns)
+	valid, genFile := astLocalCopy(uploadedFns)
 	if !valid {
 		r.Println("invalid file ")
 		return nil
@@ -133,9 +151,9 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 	var registered []*deploy.Function
 	hn := "localhost"
 	port := r.nextPort()
-
+	var entryPoint string
 	for i, rFn := range fns {
-		entryPoint := rFn.Entrypoint
+		entryPoint = rFn.Entrypoint
 		uFn := r.functions[entryPoint]
 		if uFn.Status == "" {
 			r.Println(entryPoint, "not uploaded")
@@ -162,10 +180,12 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 	}
 	go func() {
 		// run functions as one process
-		if r.system.run(registered[0], port) {
-			r.deployed(registered...)
-		} else {
-			r.stopped(registered...)
+		pr, pw := io.Pipe()
+		r.logs[registered[0].Entrypoint] = pr
+		ctx, can := context.WithCancel(context.Background())
+		r.systemCmd[registered[0].Entrypoint] = can
+		if shell.CommandContext(ctx, registered[0].FilePath, port, pw).Run() != nil { // blocking
+			// todo
 		}
 	}()
 	<-time.After(3 * time.Second)
@@ -186,10 +206,17 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 	r.Println("Deploy response", prettyJson(registered))
 	return registered
 }
+func sendStop(addr string) bool {
+	resp, err := http.Get(addr + "/stop")
+	if err != nil {
+		return false
+	}
+	return resp.StatusCode == http.StatusOK
+}
 func checkHealth(addr string) bool {
 	resp, err := http.Get(addr + "/healthcheck")
 	if err != nil {
-		log.Fatal(err)
+		return false
 	}
 	return resp.StatusCode == http.StatusOK
 }

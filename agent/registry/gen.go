@@ -35,18 +35,17 @@ func astLocalCopy(fns []*deploy.Function) (bool, string) {
 			pn, fn.GetEntrypoint(), fn.Async,
 		})
 	}
-
 	genFile, err := rewriteDeployDotGo(deployments...)
 	if err != nil {
 		fmt.Println(err.Error())
 		return false, ""
 	}
-	fmt.Println("Generated file ", genFile)
 	return true, genFile
 }
 
 // todo check entrypoint only
 func validate(fileName, entrypoint string) bool {
+	fmt.Println("Validating - ", fileName, entrypoint)
 
 	set := token.NewFileSet()
 	node, err := parser.ParseFile(set, fileName, nil, parser.ParseComments)
@@ -197,7 +196,7 @@ func rewriteDeployDotGo(fns ...function) (string, error) {
 		return genFile, err
 	}
 	out := buffer.Bytes()
-	genFile = getGenFilePath("exported-function")
+	genFile = getGenFilePath("exported" + fns[0].entrypoint)
 	_, err = os.Create(genFile)
 	if err != nil {
 		log.Println("cant create", err.Error())

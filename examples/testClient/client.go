@@ -16,7 +16,7 @@ import (
 )
 
 // https://github.com/open-telemetry/opentelemetry-go-contrib/tree/main/instrumentation/net/http/otelhttp/example
-var url = "http://localhost:9002/functions/methodwithotel"
+var url = "http://localhost:9999/functions/methodwithotel"
 
 // example of a jaeger metric
 // assumes `methodwithotel` is deployed and available via proxy at `url`
