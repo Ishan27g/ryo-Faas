@@ -11,4 +11,5 @@ COPY . .
 EXPOSE 6000 6001 6002 6003 6004
 
 #EXPOSE 9000
+
 ENTRYPOINT ["go", "run", "agent/main.go"]

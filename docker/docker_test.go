@@ -43,3 +43,8 @@ func TestDocker_Stop(t *testing.T) {
 	assert.NoError(t, err)
 
 }
+
+func TestDocker_List(t *testing.T) {
+
+	New().Status()
+}

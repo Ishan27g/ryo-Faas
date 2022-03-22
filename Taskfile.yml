@@ -1,4 +1,12 @@
 version: '3'
+
+
+vars:
+    DOCKER_REMOTE: ishan27g/ryo-faas
+    IMAGE_AGENT: rfa-agent.v0.1
+    IMAGE_PROXY: rfa-proxy.v0.1
+    IMAGE_DATABASE: rfa-database.v0.1
+
 tasks:
 
   # cleanup test dirs/
@@ -51,14 +59,21 @@ tasks:
 
   imgProxy:
     cmds:
-     - docker build -f proxy.dockerfile -t rfa-proxy:v0.1 .
+     - docker build -f proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
   imgAgent:
     cmds:
-      - docker build -f agent.dockerfile -t rfa-agent:v0.1 .
+      - docker build -f agent.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_AGENT}} .
   imgDb:
     cmds:
-      - docker build -f db.dockerfile -t rfa-database:v0.1 .
+      - docker build -f db.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}} .
   buildImages:
       cmds:
         - task: imgAgent
         - task: imgDb
+        - task: imgProxy
+
+  pushImages:
+      cmds:
+        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
+        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_AGENT}}
+        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}

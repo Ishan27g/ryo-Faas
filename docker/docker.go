@@ -11,17 +11,21 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
 
 const (
-	agentImage    = "rfa-agent:v0.1"
-	databaseImage = "rfa-database:v0.1"
-	proxyImage    = "rfa-proxy:v0.1"
-	natsImage     = "nats"
-	natsVersion   = ":alpine"
+	dockerRemote  = "ishan27g/ryo-faas:"
+	versionStr    = ".v0.1"
+	agentImage    = dockerRemote + "rfa-agent" + versionStr
+	databaseImage = dockerRemote + "rfa-database" + versionStr
+	proxyImage    = dockerRemote + "rfa-proxy" + versionStr
+
+	natsImage   = "nats"
+	natsVersion = ":alpine"
 
 	actionTimeout = 30 * time.Second
 	networkName   = "rfa_nw"
@@ -44,13 +48,14 @@ var agentPorts = map[nat.Port]struct{}{
 	"6004/tcp": {},
 }
 
-var trimVersion = func(versionStr string) string {
-	return strings.TrimSuffix(versionStr, ":v0.1")
+var trimVersion = func(from string) string {
+	return strings.TrimPrefix(strings.TrimSuffix(from, versionStr), dockerRemote)
 }
 
 type Docker interface {
 	Pull() error
-
+	Status() bool
+	Check() map[string]string
 	StartNats() error
 	StopNats() error
 
@@ -66,6 +71,18 @@ type Docker interface {
 type docker struct {
 	*client.Client
 	*log.Logger
+}
+
+func (d *docker) Status() bool {
+	var allRunning = true
+	for s, s2 := range d.Check() {
+		fmt.Printf("\n%s:\t\t%s", s2, s)
+		if s2 != "running" {
+			allRunning = false
+		}
+	}
+	fmt.Printf("\n")
+	return allRunning
 }
 
 func (d *docker) StartNats() error {
@@ -127,7 +144,7 @@ func (d *docker) StopNats() error {
 func (d *docker) StartProxy() error {
 	ctx := context.Background()
 
-	name := trimVersion(proxyImage)
+	name := proxyContainerName()
 
 	var config = new(container.Config)
 	var hostConfig = new(container.HostConfig)
@@ -182,15 +199,19 @@ func (d *docker) StartProxy() error {
 	return nil
 }
 
+func proxyContainerName() string {
+	return trimVersion(proxyImage)
+}
+
 func (d *docker) StopProxy() error {
-	name := trimVersion(proxyImage)
+	name := proxyContainerName()
 	return d.stop(name)
 }
 
 func (d *docker) StartAgent(instance string) error {
 	ctx := context.Background()
 
-	name := agentInstanceName(instance)
+	name := agentContainerName(instance)
 
 	dbAddress := trimVersion(databaseImage) + ":" + databaseHostRpcPort
 
@@ -231,12 +252,12 @@ func (d *docker) StartAgent(instance string) error {
 	return nil
 }
 
-func agentInstanceName(instance string) string {
+func agentContainerName(instance string) string {
 	return trimVersion(agentImage) + "-" + instance
 }
 
 func (d *docker) StopAgent(instance string) error {
-	name := agentInstanceName(instance)
+	name := agentContainerName(instance)
 	return d.stop(name)
 }
 func (d *docker) StopDatabase() error {
@@ -286,7 +307,7 @@ func (d *docker) StartDatabase() error {
 	// attach container to network
 	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}
 
-	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, trimVersion(databaseImage))
+	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, databaseContainerName())
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -301,6 +322,11 @@ func (d *docker) StartDatabase() error {
 	return nil
 }
 
+func databaseContainerName() string {
+	return trimVersion(databaseImage)
+
+}
+
 func (d *docker) Pull() error {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(actionTimeout))
 	defer cancel()
@@ -312,12 +338,12 @@ func (d *docker) Pull() error {
 		d.Println("error-pull", databaseImage, err.Error())
 		return err
 	}
-	if err := d.pull(ctx, natsImage+natsVersion); err != nil {
-		d.Println("error-pull", natsImage+natsVersion, err.Error())
-		return err
-	}
 	if err := d.pull(ctx, proxyImage); err != nil {
 		d.Println("error-pull", proxyImage, err.Error())
+		return err
+	}
+	if err := d.pull(ctx, natsImage+natsVersion); err != nil {
+		d.Println("error-pull", natsImage+natsVersion, err.Error())
 		return err
 	}
 	return nil
@@ -330,6 +356,27 @@ func (d *docker) pull(ctx context.Context, refStr string) error {
 	defer out.Close()
 	io.Copy(os.Stdout, out)
 	return nil
+}
+
+func (d *docker) Check() map[string]string {
+	var status = make(map[string]string)
+	status["rfa-"+natsImage] = d.check("rfa-" + natsImage)
+	status[databaseContainerName()] = d.check(databaseContainerName())
+	status[agentContainerName("1")] = d.check(agentContainerName("1"))
+	status[proxyContainerName()] = d.check(proxyContainerName())
+	return status
+}
+func (d *docker) check(containerName string) string {
+	ctx := context.Background()
+
+	filter := filters.NewArgs()
+	filter.Add("name", containerName)
+	containers, err := d.ContainerList(ctx, types.ContainerListOptions{Filters: filter})
+	if err != nil {
+		panic(err)
+	}
+	return containers[0].State
+
 }
 
 func New() Docker {
