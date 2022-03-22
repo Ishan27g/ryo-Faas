@@ -5,8 +5,8 @@ import (
 	"github.com/brianvoe/gofakeit/v6"
 )
 
-func RandomPayment() model.Payment {
-	return model.Payment{
+func RandomPayment() payment.Payment {
+	return payment.Payment{
 		Id:     gofakeit.UUID(),
 		From:   gofakeit.Name(),
 		To:     gofakeit.Name(),

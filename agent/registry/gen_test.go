@@ -21,7 +21,7 @@ func TestAstGen(t *testing.T) {
 	}
 
 	// change relative path
-	pathToDeployment = path() + FnFw
+	pathToDeployment = path() + deployDir
 	PathToFns = pathToDeployment + "functions/"
 	modFile = func() string {
 		return path() + "/template/template.go"

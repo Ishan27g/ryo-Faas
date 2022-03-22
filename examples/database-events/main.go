@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/Ishan27g/ryo-Faas/examples/database-events/controller"
-	"github.com/Ishan27g/ryo-Faas/examples/database-events/model"
+	"github.com/Ishan27g/ryo-Faas/examples/db-events/model"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/store"
 )
@@ -17,16 +17,20 @@ const TableName = "payments"
 
 // MakePayment creates random payment and adds to `payments` table in the db
 func MakePayment(w http.ResponseWriter, r *http.Request) {
+
 	// create random payment
 	payment := controller.RandomPayment()
+
 	// add to database
 	_ = store.Get(TableName).Create(payment.Id, payment.Marshal())
+
 	w.WriteHeader(http.StatusAccepted)
 	fmt.Fprint(w, "Made payment:"+fmt.Sprintf("%v", payment)+"\n")
 }
 
 // GetPayments return all entries from the `payments` table in the db
 func GetPayments(w http.ResponseWriter, r *http.Request) {
+
 	// retrieve from db
 	docs := store.Get(TableName).Get()
 	for _, doc := range docs {
@@ -42,9 +46,10 @@ func main() {
 	FuncFw.Export.Http("GetPayment", "/get", GetPayments)
 
 	// register functions that subscribe to respective queries to the `payments` table
-	FuncFw.Export.EventsFor("payments").On(store.DocumentCREATE, paymentMade)
-	FuncFw.Export.EventsFor("payments").On(store.DocumentGET, paymentsRetrieved)
-	FuncFw.Export.EventsFor("payments").On(store.DocumentDELETE, paymentsDeleted)
+	// when a new payment document is created, generate its invoice
+	FuncFw.Export.EventsFor("payments").On(store.DocumentCREATE, generatePaymentPdf)
+	// when a payment is updated, send email to users
+	FuncFw.Export.EventsFor("payments").On(store.DocumentUPDATE, emailUsers)
 
 	// or subscribe to respective queries for a specific documents in the table
 	FuncFw.Export.EventsFor("payments").OnIds(store.DocumentUPDATE, paymentsUpdated,

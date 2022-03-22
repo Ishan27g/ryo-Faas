@@ -9,13 +9,14 @@ import (
 // MethodAsync is a long-running job
 func MethodAsync(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Println("Processing method 3 ...")
+	fmt.Println("Processing ...")
+	<-time.After(5 * time.Second)
 
-	<-time.After(15 * time.Second)
-	fmt.Println("Processing method 3 done")
+	fmt.Println("Still processing ...")
+	<-time.After(5 * time.Second)
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Async processing done at method 3 ..."+"\n")
+	fmt.Fprint(w, "Async processing done ..."+"\n")
 }
 
 //func main() {

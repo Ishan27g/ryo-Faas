@@ -42,7 +42,7 @@ func Start(port string) {
 
 	// apply http handlers
 	for entrypoint, function := range Export.GetHttp() {
-		otelHandler := otelhttp.NewHandler(http.HandlerFunc(wrapHttp(function.HttpFn)), "deployed-service-"+entrypoint)
+		otelHandler := otelhttp.NewHandler(http.HandlerFunc(function.HttpFn), "deployed-service-"+entrypoint)
 		http.Handle(function.UrlPath, otelHandler)
 		logger.Println("[http] " + function.Entrypoint + " at " + function.UrlPath)
 	}
@@ -77,12 +77,6 @@ func Start(port string) {
 			logger.Println("HTTP-Error", err.Error())
 		}
 	}()
-}
-
-func wrapHttp(fn HttpFn) HttpFn {
-	return func(writer http.ResponseWriter, request *http.Request) {
-		fn(writer, request)
-	}
 }
 
 func wrapAsync(httpAsync *HttpAsync) HttpFn {

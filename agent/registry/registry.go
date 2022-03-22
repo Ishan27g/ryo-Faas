@@ -17,6 +17,11 @@ import (
 	"github.com/Ishan27g/ryo-Faas/shell"
 )
 
+const (
+	PortStart = 5000
+	NumPorts  = 10
+)
+
 type registry struct {
 	address   string
 	portStart int
@@ -26,9 +31,6 @@ type registry struct {
 		port string
 		*deploy.Function
 	}
-	//system *system
-
-	// systems   map[string]shell.Shell
 	systemCmd map[string]context.CancelFunc
 	logs      map[string]io.ReadCloser
 
@@ -43,17 +45,15 @@ func prettyJson(js interface{}) string {
 	return string(data)
 }
 func setup(atAgent string) registry {
-	//	SetBuildCommand(nil)
-
 	var err error
 	var reg registry
 	reg.portStart, err = strconv.Atoi(os.Getenv("PORT_START"))
 	if err != nil {
-		reg.portStart = 5000
+		reg.portStart = PortStart
 	}
 	reg.portLimit, err = strconv.Atoi(os.Getenv("NUM_PORTS"))
 	if err != nil {
-		reg.portLimit = 20
+		reg.portLimit = NumPorts
 	}
 	reg.Logger = log.New(os.Stdout, "[REGISTRY]", log.Ltime)
 	reg.address = atAgent
@@ -65,8 +65,6 @@ func setup(atAgent string) registry {
 		port string
 		*deploy.Function
 	})
-	//reg.system = newSystem()
-
 	reg.systemCmd = make(map[string]context.CancelFunc)
 	reg.logs = make(map[string]io.ReadCloser)
 	return reg
@@ -133,6 +131,11 @@ func (r *registry) list(rFn *deploy.Empty) *deploy.DeployResponse {
 }
 func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 	var uploadedFns []*deploy.Function
+	var registered []*deploy.Function
+	hn := "localhost"
+	port := r.nextPort()
+	var entryPoint string
+
 	for _, rFn := range fns {
 		entryPoint := rFn.Entrypoint
 		uFn := r.functions[entryPoint]
@@ -148,19 +151,11 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 		r.Println("invalid file ")
 		return nil
 	}
-	var registered []*deploy.Function
-	hn := "localhost"
-	port := r.nextPort()
-	var entryPoint string
-	for i, rFn := range fns {
+	fmt.Println("uploadedFns", uploadedFns)
+
+	for i, rFn := range uploadedFns {
 		entryPoint = rFn.Entrypoint
 		uFn := r.functions[entryPoint]
-		if uFn.Status == "" {
-			r.Println(entryPoint, "not uploaded")
-			return nil
-		}
-		_, file := filepath.Split(rFn.GetFilePath())
-		uFn.FilePath = uFn.Dir + file
 		registered = append(registered, &deploy.Function{
 			Entrypoint:       entryPoint,
 			Dir:              uFn.Dir,
@@ -170,13 +165,12 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 			ProxyServiceAddr: "http://" + hn + ":" + port,
 			Url:              "http://" + hn + ":" + port + "/" + strings.ToLower(entryPoint),
 			Status:           "DEPLOYING",
-			Async:            uFn.GetAsync(),
+			Async:            rFn.Async,
 		})
 		r.functions[entryPoint] = struct {
 			port string
 			*deploy.Function
 		}{port, registered[i]}
-
 	}
 	go func() {
 		// run functions as one process
@@ -198,6 +192,7 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 	}
 	registered = nil
 	for _, fn := range r.functions {
+		fmt.Println(fn)
 		registered = append(registered, fn.Function)
 		// if fn.Async{
 		// 	FuncFw.NewNatsAsync(fn.Entrypoint, fn.Url, )

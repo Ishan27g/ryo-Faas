@@ -130,14 +130,6 @@ func (d *handle) GetHttp(c *gin.Context) {
 		c.JSON(400, nil)
 		return
 	}
-	// var table1 types.NatsDoc
-	// table1 = types.NewDocument(entity.Id, entity.Data.Value)
-
-	// var documents []*types.NatsDoc
-	// for id := range  {
-	// 	doc := d.get(id)
-	// 	documents = append(documents, &doc)
-	// }
 	entity := db.Get(id)
 	c.JSON(http.StatusOK, *entity)
 }
@@ -189,9 +181,13 @@ func GetHandler() handle {
 		nil,
 		rpc{},
 	}
-	gin.SetMode(gin.DebugMode)
+	gin.SetMode(gin.ReleaseMode)
 	h.Gin = gin.New()
 	h.Gin.Use(gin.Recovery())
+	h.Gin.Use(func(ctx *gin.Context) {
+		fmt.Println(fmt.Sprintf("[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
+		ctx.Next()
+	})
 	h.Gin.Use(otelgin.Middleware("database"))
 	g := h.Gin.Group("/database")
 	{

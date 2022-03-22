@@ -20,7 +20,6 @@ var databaseStore = dbStore{
 	Logger:    mLogger.Get("DATABASE"),
 }
 
-// Simple Json Database over grpc
 type Database interface {
 	New(doc NatsDoc)
 	Update(doc NatsDoc)

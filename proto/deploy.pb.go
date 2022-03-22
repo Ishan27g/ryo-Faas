@@ -438,7 +438,7 @@ type Function struct {
 	// function endpoint
 	Url    string `protobuf:"bytes,7,opt,name=url,proto3" json:"url,omitempty"`
 	Status string `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
-	Async  bool   `protobuf:"varint,9,opt,name=async,proto3" json:"async,omitempty"`
+	Async  bool   `protobuf:"varint,9,opt,name=async,proto3" json:"async"`
 }
 
 func (x *Function) Reset() {

@@ -21,16 +21,16 @@ var importPath = "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/"
 
 var path = func() string {
 	cwd, _ := os.Getwd()
-	// if cwd == "/"{
-	// 	return "/remote"
-	// }
-	return cwd //+ "/remote"
+	if cwd == "/app" { // docker
+		return "/app/agent"
+	}
+	return cwd
 }
-var registryDir = "/registry"
 
-const FnFw = "/deploy/"
+const registryDir = "/registry"
+const deployDir = "/deploy/"
 
-var pathToDeployment = path() + registryDir + FnFw
+var pathToDeployment = path() + registryDir + deployDir
 var PathToFns = pathToDeployment + "functions/"
 
 var getGenFilePath = func(fileName string) string {
@@ -130,8 +130,6 @@ END:
 	}
 	_, fname := filepath.Split(fileName)
 
-	// pathToFns := PathToFns + "deploy-" + strconv.Itoa(rand.Intn(10000)) + "/"
-
 	unzipTo := PathToFns + strings.TrimSuffix(fname, ".zip") + "/"
 
 	fmt.Println("unzipping ", fileName, " to ", PathToFns)
@@ -156,11 +154,14 @@ func (a *AgentHandler) Logs(ctx context.Context, function *deploy.Function) (*de
 
 func Init(rpcAddress string) *AgentHandler {
 
+	fmt.Println("Path is ", path())
+
 	agent := new(AgentHandler)
 	agent.registry = new(registry)
 	agent.address = rpcAddress
 	agent.Logger = log.New(os.Stdout, "[AGENT-HANDLER]", log.Ltime)
 	*agent.registry = setup(rpcAddress)
+
 	os.RemoveAll(PathToFns)
 	os.MkdirAll(PathToFns, os.ModePerm)
 

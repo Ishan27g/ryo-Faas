@@ -218,7 +218,6 @@ func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.Dep
 }
 
 func (h *handler) Upload(server deploy.Deploy_UploadServer) error {
-
 	return errors.New("no upload method at server. Call deploy")
 }
 

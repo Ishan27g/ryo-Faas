@@ -48,3 +48,14 @@ tasks:
       - curl http://localhost:9999/pay
       - sleep 2 && echo 'getting'
       - curl http://localhost:9999/get
+
+  imgAgent:
+    cmds:
+      - docker build -f agent.dockerfile -t rfa-agent:v0.1 .
+  imgDb:
+    cmds:
+      - docker build -f db.dockerfile -t rfa-database:v0.1 .
+  buildImages:
+      cmds:
+        - task: imgAgent
+        - task: imgDb

@@ -2,10 +2,6 @@ package types
 
 import deploy "github.com/Ishan27g/ryo-Faas/proto"
 
-type FunctionLogs struct {
-	Function FunctionJsonRsp `json:"function,omitempty"`
-	Logs     string          `json:"logs,omitempty"`
-}
 type FunctionJson struct {
 	Name     string `json:"name,omitempty"`
 	FilePath string `json:"filePath,omitempty"`
@@ -19,17 +15,6 @@ type FunctionJsonRsp struct {
 	Proxy   string `json:"proxy,omitempty"`
 	AtAgent string `json:"atAgent,omitempty"`
 	IsAsync bool   `json:"IsAsync"`
-}
-
-type DeployedFunction struct {
-	Name        string `types:"Name,omitempty"` // The name of the function
-	Port        string
-	Status      string `types:"Status"`
-	GenFilePath string
-
-	AgentAddr  string
-	AgentFnUrl string `types:"AgentFnUrl"` // available at url
-	IsAsync    bool   `types:"IsAsync"`
 }
 
 func JsonFunctionToRpc(jFn FunctionJson) []*deploy.Function {

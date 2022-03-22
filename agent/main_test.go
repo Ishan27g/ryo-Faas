@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DavidGamba/dgtools/run"
 	"github.com/Ishan27g/ryo-Faas/agent/registry"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
@@ -23,7 +22,7 @@ func printJson(js interface{}) {
 	fmt.Println(string(data))
 }
 func setup(ctx context.Context, registryPort string) *registry.AgentHandler {
-	registry.SetBuildCommand(run.CMD("sleep", "10").Ctx(ctx))
+	// registry.SetBuildCommand(run.CMD("sleep", "10").Ctx(ctx))
 	agent := registry.Init(registryPort)
 	transport.Init(ctx, struct {
 		IsDeploy bool
@@ -39,6 +38,7 @@ func TestSetup(t *testing.T) {
 		<-time.After(3 * time.Second)
 	}()
 	assert.NotNil(t, setup(ctx, DefaultPort))
+	<-time.After(3 * time.Second)
 }
 func TestList(t *testing.T) {
 
