@@ -132,7 +132,9 @@ func (r *registry) list(rFn *deploy.Empty) *deploy.DeployResponse {
 func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 	var uploadedFns []*deploy.Function
 	var registered []*deploy.Function
-	hn := "localhost"
+	//hn := "localhost"
+	hn, _ := os.Hostname()
+
 	port := r.nextPort()
 	var entryPoint string
 
@@ -187,7 +189,7 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 		if checkHealth(fn.ProxyServiceAddr) {
 			r.deployed(fn)
 		} else {
-			r.stopped(fn)
+			//	r.stopped(fn)
 		}
 	}
 	registered = nil

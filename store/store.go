@@ -2,16 +2,17 @@ package store
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	database "github.com/Ishan27g/ryo-Faas/database/client"
 	db "github.com/Ishan27g/ryo-Faas/database/db"
 )
 
 var (
-	defaultTable    = "data"
-	databaseAddress = "localhost:5000"          // os.Getenv("Database")
-	documents       = make(map[string]DocStore) // per table
+	defaultTable       = "data"
+	databaseAddressEnv = "DATABASE"
+	databaseAddress    = "localhost:5000"          // os.Getenv("Database")
+	documents          = make(map[string]DocStore) // per table
 )
 
 const (
@@ -50,9 +51,16 @@ type store struct {
 }
 
 func new(table string) DocStore {
+
+	d := os.Getenv(databaseAddressEnv)
+	if d != "" {
+		databaseAddress = d
+	}
+
 	var dbClient database.Client
 	if dbClient = database.Connect(databaseAddress); dbClient == nil {
-		log.Fatal("cannot connect to database")
+		fmt.Println("cannot connect to database")
+		return nil
 	}
 	if table == "" {
 		table = defaultTable

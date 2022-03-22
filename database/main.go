@@ -11,12 +11,12 @@ import (
 	"github.com/Ishan27g/ryo-Faas/transport"
 )
 
-var DefaultHttp = ":5000"
-var DefaultGrpc = ":5001"
+var DefaultGrpc = ":5000"
+var DefaultHttp = ":5001"
 
 // Optional flags to change config
-var grpcPort = flag.String("grpc", DefaultHttp, "--grpc "+DefaultHttp)
-var httpPort = flag.String("htpp", DefaultGrpc, "--http "+DefaultGrpc)
+var grpcPort = flag.String("grpc", DefaultGrpc, "--grpc "+DefaultGrpc)
+var httpPort = flag.String("htpp", DefaultHttp, "--http "+DefaultHttp)
 
 func main() {
 

@@ -17,7 +17,7 @@ import (
 )
 
 var proxyAddress string // rpc address of proxy (default :9001)
-var proxyHttpAddr = proxy.DefaultHttp
+var proxyHttpAddr = "localhost" + proxy.DefaultHttp
 
 type definition struct {
 	Deploy []struct {
@@ -96,12 +96,16 @@ var deployCmd = cli.Command{
 		var fns []*deploy.Function
 
 		for _, s := range df.Deploy {
-			fns = append(fns, &deploy.Function{
+			df := &deploy.Function{
 				Entrypoint: s.Name,
 				FilePath:   s.FilePath,
 				Dir:        s.PackageDir,
 				Async:      s.Async,
-			})
+			}
+			fns = append(fns, df)
+			if !transport.UploadDir(proxy, context.Background(), df.Dir, df.Entrypoint) {
+				return cli.Exit("cannot upload directory to proxy "+df.Dir, 1)
+			}
 		}
 		deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: fns})
 		if err != nil {

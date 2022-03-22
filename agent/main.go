@@ -7,9 +7,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Ishan27g/ryo-Faas/agent/registry"
 	"github.com/Ishan27g/ryo-Faas/examples/plugins"
+	"github.com/Ishan27g/ryo-Faas/store"
 	"github.com/Ishan27g/ryo-Faas/transport"
 )
 
@@ -35,6 +37,13 @@ func main() {
 		IsDeploy bool
 		Server   interface{}
 	}{IsDeploy: true, Server: agent}, rpcAddr, nil, "").Start()
+
+	go func() {
+		for {
+			<-time.After(3 * time.Second)
+			store.Get("NewTable")
+		}
+	}()
 
 	closeLogs := make(chan os.Signal, 1)
 	signal.Notify(closeLogs, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

@@ -1,13 +1,16 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +19,7 @@ import (
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
 	"github.com/gin-gonic/gin"
+	"github.com/mholt/archiver/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
@@ -36,6 +40,8 @@ type handler struct {
 	agent           map[string]transport.AgentWrapper // agentAddr : client
 	functions       map[string]string                 // entrypoint : agentAddr
 	httpFnProxyPort string
+
+	uploads map[string]*deploy.Function
 
 	ready chan string
 
@@ -106,9 +112,13 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	for _, function := range request.Functions {
 		span.SetAttributes(attribute.Key("entrypoint").String(function.Entrypoint))
 		ctx = trace.ContextWithSpan(ctx, span)
-		if !transport.UploadDir(agent, ctx, function.Dir, function.Entrypoint) {
-			span.AddEvent("Upload error", trace.WithAttributes(attribute.Key(function.Dir).String(function.AtAgent)))
-			return nil, errors.New("cannot upload directory to agent " + function.Entrypoint)
+		uFn := h.uploads[function.Entrypoint]
+		if uFn == nil {
+			return nil, errors.New(function.Entrypoint + " not uploaded")
+		}
+		if !transport.UploadDir(agent, ctx, uFn.Dir, uFn.Entrypoint) {
+			span.AddEvent("Upload error", trace.WithAttributes(attribute.Key(uFn.Dir).String(uFn.AtAgent)))
+			return nil, errors.New("cannot upload directory to agent " + uFn.Entrypoint)
 		}
 
 		span = trace.SpanFromContext(ctx)
@@ -136,6 +146,7 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 		response.Functions = append(response.Functions, function)
 	}
 	span.AddEvent(prettyJson(response))
+	h.Println(h.httpFnProxyPort)
 	h.Println("DEPLOY RESPONSE", prettyJson(response))
 	return response, nil
 }
@@ -217,7 +228,82 @@ func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.Dep
 	return details, nil
 }
 
-func (h *handler) Upload(server deploy.Deploy_UploadServer) error {
+func (h *handler) Upload(stream deploy.Deploy_UploadServer) error {
+
+	var fileName string
+	var entrypoint string
+	imageData := bytes.Buffer{}
+
+	for {
+		ch, err := stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				goto END
+			}
+			return err
+		}
+		chunk := ch.GetContent()
+		_, err = imageData.Write(chunk)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		fileName = ch.FileName
+		entrypoint = ch.Entrypoint
+	}
+END:
+	err := stream.SendAndClose(&deploy.Empty{Rsp: nil})
+	fmt.Println("END: ", err)
+
+	dir, err := os.MkdirTemp("", "tmp")
+	if err != nil {
+		fmt.Println("cannot mkdir temp", err.Error())
+		return err
+	}
+
+	tmpZip := dir + "tmp.zip"
+	file, err := os.OpenFile(tmpZip, os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		fmt.Println("cannot create image file: %w", err)
+		return err
+	}
+	defer file.Close()
+	defer func() {
+		os.Remove(file.Name())
+		os.RemoveAll(dir)
+	}()
+
+	_, err = imageData.WriteTo(file)
+	if err != nil {
+		fmt.Println("cannot write image to file ", fileName, err.Error())
+		return err
+	}
+	_, fname := filepath.Split(fileName)
+	if fname == "" {
+		fname = fileName
+	}
+	PathToFns := "/app/proxy/"
+	unzipTo := PathToFns + strings.TrimSuffix(fname, ".zip")
+
+	fmt.Println("fname", fname)
+	fmt.Println("unzipping ", fileName, " to ", PathToFns)
+	fmt.Println("unzipTo ", unzipTo)
+	err = archiver.Unarchive(tmpZip, PathToFns)
+	if err != nil {
+		fmt.Println("unarchive error ", err.Error())
+		return err
+	}
+	registered := &deploy.Function{
+		Entrypoint: entrypoint,
+		// FilePath:   unzipTo + strings.TrimSuffix(fname, ".zip") + "/",
+		Dir:    unzipTo,
+		Status: "UPLOADED",
+	}
+	fmt.Println("uploaded ", registered)
+
+	h.uploads[entrypoint] = registered
+
+	return nil
+
 	return errors.New("no upload method at server. Call deploy")
 }
 
@@ -391,6 +477,7 @@ func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h.Logger = log.New(os.Stdout, "[PROXY-HANDLER] ", log.Ltime)
 	h.ready = make(chan string)
 
+	h.uploads = make(map[string]*deploy.Function)
 	for _, v := range agents {
 		if !h.AddAgent(v) {
 			log.Fatal("Unable to add agent ", v)

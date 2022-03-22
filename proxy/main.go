@@ -9,7 +9,7 @@ import (
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 )
 
-var host = "localhost"
+// var host = "localhost"
 
 // Optional flags to change ports
 var httpPort = flag.String("http", proxy.DefaultHttp, "http port")
@@ -31,7 +31,7 @@ func main() {
 	provider := plugins.InitJaeger(ctx, "ryo-Faas-proxy", "proxy-server", url)
 	defer provider.Close()
 
-	proxy.Start(ctx, host+*grpcPort, host+*httpPort, ag...)
+	proxy.Start(ctx, *grpcPort, *httpPort, ag...)
 	// handler.AgentConnectionType = transport.RPC
 	<-make(chan bool)
 }
