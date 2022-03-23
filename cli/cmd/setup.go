@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Ishan27g/ryo-Faas/docker"
 	"github.com/urfave/cli/v2"
@@ -26,11 +27,7 @@ var stopRyoFaas = cli.Command{
 			defer wg.Done()
 			docker.New().StopProxy()
 		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			docker.New().StopAgent("1")
-		}()
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -49,10 +46,10 @@ var startRyoFaas = cli.Command{
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
 		d := docker.New()
-		if err := d.Pull(); err != nil {
-			fmt.Println(err.Error())
-			return cli.Exit("Cannot pull images from remote", 1)
-		}
+		//if err := d.Pull(); err != nil {
+		//	fmt.Println(err.Error())
+		//	return cli.Exit("Cannot pull images from remote", 1)
+		//}
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
@@ -64,11 +61,7 @@ var startRyoFaas = cli.Command{
 			defer wg.Done()
 			docker.New().StartProxy()
 		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			docker.New().StartAgent("1")
-		}()
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -76,6 +69,7 @@ var startRyoFaas = cli.Command{
 		}()
 		wg.Wait()
 		fmt.Println("Started ryo-Faas : Proxy running at http://localhost:9999")
+		<-time.After(500 * time.Millisecond)
 		d.Status()
 		return nil
 	},

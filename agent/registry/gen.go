@@ -197,7 +197,8 @@ func rewriteDeployDotGo(toDir string, fns ...function) (string, error) {
 		return genFile, err
 	}
 	out := buffer.Bytes()
-	genFile = getGenFilePath(toDir, "exported"+fns[0].entrypoint)
+	genFile = toDir + "exported.go"
+	//genFile = getGenFilePath(toDir, "exported"+fns[0].entrypoint)
 	//genFile = strings.ToLower("exported"+fns[0].entrypoint) + "_generated" + strconv.Itoa(rand.Intn(10000)) + ".go"
 
 	_, err = os.Create(genFile)

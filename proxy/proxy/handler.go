@@ -1,16 +1,13 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,7 +17,6 @@ import (
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
 	"github.com/gin-gonic/gin"
-	"github.com/mholt/archiver/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
@@ -38,13 +34,10 @@ const DefaultHttp = ":9999"
 
 type handler struct {
 	g               *gin.Engine
-	agent           map[string]transport.AgentWrapper // agentAddr : client
-	functions       map[string]string                 // entrypoint : agentAddr
+	functions       map[string]string // entrypoint : agentAddr
 	httpFnProxyPort string
 
 	uploads map[string]*deploy.Function
-
-	ready chan string
 
 	proxies proxy
 	*log.Logger
@@ -60,95 +53,19 @@ func prettyJson(js interface{}) string {
 	}
 	return string(data)
 }
-func (h *handler) agentReady(address string) {
-	go func() {
-		h.ready <- address
-	}()
-}
-
-func (h *handler) getFunctionAgent(entrypoint string) (transport.AgentWrapper, string) {
-	if h.functions[entrypoint] == "" {
-		h.Println("No agent to assigned to ", entrypoint)
-		return nil, ""
-	}
-	return h.agent[h.functions[entrypoint]], h.functions[entrypoint]
-}
-
-func (h *handler) assignAgentToFunction(fns []*deploy.Function) (transport.AgentWrapper, string) {
-	select {
-	case agentAddr := <-h.ready:
-		for _, fn := range fns {
-			h.functions[fn.Entrypoint] = agentAddr
-		}
-		return h.agent[h.functions[fns[0].Entrypoint]], agentAddr
-	default:
-		h.Println("No agent to assign")
-		return nil, ""
-	}
-}
-func (h *handler) AddAgent(address string) bool {
-	if address == "" {
-		return false
-	}
-	c := transport.ProxyGrpcClient(address)
-	if c == nil {
-		return false
-	}
-	h.agent[address] = c
-	h.agentReady(address)
-	h.Println("Added new agent ", address)
-	return true
-}
-
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 
-	now := time.Now()
-	span := trace.SpanFromContext(ctx)
-
-	agent, address := h.assignAgentToFunction(request.Functions)
-	if agent == nil {
-		return nil, errors.New("cannot assign an agent")
-	}
-	defer h.agentReady(address)
-	for _, function := range request.Functions {
-		span.SetAttributes(attribute.Key("entrypoint").String(function.Entrypoint))
-		ctx = trace.ContextWithSpan(ctx, span)
-		uFn := h.uploads[function.Entrypoint]
-		if uFn == nil {
-			return nil, errors.New(function.Entrypoint + " not uploaded")
-		}
-		if !transport.UploadDir(agent, ctx, uFn.Dir, uFn.Entrypoint) {
-			span.AddEvent("Upload error", trace.WithAttributes(attribute.Key(uFn.Dir).String(uFn.AtAgent)))
-			return nil, errors.New("cannot upload directory to agent " + uFn.Entrypoint)
-		}
-
-		span = trace.SpanFromContext(ctx)
-		span.SetAttributes(attribute.Key("upload-duration").String(time.Since(now).String()))
-
-		now = time.Now()
-	}
-
-	ctx = trace.ContextWithSpan(ctx, span)
 	response := new(deploy.DeployResponse)
-	agentRsp, err := agent.Deploy(ctx, request)
-	if err != nil {
-		span.AddEvent("Deploy error at agent")
-		return nil, err
-	}
-	span = trace.SpanFromContext(ctx)
 
-	span.SetAttributes(attribute.Key("deploy-duration").String(time.Since(now).String()))
-	now = time.Now()
-
-	for _, function := range agentRsp.Functions {
+	for _, function := range request.Functions {
+		hnFn := "http://" + "rfa-deploy-" + strings.ToLower(function.Entrypoint) + ":6000"
+		function.ProxyServiceAddr = hnFn // + function.Entrypoint
 		jsonFn := types.RpcFunctionRspToJson(function)
 		proxyUrl := h.proxies.add(jsonFn)
-		function.Url = "http://" + h.httpFnProxyPort + proxyUrl
+		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
 	}
-	span.AddEvent(prettyJson(response))
-	h.Println(h.httpFnProxyPort)
-	h.Println("DEPLOY RESPONSE", prettyJson(response))
+	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
 	return response, nil
 }
 
@@ -157,168 +74,35 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.Key("entrypoint").String(request.GetEntrypoint()))
 
-	entryPoint := request.GetEntrypoint()
-	agent, address := h.getFunctionAgent(entryPoint)
-	if agent == nil {
-		span.AddEvent("cannot find agent for" + entryPoint)
-		return nil, errors.New("cannot find agent for" + entryPoint)
-	}
-	defer h.agentReady(address)
-
-	ctx = trace.ContextWithSpan(ctx, span)
-	agentRsp, err := agent.Stop(ctx, request)
-	if err != nil {
-		span.AddEvent("Stop error at agent", trace.WithAttributes(attribute.Key(address).String(request.GetEntrypoint())))
-		return nil, err
-	}
-
 	response := new(deploy.DeployResponse)
-	for _, function := range agentRsp.Functions {
-		h.proxies.remove(function.Entrypoint)
-		function.Url = ""
-		response.Functions = append(response.Functions, function)
-	}
 	return response, nil
 }
 
 func (h *handler) List(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
-
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.Key("entrypoint").String(empty.GetEntrypoint()))
-
-	agent, address := h.getFunctionAgent(empty.GetEntrypoint())
-	if agent == nil {
-		span.AddEvent("cannot find agent for" + empty.GetEntrypoint())
-		return nil, errors.New("cannot find agent for" + empty.GetEntrypoint())
-	}
-	defer h.agentReady(address)
-
-	ctx = trace.ContextWithSpan(ctx, span)
-
-	response, err := agent.List(ctx, empty)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(response)
-
-	span = trace.SpanFromContext(ctx)
-	for _, fn := range response.Functions {
-		fn.Url = h.proxies.functions[strings.ToLower(fn.Entrypoint)].proxyFrom
-
-	}
-	span.AddEvent(prettyJson(response.Functions))
+	response := new(deploy.DeployResponse)
 	return response, nil
 }
 func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
 	var details *deploy.DeployResponse
 
-	for _, client := range h.agent {
-		detail, err := client.Details(ctx, empty)
-		if err == nil {
-			details.Functions = append(details.Functions, detail.Functions...)
-		}
-	}
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent(prettyJson(h.proxies.details()))
 	span.AddEvent(prettyJson(h.functions))
-	span.AddEvent(prettyJson(h.agent))
 
 	h.Println("Proxy details : ", h.proxies.details())
 	h.Println("Function : ", h.functions)
-	h.Println("Agents : ", h.agent)
 	return details, nil
 }
 
 func (h *handler) Upload(stream deploy.Deploy_UploadServer) error {
 
-	var fileName string
-	var entrypoint string
-	imageData := bytes.Buffer{}
+	return errors.New("no upload method")
 
-	for {
-		ch, err := stream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				goto END
-			}
-			return err
-		}
-		chunk := ch.GetContent()
-		_, err = imageData.Write(chunk)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-		fileName = ch.FileName
-		entrypoint = ch.Entrypoint
-	}
-END:
-	err := stream.SendAndClose(&deploy.Empty{Rsp: nil})
-	fmt.Println("END: ", err)
-
-	dir, err := os.MkdirTemp("", "tmp")
-	if err != nil {
-		fmt.Println("cannot mkdir temp", err.Error())
-		return err
-	}
-
-	tmpZip := dir + "tmp.zip"
-	file, err := os.OpenFile(tmpZip, os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		fmt.Println("cannot create image file: %w", err)
-		return err
-	}
-	defer file.Close()
-	defer func() {
-		os.Remove(file.Name())
-		os.RemoveAll(dir)
-	}()
-
-	_, err = imageData.WriteTo(file)
-	if err != nil {
-		fmt.Println("cannot write image to file ", fileName, err.Error())
-		return err
-	}
-	_, fname := filepath.Split(fileName)
-	if fname == "" {
-		fname = fileName
-	}
-	PathToFns := "/app/proxy/"
-	unzipTo := PathToFns + strings.TrimSuffix(fname, ".zip")
-
-	fmt.Println("fname", fname)
-	fmt.Println("unzipping ", fileName, " to ", PathToFns)
-	fmt.Println("unzipTo ", unzipTo)
-	err = archiver.Unarchive(tmpZip, PathToFns)
-	if err != nil {
-		fmt.Println("unarchive error ", err.Error())
-		return err
-	}
-	registered := &deploy.Function{
-		Entrypoint: entrypoint,
-		// FilePath:   unzipTo + strings.TrimSuffix(fname, ".zip") + "/",
-		Dir:    unzipTo,
-		Status: "UPLOADED",
-	}
-	fmt.Println("uploaded ", registered)
-
-	h.uploads[entrypoint] = registered
-
-	return nil
-
-	return errors.New("no upload method at server. Call deploy")
 }
 
 func (h *handler) Logs(ctx context.Context, function *deploy.Function) (*deploy.Logs, error) {
-	agent, address := h.getFunctionAgent(function.Entrypoint)
-	if agent == nil {
-		return nil, errors.New("cannot find agent for" + function.Entrypoint)
-	}
-	defer h.agentReady(address)
-	response, err := agent.Logs(ctx, function)
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
+	r := new(deploy.Logs)
+	return r, nil
 }
 
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
@@ -353,17 +137,8 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	}
 }
 
-func (h *handler) AgentJoinHttp(c *gin.Context) {
-	agentAddr := c.Query("address")
-	if agentAddr != "" && h.AddAgent(agentAddr) {
-		c.String(200, "Joined")
-		return
-	}
-	c.String(400, "Cannot connect to address -"+agentAddr+"\n")
-}
 func (h *handler) reset(c *gin.Context) {
 	h.proxies = newProxy()
-	h.agent = make(map[string]transport.AgentWrapper)
 	h.functions = make(map[string]string)
 	c.Status(http.StatusAccepted)
 	h.Println("reset")
@@ -372,12 +147,6 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 
 	var details []types.FunctionJsonRsp
 	fmt.Println(h.proxies.functions)
-	tr := otel.Tracer("Function list")
-	ctxT, span := tr.Start(c.Request.Context(), "proxy-details")
-
-	defer func() {
-		span.End()
-	}()
 
 	for _, fn := range h.proxies.details() {
 		fmt.Println(fn)
@@ -386,21 +155,7 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 		if pFn == nil {
 			continue
 		}
-		client, _ := h.getFunctionAgent(fn.Name)
-		if client == nil {
-			continue
-		}
-
-		detail, err := client.Details(ctxT, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: fn.Name}})
-		if err == nil {
-			for _, fn := range detail.Functions {
-				fn.Url = "http://" + h.httpFnProxyPort + pFn.proxyFrom
-				details = append(details, types.RpcFunctionRspToJson(fn))
-				span.SetAttributes(attribute.Key(fn.Entrypoint).String(fn.Status))
-			}
-		}
 	}
-	span.AddEvent(prettyJson(details))
 	c.JSON(200, details)
 }
 
@@ -498,19 +253,12 @@ func (h *handler) functionProxies(c *gin.Context) {
 
 func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h := new(handler)
-	h.agent = make(map[string]transport.AgentWrapper)
 	h.functions = make(map[string]string)
 	h.httpFnProxyPort = http
 	h.proxies = newProxy()
 	h.Logger = log.New(os.Stdout, "[PROXY-HANDLER] ", log.Ltime)
-	h.ready = make(chan string)
 
 	h.uploads = make(map[string]*deploy.Function)
-	for _, v := range agents {
-		if !h.AddAgent(v) {
-			log.Fatal("Unable to add agent ", v)
-		}
-	}
 
 	gin.SetMode(gin.ReleaseMode)
 	h.g = gin.New()
@@ -538,8 +286,6 @@ func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h.g.POST("/deploy", h.DeployHttp)
 	// curl  http://localhost:9002/details
 	h.g.GET("/details", h.DetailsHttp)
-	// curl  http://localhost:9002/addAgent?address=1
-	h.g.GET("/addAgent", h.AgentJoinHttp)
 	// curl  http://localhost:9002/list
 	h.g.GET("/list", h.ListHttp)
 	// curl  http://localhost:9002/metrics

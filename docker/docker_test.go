@@ -20,8 +20,6 @@ func TestDocker_Start(t *testing.T) {
 	assert.NoError(t, err)
 	//
 	//<-time.After(1 * time.Second)
-	err = New().StartAgent("1")
-	assert.NoError(t, err)
 
 }
 
@@ -39,8 +37,6 @@ func TestDocker_Stop(t *testing.T) {
 	assert.NoError(t, err)
 	//
 	//<-time.After(1 * time.Second)
-	err = d.StopAgent("1")
-	assert.NoError(t, err)
 
 }
 
@@ -50,8 +46,10 @@ func TestDocker_List(t *testing.T) {
 }
 
 func TestDocker_RunFunction(t *testing.T) {
-	New().RunFunction("exportedmethodasync_generated4694.go", "async-1")
+	//	assert.NoError(t, New().RunFunction("deployments", "async-1"))
+
+	New().RunFunction("method-async")
 }
 func TestDocker_StopFunction(t *testing.T) {
-	New().StopFunction("async-1")
+	New().StopFunction("methodasync")
 }

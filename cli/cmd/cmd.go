@@ -8,9 +8,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
+	"strings"
 
+	"github.com/Ishan27g/ryo-Faas/docker"
 	cp "github.com/otiai10/copy"
+	"github.com/pkg/errors"
 
 	"github.com/Ishan27g/ryo-Faas/agent/registry"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
@@ -36,11 +41,14 @@ var getProxy = func() transport.AgentWrapper {
 	if proxyAddress == "" {
 		proxyAddress = proxy.DefaultRpc
 	}
+	// return transport.ProxyGrpcClient(proxyAddress)
 	return transport.ProxyGrpcClient(proxyAddress)
 }
 
 var read = func(defFile string) definition {
 	var d definition
+	var fns definition
+
 	content, err := ioutil.ReadFile(defFile)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -58,24 +66,39 @@ var read = func(defFile string) definition {
 			Async:      fn.Async,
 		})
 	}
+
+	_, filename, _, _ := runtime.Caller(0)
+	dir := path.Join(path.Dir(filename), "../..")
+	err = os.Chdir(dir)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
 	cwd, _ := os.Getwd()
 	registry.ModFile = func() string {
 		return "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/template/template.go"
 	}
-	registry.ImportPath = "github.com/Ishan27g/ryo-Faas/deployments/"
-	valid, genFile := registry.AstLocalCopy(cwd+"/../deployments/", df)
+	cwd = cwd + "/"
+	//tmpDir, err := os.MkdirTemp("deployments/", "tmp")
+	err = os.Mkdir("deployments/tmp", os.ModePerm)
+	tmpDir := "deployments/tmp" + "/"
+	registry.ImportPath = "github.com/Ishan27g/ryo-Faas/" + tmpDir
+	valid, genFile := registry.AstLocalCopy(cwd+tmpDir, df)
 	if !valid {
 		log.Fatal("Invalid definition ")
 	}
 	fmt.Println("Generated file", genFile)
 	for _, fn := range d.Deploy {
-		dir, _ := filepath.Split(fn.FilePath)
+		dir, fName := filepath.Split(fn.FilePath)
 		pn := filepath.Base(dir)
-		if err := cp.Copy(fn.PackageDir, cwd+"/../deployments/"+pn); err != nil {
+		if err := cp.Copy(fn.PackageDir, cwd+tmpDir+pn); err != nil {
 			log.Fatal("Error copying files ")
 		}
+		fn.PackageDir = cwd + tmpDir
+		fn.FilePath = cwd + tmpDir + pn + "/" + fName
+		fns.Deploy = append(fns.Deploy, fn)
 	}
-	return d
+	return fns
 }
 
 func printJson(js interface{}) {
@@ -117,32 +140,37 @@ var deployCmd = cli.Command{
 		if c.Args().Len() == 0 {
 			return cli.Exit("filename not provided", 1)
 		}
-		_ = read(c.Args().First())
-		// proxy := getProxy()
-		// if proxy == nil {
-		// 	return cli.Exit("cannot connect to "+proxyAddress, 1)
-		// }
 
-		// var fns []*deploy.Function
+		df := read(c.Args().First())
+		proxy := getProxy()
+		if proxy == nil {
+			return cli.Exit("cannot connect to "+proxyAddress, 1)
+		}
 
-		// for _, s := range df.Deploy {
-		// 	df := &deploy.Function{
-		// 		Entrypoint: s.Name,
-		// 		FilePath:   s.FilePath,
-		// 		Dir:        s.PackageDir,
-		// 		Async:      s.Async,
-		// 	}
-		// 	fns = append(fns, df)
-		// 	if !transport.UploadDir(proxy, context.Background(), df.Dir, df.Entrypoint) {
-		// 		return cli.Exit("cannot upload directory to proxy "+df.Dir, 1)
-		// 	}
-		// }
-		// deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: fns})
-		// if err != nil {
-		// 	fmt.Println(err.Error())
-		// 	return err
-		// }
-		// printResonse(deployResponse)
+		var fns []*deploy.Function
+
+		for _, s := range df.Deploy {
+			s.Name = strings.ToLower(s.Name)
+			df := &deploy.Function{
+				Entrypoint: s.Name,
+				FilePath:   s.FilePath,
+				Dir:        s.PackageDir,
+				Async:      s.Async,
+			}
+			fns = append(fns, df)
+			fmt.Println("Running container for ", df.Entrypoint)
+
+			if docker.New().RunFunction(df.Entrypoint) != nil {
+				return errors.New("cannot run container" + df.Entrypoint)
+			}
+		}
+		deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: fns})
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
+		printResonse(deployResponse)
+		os.RemoveAll("deployment/tmp")
 		return nil
 	},
 }

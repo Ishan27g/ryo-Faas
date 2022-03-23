@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -23,16 +25,16 @@ import (
 )
 
 const (
-	dockerRemote  = "ishan27g/ryo-faas:"
-	versionStr    = ".v0.1"
-	agentImage    = dockerRemote + "rfa-agent" + versionStr
-	databaseImage = dockerRemote + "rfa-database" + versionStr
-	proxyImage    = dockerRemote + "rfa-proxy" + versionStr
+	dockerRemote = "ishan27g/ryo-faas:"
+	versionStr   = ".v0.1"
+	//agentImage    = dockerRemote + "rfa-agent" + versionStr
+	databaseImage   = dockerRemote + "rfa-database" + versionStr
+	proxyImage      = dockerRemote + "rfa-proxy" + versionStr
+	deployBaseImage = dockerRemote + "rfa-deploy-base" + versionStr
+	natsImage       = "nats"
+	natsVersion     = ":alpine"
 
-	natsImage   = "nats"
-	natsVersion = ":alpine"
-
-	actionTimeout = 30 * time.Second
+	actionTimeout = 150 * time.Second
 	networkName   = "rfa_nw"
 
 	databaseHostRpcPort = "5000"
@@ -67,13 +69,10 @@ type Docker interface {
 	StartDatabase() error
 	StopDatabase() error
 
-	StartAgent(instance string) error
-	StopAgent(instance string) error
-
 	StartProxy() error
 	StopProxy() error
 
-	RunFunction(entrypointFile, serviceName string) error
+	RunFunction(serviceName string) error
 	StopFunction(serviceName string) error
 }
 type docker struct {
@@ -90,13 +89,13 @@ func imageBuild(dockerClient *client.Client, serviceName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 
-	tar, err := archive.TarWithOptions("../", &archive.TarOptions{})
+	tar, err := archive.TarWithOptions(".", &archive.TarOptions{})
 	if err != nil {
 		return err
 	}
 
 	opts := types.ImageBuildOptions{
-		Dockerfile: "deploy.tmp.dockerfile",
+		Dockerfile: "deploy.dockerfile",
 		Tags:       []string{serviceName},
 		Remove:     true,
 	}
@@ -147,15 +146,22 @@ func print(rd io.Reader) error {
 	return nil
 }
 func tmpDockerFile(entrypointFile string) bool {
-	cp.Copy("../deploy.dockerfile", "../deploy.tmp.dockerfile")
-	tmp, err := os.OpenFile("../deploy.tmp.dockerfile",
+
+	err := cp.Copy("deploy.dockerfile", "deploy.tmp.dockerfile")
+	if err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+	tmp, err := os.OpenFile("deploy.tmp.dockerfile",
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
 	defer tmp.Close()
-	var entrypoint = "ENTRYPOINT [\"go\", \"run\", \"deployments/" + entrypointFile + "\"," + "\"--port\", \"6000\"]"
+	var entrypoint = "ENTRYPOINT [\"./deployments" + "\"," + "\"--port\", \"6000\"]"
+	fmt.Println(entrypoint)
+
 	if _, err := tmp.WriteString("\n" + entrypoint + "\n"); err != nil {
 		log.Println(err)
 		return false
@@ -163,17 +169,25 @@ func tmpDockerFile(entrypointFile string) bool {
 	tmp.Sync()
 	return true
 }
-func (d *docker) RunFunction(entrypointFile, serviceName string) error {
-	if !tmpDockerFile(entrypointFile) {
-		return errors.New("unable to create tmp dockerfile")
+func (d *docker) RunFunction(serviceName string) error {
+	_, filename, _, _ := runtime.Caller(0)
+	dir := path.Join(path.Dir(filename), "../")
+	err := os.Chdir(dir)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
 	}
-	defer func() {
-		os.Remove("../deploy.tmp.dockerfile")
-	}()
+
+	//if !tmpDockerFile(entrypointFile) {
+	//	return errors.New("unable to create tmp dockerfile")
+	//}
+	//defer func() {
+	//	os.Remove("deploy.tmp.dockerfile")
+	//}()
 
 	name := serviceContainerName(serviceName)
-
-	err := imageBuild(d.Client, name)
+	//
+	err = imageBuild(d.Client, name)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -191,11 +205,14 @@ func (d *docker) RunFunction(entrypointFile, serviceName string) error {
 	ports := map[nat.Port]struct{}{
 		"6000/tcp": {},
 	}
-	config = &container.Config{Image: agentImage, Hostname: name, ExposedPorts: ports, Env: []string{"DATABASE=" + dbAddress}}
+	config = &container.Config{Image: name, Hostname: name, ExposedPorts: ports, Env: []string{"DATABASE=" + dbAddress}}
 
 	// attach container to network
 	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}
-
+	hostConfig.LogConfig = container.LogConfig{
+		Type:   "json-file",
+		Config: map[string]string{},
+	}
 	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -351,58 +368,6 @@ func (d *docker) StopProxy() error {
 	return d.stop(name)
 }
 
-func (d *docker) StartAgent(instance string) error {
-	ctx := context.Background()
-
-	name := agentContainerName(instance)
-
-	dbAddress := trimVersion(databaseImage) + ":" + databaseHostRpcPort
-
-	var config = new(container.Config)
-	var hostConfig = new(container.HostConfig)
-	var networkingConfig = &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{},
-	}
-	config = &container.Config{Image: agentImage, Hostname: name, ExposedPorts: agentPorts, Env: []string{"DATABASE=" + dbAddress}}
-
-	// bind container port to host port
-	//hostBinding := nat.PortBinding{
-	//	HostIP:   "0.0.0.0",
-	//	HostPort: agentHostPost,
-	//}
-	//containerPort, err := nat.NewPort("tcp", agentHostPost)
-	//if err != nil {
-	//	d.Println("Unable to get the port", err.Error())
-	//	return err
-	//}
-	//hostConfig.PortBindings = nat.PortMap{containerPort: []nat.PortBinding{hostBinding}}
-
-	// attach container to network
-	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}
-
-	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-
-	if err := d.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-
-	fmt.Println(resp.ID)
-	return nil
-}
-
-func agentContainerName(instance string) string {
-	return trimVersion(agentImage) + "-" + instance
-}
-
-func (d *docker) StopAgent(instance string) error {
-	name := agentContainerName(instance)
-	return d.stop(name)
-}
 func (d *docker) StopDatabase() error {
 	name := trimVersion(databaseImage)
 	return d.stop(name)
@@ -473,10 +438,6 @@ func databaseContainerName() string {
 func (d *docker) Pull() error {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(actionTimeout))
 	defer cancel()
-	if err := d.pull(ctx, agentImage); err != nil {
-		d.Println("error-pull", agentImage, err.Error())
-		return err
-	}
 	if err := d.pull(ctx, databaseImage); err != nil {
 		d.Println("error-pull", databaseImage, err.Error())
 		return err
@@ -486,6 +447,10 @@ func (d *docker) Pull() error {
 		return err
 	}
 	if err := d.pull(ctx, natsImage+natsVersion); err != nil {
+		d.Println("error-pull", natsImage+natsVersion, err.Error())
+		return err
+	}
+	if err := d.pull(ctx, deployBaseImage); err != nil {
 		d.Println("error-pull", natsImage+natsVersion, err.Error())
 		return err
 	}
@@ -505,7 +470,6 @@ func (d *docker) Check() map[string]string {
 	var status = make(map[string]string)
 	status["rfa-"+natsImage] = d.check("rfa-" + natsImage)
 	status[databaseContainerName()] = d.check(databaseContainerName())
-	status[agentContainerName("1")] = d.check(agentContainerName("1"))
 	status[proxyContainerName()] = d.check(proxyContainerName())
 	return status
 }

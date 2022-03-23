@@ -61,9 +61,6 @@ tasks:
   imgProxy:
     cmds:
      - docker build -f proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
-  imgAgent:
-    cmds:
-      - docker build -f agent.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_AGENT}} .
   imgDb:
     cmds:
       - docker build -f db.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}} .
@@ -72,7 +69,6 @@ tasks:
       - docker build -f deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
   buildImages:
       cmds:
-        - task: imgAgent
         - task: imgDb
         - task: imgProxy
         - task: imgDeployBase
@@ -80,6 +76,5 @@ tasks:
   pushImages:
       cmds:
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
-        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_AGENT}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
