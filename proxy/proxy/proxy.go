@@ -26,7 +26,6 @@ type definition struct {
 	isAsyncNats bool
 }
 type proxy struct {
-	urlMap map[string]proxyFunction
 	*proxyDefinitions
 }
 
@@ -41,7 +40,6 @@ type proxyFunction struct {
 
 func newProxy() proxy {
 	return proxy{
-		urlMap:           make(map[string]proxyFunction),
 		proxyDefinitions: &proxyDefinitions{functions: make(map[string]*definition)},
 	}
 }
@@ -73,6 +71,14 @@ func (p *proxyDefinitions) getFn(fnName string) *definition {
 	}
 	return p.functions[fnName]
 }
+func (p *proxyDefinitions) getFuncFwHost(fnName string) string {
+	fnName = strings.ToLower(fnName)
+	if p.functions[fnName] == nil {
+		fmt.Println("not found in proxyDefinitions", fnName)
+		return ""
+	}
+	return p.functions[fnName].proxyTo
+}
 func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string, bool) {
 	fnName = strings.ToLower(fnName)
 	if p.functions[fnName] == nil {
@@ -80,14 +86,6 @@ func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string, bool) {
 		return nil, "", "", false
 	}
 	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr, p.functions[fnName].isAsyncNats
-}
-func (p *proxyDefinitions) urlPair(fnName string) (string, string) {
-	fnName = strings.ToLower(fnName)
-	if p.functions[fnName] == nil {
-		return "", ""
-	}
-	return p.functions[fnName].proxyTo, p.functions[fnName].proxyFrom
-
 }
 func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 	d := &definition{

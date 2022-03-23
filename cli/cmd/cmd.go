@@ -7,7 +7,12 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 
+	cp "github.com/otiai10/copy"
+
+	"github.com/Ishan27g/ryo-Faas/agent/registry"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/transport"
@@ -43,6 +48,32 @@ var read = func(defFile string) definition {
 	err = json.Unmarshal(content, &d)
 	if err != nil {
 		log.Fatal(err.Error())
+	}
+	var df []*deploy.Function
+	for _, fn := range d.Deploy {
+		df = append(df, &deploy.Function{
+			Entrypoint: fn.Name,
+			FilePath:   fn.FilePath,
+			Dir:        fn.PackageDir,
+			Async:      fn.Async,
+		})
+	}
+	cwd, _ := os.Getwd()
+	registry.ModFile = func() string {
+		return "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/template/template.go"
+	}
+	registry.ImportPath = "github.com/Ishan27g/ryo-Faas/deployments/"
+	valid, genFile := registry.AstLocalCopy(cwd+"/../deployments/", df)
+	if !valid {
+		log.Fatal("Invalid definition ")
+	}
+	fmt.Println("Generated file", genFile)
+	for _, fn := range d.Deploy {
+		dir, _ := filepath.Split(fn.FilePath)
+		pn := filepath.Base(dir)
+		if err := cp.Copy(fn.PackageDir, cwd+"/../deployments/"+pn); err != nil {
+			log.Fatal("Error copying files ")
+		}
 	}
 	return d
 }
@@ -86,40 +117,54 @@ var deployCmd = cli.Command{
 		if c.Args().Len() == 0 {
 			return cli.Exit("filename not provided", 1)
 		}
-		df := read(c.Args().First())
-		proxy := getProxy()
-		if proxy == nil {
-			return cli.Exit("cannot connect to "+proxyAddress, 1)
-		}
+		_ = read(c.Args().First())
+		// proxy := getProxy()
+		// if proxy == nil {
+		// 	return cli.Exit("cannot connect to "+proxyAddress, 1)
+		// }
 
-		var fns []*deploy.Function
+		// var fns []*deploy.Function
 
-		for _, s := range df.Deploy {
-			df := &deploy.Function{
-				Entrypoint: s.Name,
-				FilePath:   s.FilePath,
-				Dir:        s.PackageDir,
-				Async:      s.Async,
-			}
-			fns = append(fns, df)
-			if !transport.UploadDir(proxy, context.Background(), df.Dir, df.Entrypoint) {
-				return cli.Exit("cannot upload directory to proxy "+df.Dir, 1)
-			}
-		}
-		deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: fns})
-		if err != nil {
-			fmt.Println(err.Error())
-			return err
-		}
-		printResonse(deployResponse)
+		// for _, s := range df.Deploy {
+		// 	df := &deploy.Function{
+		// 		Entrypoint: s.Name,
+		// 		FilePath:   s.FilePath,
+		// 		Dir:        s.PackageDir,
+		// 		Async:      s.Async,
+		// 	}
+		// 	fns = append(fns, df)
+		// 	if !transport.UploadDir(proxy, context.Background(), df.Dir, df.Entrypoint) {
+		// 		return cli.Exit("cannot upload directory to proxy "+df.Dir, 1)
+		// 	}
+		// }
+		// deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: fns})
+		// if err != nil {
+		// 	fmt.Println(err.Error())
+		// 	return err
+		// }
+		// printResonse(deployResponse)
 		return nil
 	},
 }
-var statusProxyCmd = cli.Command{
-	Name:            "status",
-	Aliases:         []string{"s"},
+var detailsProxyCmd = cli.Command{
+	Name:            "details",
 	Usage:           "list current details",
-	ArgsUsage:       "server-cli status",
+	ArgsUsage:       "server-cli details",
+	HideHelp:        false,
+	HideHelpCommand: false,
+	Action: func(c *cli.Context) error {
+		var rsp []types.FunctionJsonRsp
+		json.Unmarshal(sendHttp("/details", ""), &rsp)
+		for _, v := range rsp {
+			fmt.Printf("%s\t\t%s\t%s\n", v.Url, v.Name, v.Status)
+		}
+		return nil
+	},
+}
+var functionStatusProxyCmd = cli.Command{
+	Name:            "details",
+	Usage:           "list current details",
+	ArgsUsage:       "server-cli details",
 	HideHelp:        false,
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
@@ -241,7 +286,7 @@ var proxyResetCmd = cli.Command{
 }
 
 func Init() *cli.App {
-	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd, &statusProxyCmd,
+	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd, &detailsProxyCmd,
 		&logsCmd, &proxyResetCmd, &startRyoFaas, &stopRyoFaas},
 		Flags: []cli.Flag{
 			&cli.StringFlag{

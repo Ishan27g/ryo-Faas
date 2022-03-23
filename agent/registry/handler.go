@@ -17,7 +17,7 @@ import (
 	"github.com/mholt/archiver/v3"
 )
 
-var importPath = "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/"
+var ImportPath = "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/"
 
 var path = func() string {
 	cwd, _ := os.Getwd()
@@ -33,10 +33,10 @@ const deployDir = "/deploy/"
 var pathToDeployment = path() + registryDir + deployDir
 var PathToFns = pathToDeployment + "functions/"
 
-var getGenFilePath = func(fileName string) string {
-	return PathToFns + strings.ToLower(fileName) + "_generated" + strconv.Itoa(rand.Intn(10000)) + ".go"
+var getGenFilePath = func(fromDir string, fileName string) string {
+	return /*PathToFns*/ fromDir + strings.ToLower(fileName) + "_generated" + strconv.Itoa(rand.Intn(10000)) + ".go"
 }
-var modFile = func() string {
+var ModFile = func() string {
 	return path() + registryDir + "/template/template.go"
 }
 

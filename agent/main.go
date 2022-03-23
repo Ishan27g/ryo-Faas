@@ -38,11 +38,9 @@ func main() {
 		Server   interface{}
 	}{IsDeploy: true, Server: agent}, rpcAddr, nil, "").Start()
 
-	go func() {
-		for {
-			<-time.After(3 * time.Second)
-			store.Get("NewTable")
-		}
+	go func() { // todo : added only to test db connection
+		<-time.After(5 * time.Second)
+		store.Get("NewTable")
 	}()
 
 	closeLogs := make(chan os.Signal, 1)

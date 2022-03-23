@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
@@ -467,6 +468,33 @@ func (h *handler) DeployHttpAsync(c *gin.Context) {
 	}
 	c.JSON(200, r)
 }
+func checkHealth(addr string) bool {
+	resp, err := http.Get(addr + "/healthcheck")
+	if err != nil {
+		return false
+	}
+	return resp.StatusCode == http.StatusOK
+}
+func (h *handler) functionProxies(c *gin.Context) {
+	var r []types.FunctionJsonRsp
+	var wg sync.WaitGroup
+	for entrypoint, _ := range h.functions {
+		wg.Add(1)
+		go func(entrypoint string) {
+			defer wg.Done()
+			if addr := h.proxies.getFuncFwHost(entrypoint); addr != "" {
+				if checkHealth(addr) {
+					r = append(r, types.FunctionJsonRsp{
+						Name:  entrypoint,
+						Proxy: h.proxies.getFuncFwHost(entrypoint),
+					})
+				}
+			}
+		}(entrypoint)
+	}
+	wg.Wait()
+	c.JSON(http.StatusOK, r)
+}
 
 func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h := new(handler)
@@ -496,6 +524,7 @@ func Start(ctx context.Context, grpcPort, http string, agents ...string) {
 	h.g.Use(otelgin.Middleware("proxy-server"))
 
 	h.g.GET("/reset", h.reset)
+	h.g.GET("/functionProxies", h.functionProxies)
 
 	// proxy curl -X POST http://localhost:9002/deploy -H 'Content-Type: application/json' -d '[
 	//  {

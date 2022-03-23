@@ -22,7 +22,7 @@ var httpFn = "FuncFw.Export.Http"
 var httpAsyncFn = "FuncFw.Export.HttpAsync"
 var httpNatsAsyncFn = "FuncFw.Export.NatsAsync" // todo with Pxy{}
 
-func astLocalCopy(fns []*deploy.Function) (bool, string) {
+func AstLocalCopy(toDir string, fns []*deploy.Function) (bool, string) {
 	var deployments []function
 	for _, fn := range fns {
 		if !validate(fn.GetFilePath(), fn.GetEntrypoint()) {
@@ -35,7 +35,7 @@ func astLocalCopy(fns []*deploy.Function) (bool, string) {
 			pn, fn.GetEntrypoint(), fn.Async,
 		})
 	}
-	genFile, err := rewriteDeployDotGo(deployments...)
+	genFile, err := rewriteDeployDotGo(toDir, deployments...)
 	if err != nil {
 		fmt.Println(err.Error())
 		return false, ""
@@ -50,7 +50,8 @@ func validate(fileName, entrypoint string) bool {
 	set := token.NewFileSet()
 	node, err := parser.ParseFile(set, fileName, nil, parser.ParseComments)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal("Cannot validate ", err.Error())
+		return false
 	}
 	formatNode := func(node ast.Node) string {
 		buf := new(bytes.Buffer)
@@ -85,16 +86,16 @@ type function struct {
 	isAsync    bool
 }
 
-func rewriteDeployDotGo(fns ...function) (string, error) {
+func rewriteDeployDotGo(toDir string, fns ...function) (string, error) {
 	var genFile string
 
 	set := token.NewFileSet()
-	node, err := parser.ParseFile(set, modFile(), nil, parser.ParseComments)
+	node, err := parser.ParseFile(set, ModFile(), nil, parser.ParseComments)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Unable to open generate.go template ", err.Error())
 		return genFile, err
 	}
-	dir := importPath
+	dir := ImportPath
 
 	for _, fn := range fns {
 		var fnFwCall = httpFn
@@ -196,7 +197,9 @@ func rewriteDeployDotGo(fns ...function) (string, error) {
 		return genFile, err
 	}
 	out := buffer.Bytes()
-	genFile = getGenFilePath("exported" + fns[0].entrypoint)
+	genFile = getGenFilePath(toDir, "exported"+fns[0].entrypoint)
+	//genFile = strings.ToLower("exported"+fns[0].entrypoint) + "_generated" + strconv.Itoa(rand.Intn(10000)) + ".go"
+
 	_, err = os.Create(genFile)
 	if err != nil {
 		log.Println("cant create", err.Error())

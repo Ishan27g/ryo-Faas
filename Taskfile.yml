@@ -6,6 +6,7 @@ vars:
     IMAGE_AGENT: rfa-agent.v0.1
     IMAGE_PROXY: rfa-proxy.v0.1
     IMAGE_DATABASE: rfa-database.v0.1
+    IMAGE_DEPLOY_BASE: rfa-deploy-base.v0.1
 
 tasks:
 
@@ -66,14 +67,19 @@ tasks:
   imgDb:
     cmds:
       - docker build -f db.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}} .
+  imgDeployBase:
+    cmds:
+      - docker build -f deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
   buildImages:
       cmds:
         - task: imgAgent
         - task: imgDb
         - task: imgProxy
+        - task: imgDeployBase
 
   pushImages:
       cmds:
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_AGENT}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
+        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}

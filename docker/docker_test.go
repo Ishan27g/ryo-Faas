@@ -48,3 +48,10 @@ func TestDocker_List(t *testing.T) {
 
 	New().Status()
 }
+
+func TestDocker_RunFunction(t *testing.T) {
+	New().RunFunction("exportedmethodasync_generated4694.go", "async-1")
+}
+func TestDocker_StopFunction(t *testing.T) {
+	New().StopFunction("async-1")
+}

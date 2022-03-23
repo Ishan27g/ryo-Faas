@@ -148,7 +148,7 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 		rFn.FilePath = uFn.Dir + filepath.Base(rFn.FilePath)
 		uploadedFns = append(uploadedFns, rFn)
 	}
-	valid, genFile := astLocalCopy(uploadedFns)
+	valid, genFile := AstLocalCopy(PathToFns, uploadedFns)
 	if !valid {
 		r.Println("invalid file ")
 		return nil
@@ -189,7 +189,7 @@ func (r *registry) deploy(fns []*deploy.Function) []*deploy.Function {
 		if checkHealth(fn.ProxyServiceAddr) {
 			r.deployed(fn)
 		} else {
-			//	r.stopped(fn)
+			r.stopped(fn)
 		}
 	}
 	registered = nil

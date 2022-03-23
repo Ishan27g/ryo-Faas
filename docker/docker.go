@@ -1,7 +1,9 @@
 package docker
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -14,7 +16,10 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/go-connections/nat"
+	cp "github.com/otiai10/copy"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -67,10 +72,148 @@ type Docker interface {
 
 	StartProxy() error
 	StopProxy() error
+
+	RunFunction(entrypointFile, serviceName string) error
+	StopFunction(serviceName string) error
 }
 type docker struct {
 	*client.Client
 	*log.Logger
+}
+
+func (d *docker) StopFunction(serviceName string) error {
+	name := serviceContainerName(serviceName)
+	return d.stop(name)
+}
+
+func imageBuild(dockerClient *client.Client, serviceName string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	defer cancel()
+
+	tar, err := archive.TarWithOptions("../", &archive.TarOptions{})
+	if err != nil {
+		return err
+	}
+
+	opts := types.ImageBuildOptions{
+		Dockerfile: "deploy.tmp.dockerfile",
+		Tags:       []string{serviceName},
+		Remove:     true,
+	}
+	res, err := dockerClient.ImageBuild(ctx, tar, opts)
+	if err != nil {
+		fmt.Println("build error")
+		return err
+	}
+
+	defer res.Body.Close()
+
+	err = print(res.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type ErrorLine struct {
+	Error       string      `json:"error"`
+	ErrorDetail ErrorDetail `json:"errorDetail"`
+}
+
+type ErrorDetail struct {
+	Message string `json:"message"`
+}
+
+func print(rd io.Reader) error {
+	var lastLine string
+
+	scanner := bufio.NewScanner(rd)
+	for scanner.Scan() {
+		lastLine = scanner.Text()
+		fmt.Println(scanner.Text())
+	}
+
+	errLine := &ErrorLine{}
+	json.Unmarshal([]byte(lastLine), errLine)
+	if errLine.Error != "" {
+		return errors.New(errLine.Error)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+func tmpDockerFile(entrypointFile string) bool {
+	cp.Copy("../deploy.dockerfile", "../deploy.tmp.dockerfile")
+	tmp, err := os.OpenFile("../deploy.tmp.dockerfile",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	defer tmp.Close()
+	var entrypoint = "ENTRYPOINT [\"go\", \"run\", \"deployments/" + entrypointFile + "\"," + "\"--port\", \"6000\"]"
+	if _, err := tmp.WriteString("\n" + entrypoint + "\n"); err != nil {
+		log.Println(err)
+		return false
+	}
+	tmp.Sync()
+	return true
+}
+func (d *docker) RunFunction(entrypointFile, serviceName string) error {
+	if !tmpDockerFile(entrypointFile) {
+		return errors.New("unable to create tmp dockerfile")
+	}
+	defer func() {
+		os.Remove("../deploy.tmp.dockerfile")
+	}()
+
+	name := serviceContainerName(serviceName)
+
+	err := imageBuild(d.Client, name)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	ctx := context.Background()
+
+	dbAddress := trimVersion(databaseImage) + ":" + databaseHostRpcPort
+
+	var config = new(container.Config)
+	var hostConfig = new(container.HostConfig)
+	var networkingConfig = &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{},
+	}
+	ports := map[nat.Port]struct{}{
+		"6000/tcp": {},
+	}
+	config = &container.Config{Image: agentImage, Hostname: name, ExposedPorts: ports, Env: []string{"DATABASE=" + dbAddress}}
+
+	// attach container to network
+	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}
+
+	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	if err := d.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	fmt.Println(resp.ID)
+	return nil
+
+}
+
+func serviceContainerName(serviceName string) string {
+	return "rfa-deploy-" + serviceName
 }
 
 func (d *docker) Status() bool {

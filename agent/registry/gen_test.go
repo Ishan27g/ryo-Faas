@@ -23,16 +23,16 @@ func TestAstGen(t *testing.T) {
 	// change relative path
 	pathToDeployment = path() + deployDir
 	PathToFns = pathToDeployment + "functions/"
-	modFile = func() string {
+	ModFile = func() string {
 		return path() + "/template/template.go"
 	}
 	os.MkdirAll(PathToFns, os.ModePerm)
 
 	fmt.Println("pathToDeployment", pathToDeployment)
 	fmt.Println("PathToFns", PathToFns)
-	fmt.Println("modFile", modFile())
+	fmt.Println("modFile", ModFile())
 
-	dotGo, err := rewriteDeployDotGo(exports...)
+	dotGo, err := rewriteDeployDotGo(PathToFns, exports...)
 	assert.NoError(t, err)
 	assert.FileExists(t, dotGo)
 	os.Remove(dotGo)
