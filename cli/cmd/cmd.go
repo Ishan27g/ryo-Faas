@@ -17,7 +17,6 @@ import (
 	cp "github.com/otiai10/copy"
 	"github.com/pkg/errors"
 
-	"github.com/Ishan27g/ryo-Faas/agent/registry"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/transport"
@@ -75,15 +74,16 @@ var read = func(defFile string) definition {
 	}
 
 	cwd, _ := os.Getwd()
-	registry.ModFile = func() string {
-		return "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/template/template.go"
-	}
+
 	cwd = cwd + "/"
 	//tmpDir, err := os.MkdirTemp("deployments/", "tmp")
 	err = os.Mkdir("deployments/tmp", os.ModePerm)
 	tmpDir := "deployments/tmp" + "/"
-	registry.ImportPath = "github.com/Ishan27g/ryo-Faas/" + tmpDir
-	valid, genFile := registry.AstLocalCopy(cwd+tmpDir, df)
+	ImportPath = "github.com/Ishan27g/ryo-Faas/" + tmpDir
+	ModFile = func() string {
+		return "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/template/template.go"
+	}
+	valid, genFile := AstLocalCopy(cwd+tmpDir, df)
 	if !valid {
 		log.Fatal("Invalid definition ")
 	}

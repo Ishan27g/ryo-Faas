@@ -1,4 +1,4 @@
-package registry
+package cmd
 
 import (
 	"bytes"
@@ -84,6 +84,11 @@ type function struct {
 	pkgName    string
 	entrypoint string
 	isAsync    bool
+}
+
+var ImportPath = ""
+var ModFile = func() string {
+	return ""
 }
 
 func rewriteDeployDotGo(toDir string, fns ...function) (string, error) {
