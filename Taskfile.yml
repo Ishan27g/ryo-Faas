@@ -78,3 +78,8 @@ tasks:
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
+
+  dockerRemote:
+      cmds:
+        - task: buildImages
+        - task: pushImages

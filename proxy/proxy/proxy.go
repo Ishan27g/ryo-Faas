@@ -24,6 +24,7 @@ type definition struct {
 
 	agentAddr   string // rpc or http
 	isAsyncNats bool
+	isMain      bool
 }
 type proxy struct {
 	*proxyDefinitions
@@ -48,11 +49,11 @@ func (p *proxyDefinitions) details() []types.FunctionJsonRsp {
 	var str []types.FunctionJsonRsp
 	for _, d := range p.functions {
 		str = append(str, types.FunctionJsonRsp{
-			Name: d.fnName,
-			// Status:  "?",
+			Name:    d.fnName,
 			Url:     d.proxyFrom,
 			Proxy:   d.proxyTo,
 			AtAgent: d.agentAddr,
+			IsAsync: d.isAsyncNats,
 		})
 	}
 	return str
@@ -64,7 +65,7 @@ func (p *proxyDefinitions) remove(fnName string) {
 	}
 	delete(p.functions, fnName)
 }
-func (p *proxyDefinitions) getFn(fnName string) *definition {
+func (p *proxyDefinitions) asDefinition(fnName string) *definition {
 	if p.functions[fnName] == nil {
 		fmt.Println("not found in p.functions", fnName)
 		return nil
@@ -79,13 +80,13 @@ func (p *proxyDefinitions) getFuncFwHost(fnName string) string {
 	}
 	return p.functions[fnName].proxyTo
 }
-func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string, bool) {
+func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string, bool, bool) {
 	fnName = strings.ToLower(fnName)
 	if p.functions[fnName] == nil {
 		fmt.Println("not found in proxyDefinitions", fnName)
-		return nil, "", "", false
+		return nil, "", "", false, false
 	}
-	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr, p.functions[fnName].isAsyncNats
+	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr, p.functions[fnName].isAsyncNats, p.functions[fnName].isMain
 }
 func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 	d := &definition{
@@ -94,6 +95,7 @@ func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 		proxyTo:     fn.Proxy,
 		agentAddr:   fn.AtAgent,
 		isAsyncNats: fn.IsAsync,
+		isMain:      fn.IsMain,
 	}
 	p.functions[strings.ToLower(fn.Name)] = d
 	fmt.Println("ADDED PROXY ", d)
@@ -102,7 +104,7 @@ func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 
 type Pxy struct{}
 
-func (p *Pxy) ServeHTTP(ctx context.Context, rw http.ResponseWriter, req *http.Request, host string) (int, trace.Span) {
+func (p *Pxy) ServeHTTP(ctx context.Context, rw http.ResponseWriter, req *http.Request, host string, trimServiceName string) (int, trace.Span) {
 	// tr := otel.Tracer(MetricTracerFwToAgent)
 
 	// otel.GetTracerProvider().Tracer(MetricTracerFwToAgent)
@@ -125,7 +127,16 @@ func (p *Pxy) ServeHTTP(ctx context.Context, rw http.ResponseWriter, req *http.R
 		}
 		outReq.Header.Set("X-Forwarded-For", clientIP)
 	}
-	endpoint := strings.TrimPrefix(outReq.URL.RequestURI(), Functions)
+	endpoint := ""
+	fmt.Println("trimServiceName", trimServiceName)
+	if trimServiceName != "" {
+		fmt.Println(Functions + "/" + trimServiceName)
+		fmt.Println("strings.TrimPrefix(outReq.URL.RequestURI(), Functions+\"/\"+trimServiceName)", strings.TrimPrefix(outReq.URL.RequestURI(), Functions+"/"+trimServiceName))
+		endpoint = strings.TrimPrefix(outReq.URL.RequestURI(), Functions+"/"+trimServiceName)
+	} else {
+		endpoint = strings.TrimPrefix(outReq.URL.RequestURI(), Functions)
+	}
+
 	fmt.Println("Sending to ", host+endpoint)
 	var err error
 	outReq.URL, err = url.Parse(host + endpoint)

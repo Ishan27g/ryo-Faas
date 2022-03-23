@@ -61,7 +61,8 @@ var trimVersion = func(from string) string {
 
 type Docker interface {
 	Pull() error
-	Status() bool
+	StatusAll() bool
+	StatusAny() bool
 	Check() map[string]string
 	StartNats() error
 	StopNats() error
@@ -178,13 +179,6 @@ func (d *docker) RunFunction(serviceName string) error {
 		return err
 	}
 
-	//if !tmpDockerFile(entrypointFile) {
-	//	return errors.New("unable to create tmp dockerfile")
-	//}
-	//defer func() {
-	//	os.Remove("deploy.tmp.dockerfile")
-	//}()
-
 	name := serviceContainerName(serviceName)
 	//
 	err = imageBuild(d.Client, name)
@@ -233,7 +227,7 @@ func serviceContainerName(serviceName string) string {
 	return "rfa-deploy-" + serviceName
 }
 
-func (d *docker) Status() bool {
+func (d *docker) StatusAll() bool {
 	var allRunning = true
 	for s, s2 := range d.Check() {
 		fmt.Printf("\n%s:\t\t%s", s2, s)
@@ -243,6 +237,16 @@ func (d *docker) Status() bool {
 	}
 	fmt.Printf("\n")
 	return allRunning
+}
+
+func (d *docker) StatusAny() bool {
+	var anyRunning = false
+	for _, s2 := range d.Check() {
+		if s2 == "running" {
+			return true
+		}
+	}
+	return anyRunning
 }
 
 func (d *docker) StartNats() error {
@@ -482,8 +486,10 @@ func (d *docker) check(containerName string) string {
 	if err != nil {
 		panic(err)
 	}
-	return containers[0].State
-
+	if len(containers) > 0 {
+		return containers[0].State
+	}
+	return ""
 }
 
 func New() Docker {

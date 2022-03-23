@@ -21,7 +21,6 @@ import (
 var httpFn = "FuncFw.Export.Http"
 var httpAsyncFn = "FuncFw.Export.HttpAsync"
 var httpNatsAsyncFn = "FuncFw.Export.NatsAsync" // todo with Pxy{}
-
 func AstLocalCopy(toDir string, fns []*deploy.Function) (bool, string) {
 	var deployments []function
 	for _, fn := range fns {
@@ -41,6 +40,54 @@ func AstLocalCopy(toDir string, fns []*deploy.Function) (bool, string) {
 		return false, ""
 	}
 	return true, genFile
+}
+
+func AstLocalCopyMain(toDir string, fns []*deploy.Function) (bool, string) {
+	var deployments []function
+	for _, fn := range fns {
+		if !validateInit(fn.GetFilePath(), fn.GetEntrypoint()) {
+			fmt.Println("invalid")
+			return false, ""
+		}
+		dir, _ := filepath.Split(fn.GetFilePath())
+		pn := filepath.Base(dir)
+		deployments = append(deployments, function{
+			pn, fn.GetEntrypoint(), fn.Async,
+		})
+	}
+	genFile, err := rewriteDeployMainDotGo(toDir, deployments...)
+	if err != nil {
+		fmt.Println(err.Error())
+		return false, ""
+	}
+	return true, genFile
+}
+
+// todo check entrypoint only
+func validateInit(fileName, entrypoint string) bool {
+	fmt.Println("Validating Init- ", fileName, entrypoint)
+
+	set := token.NewFileSet()
+	node, err := parser.ParseFile(set, fileName, nil, parser.ParseComments)
+	if err != nil {
+		log.Fatal("Cannot validate ", err.Error())
+		return false
+	}
+	valid := false
+	ast.Inspect(node, func(n ast.Node) bool {
+		switch ret := n.(type) {
+		case *ast.FuncDecl:
+			fmt.Println("ret.Name.String()", ret.Name.String())
+			if ret.Name.String() == "Init" {
+				params := ret.Type.Params.List
+				if len(params) == 0 {
+					valid = true
+				}
+			}
+		}
+		return true
+	})
+	return valid
 }
 
 // todo check entrypoint only
@@ -205,6 +252,74 @@ func rewriteDeployDotGo(toDir string, fns ...function) (string, error) {
 	genFile = toDir + "exported.go"
 	//genFile = getGenFilePath(toDir, "exported"+fns[0].entrypoint)
 	//genFile = strings.ToLower("exported"+fns[0].entrypoint) + "_generated" + strconv.Itoa(rand.Intn(10000)) + ".go"
+
+	_, err = os.Create(genFile)
+	if err != nil {
+		log.Println("cant create", err.Error())
+		return "", err
+	}
+	err = ioutil.WriteFile(genFile, out, os.ModePerm)
+	if err != nil {
+		log.Println(err)
+		return genFile, err
+	}
+	return genFile, nil
+}
+
+func rewriteDeployMainDotGo(toDir string, fns ...function) (string, error) {
+	var genFile string
+
+	set := token.NewFileSet()
+	node, err := parser.ParseFile(set, ModFile(), nil, parser.ParseComments)
+	if err != nil {
+		log.Fatal("Unable to open generate.go template ", err.Error())
+		return genFile, err
+	}
+	dir := ImportPath
+
+	for _, fn := range fns {
+		packageAlias := strings.ReplaceAll(fn.pkgName, "-", "")
+		for i := 0; i < len(node.Decls); i++ {
+			d := node.Decls[i]
+			switch d.(type) {
+			case *ast.GenDecl:
+				dd := d.(*ast.GenDecl)
+				if dd.Tok == token.IMPORT {
+					// add the new import
+					iSpec := &ast.ImportSpec{
+						Name: &ast.Ident{Name: packageAlias},
+						Path: &ast.BasicLit{Value: strconv.Quote(dir + fn.pkgName)},
+					}
+					dd.Specs = append(dd.Specs, iSpec)
+				}
+			case *ast.FuncDecl:
+				if d.(*ast.FuncDecl).Name.String() == "init" {
+					newCallStmt := &ast.ExprStmt{ // functions.HTTP(
+						X: &ast.CallExpr{
+							Fun: &ast.Ident{
+								Name: packageAlias + "." + "Init",
+							},
+						},
+					}
+					d.(*ast.FuncDecl).Body.List = append([]ast.Stmt{newCallStmt},
+						d.(*ast.FuncDecl).Body.List...)
+				}
+			}
+		}
+	}
+
+	// Sort the imports
+	ast.SortImports(set, node)
+
+	// Generate the code
+	var output []byte
+	buffer := bytes.NewBuffer(output)
+	if err := printer.Fprint(buffer, set, node); err != nil {
+		log.Println(err)
+		return genFile, err
+	}
+	out := buffer.Bytes()
+	genFile = toDir + "exported.go"
 
 	_, err = os.Create(genFile)
 	if err != nil {

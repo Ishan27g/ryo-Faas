@@ -14,13 +14,11 @@ import (
 	"strings"
 
 	"github.com/Ishan27g/ryo-Faas/docker"
-	cp "github.com/otiai10/copy"
-	"github.com/pkg/errors"
-
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
+	cp "github.com/otiai10/copy"
 	"github.com/urfave/cli/v2"
 )
 
@@ -29,10 +27,11 @@ var proxyHttpAddr = "localhost" + proxy.DefaultHttp
 
 type definition struct {
 	Deploy []struct {
-		Name       string `json:"name"`
-		FilePath   string `json:"filePath"`
-		PackageDir string `json:"packageDir"`
-		Async      bool   `json:"Async"`
+		Name        string `json:"name"`
+		FilePath    string `json:"filePath"`
+		PackageDir  string `json:"packageDir"`
+		Async       bool   `json:"Async"`
+		MainProcess bool   `json:"mainProcess"`
 	} `json:"deploy"`
 }
 
@@ -44,7 +43,7 @@ var getProxy = func() transport.AgentWrapper {
 	return transport.ProxyGrpcClient(proxyAddress)
 }
 
-var read = func(defFile string) definition {
+var read = func(defFile string) (definition, bool) {
 	var d definition
 	var fns definition
 
@@ -57,6 +56,7 @@ var read = func(defFile string) definition {
 		log.Fatal(err.Error())
 	}
 	var df []*deploy.Function
+	var isMain = false
 	for _, fn := range d.Deploy {
 		df = append(df, &deploy.Function{
 			Entrypoint: fn.Name,
@@ -64,6 +64,9 @@ var read = func(defFile string) definition {
 			Dir:        fn.PackageDir,
 			Async:      fn.Async,
 		})
+		if fn.MainProcess {
+			isMain = true
+		}
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
@@ -74,31 +77,39 @@ var read = func(defFile string) definition {
 	}
 
 	cwd, _ := os.Getwd()
-
 	cwd = cwd + "/"
-	//tmpDir, err := os.MkdirTemp("deployments/", "tmp")
+
 	err = os.Mkdir("deployments/tmp", os.ModePerm)
 	tmpDir := "deployments/tmp" + "/"
 	ImportPath = "github.com/Ishan27g/ryo-Faas/" + tmpDir
 	ModFile = func() string {
 		return "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/template/template.go"
 	}
-	valid, genFile := AstLocalCopy(cwd+tmpDir, df)
-	if !valid {
-		log.Fatal("Invalid definition ")
+	if !isMain {
+		valid, genFile := AstLocalCopy(cwd+tmpDir, df)
+		if !valid {
+			log.Fatal("Invalid definition ")
+		}
+		fmt.Println("Generated file", genFile)
+	} else {
+		valid, genFile := AstLocalCopyMain(cwd+tmpDir, df)
+		if !valid {
+			log.Fatal("Invalid definition ")
+		}
+		fmt.Println("Generated file", genFile)
 	}
-	fmt.Println("Generated file", genFile)
+
 	for _, fn := range d.Deploy {
 		dir, fName := filepath.Split(fn.FilePath)
 		pn := filepath.Base(dir)
 		if err := cp.Copy(fn.PackageDir, cwd+tmpDir+pn); err != nil {
-			log.Fatal("Error copying files ")
+			log.Fatal("Error copying files ", err.Error())
 		}
 		fn.PackageDir = cwd + tmpDir
 		fn.FilePath = cwd + tmpDir + pn + "/" + fName
 		fns.Deploy = append(fns.Deploy, fn)
 	}
-	return fns
+	return fns, isMain
 }
 
 func printJson(js interface{}) {
@@ -140,15 +151,15 @@ var deployCmd = cli.Command{
 		if c.Args().Len() == 0 {
 			return cli.Exit("filename not provided", 1)
 		}
-
-		df := read(c.Args().First())
 		proxy := getProxy()
 		if proxy == nil {
 			return cli.Exit("cannot connect to "+proxyAddress, 1)
 		}
 
-		var fns []*deploy.Function
+		// process entire definition (all function per deploy) into a single container
+		df, isMain := read(c.Args().First())
 
+		var fns []*deploy.Function
 		for _, s := range df.Deploy {
 			s.Name = strings.ToLower(s.Name)
 			df := &deploy.Function{
@@ -156,21 +167,24 @@ var deployCmd = cli.Command{
 				FilePath:   s.FilePath,
 				Dir:        s.PackageDir,
 				Async:      s.Async,
+				IsMain:     isMain,
 			}
 			fns = append(fns, df)
-			fmt.Println("Running container for ", df.Entrypoint)
-
-			if docker.New().RunFunction(df.Entrypoint) != nil {
-				return errors.New("cannot run container" + df.Entrypoint)
-			}
 		}
+		fmt.Println(fns[0])
+		// run definition as single container
+		fmt.Println("Running container for ", fns[0].Entrypoint)
+		if docker.New().RunFunction(fns[0].Entrypoint) != nil {
+			log.Fatal("cannot run container" + fns[0].Entrypoint)
+		}
+		// add container proxy
 		deployResponse, err := proxy.Deploy(c.Context, &deploy.DeployRequest{Functions: fns})
 		if err != nil {
 			fmt.Println(err.Error())
 			return err
 		}
 		printResonse(deployResponse)
-		os.RemoveAll("deployment/tmp")
+		os.RemoveAll("deployment/tmp/")
 		return nil
 	},
 }

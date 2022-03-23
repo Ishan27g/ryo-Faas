@@ -18,7 +18,11 @@ var stopRyoFaas = cli.Command{
 	HideHelp:        false,
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
-
+		d := docker.New()
+		if !d.StatusAny() {
+			fmt.Println("Not running")
+			return nil
+		}
 		var rsp []types.FunctionJsonRsp
 		json.Unmarshal(sendHttp("/details", ""), &rsp)
 		for _, v := range rsp {
@@ -80,7 +84,7 @@ var startRyoFaas = cli.Command{
 		wg.Wait()
 		fmt.Println("Started ryo-Faas : Proxy running at http://localhost:9999")
 		<-time.After(500 * time.Millisecond)
-		d.Status()
+		d.StatusAll()
 		return nil
 	},
 }

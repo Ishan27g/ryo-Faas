@@ -7,13 +7,13 @@ import (
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 )
 
-var port = flag.String("port", "", "--port :9000")
-
 // init definition gets generated
 func init() {
 }
 
 func main() {
+	var port = flag.String("port", "", "--port :9000")
+
 	flag.Parse()
 
 	if *port == "" {

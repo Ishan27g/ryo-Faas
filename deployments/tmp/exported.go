@@ -3,18 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
-	async "github.com/Ishan27g/ryo-Faas/deployments/tmp/async"
+	databaseevents "github.com/Ishan27g/ryo-Faas/deployments/tmp/database-events"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 )
 
-var port = flag.String("port", "", "--port :9000")
-
 // init definition gets generated
 func init() {
-	FuncFw.Export.HttpAsync("MethodAsync", "/methodasync", async.MethodAsync)
+	databaseevents.Init()
 }
 
 func main() {
+	var port = flag.String("port", "", "--port :9000")
+
 	flag.Parse()
 
 	if *port == "" {

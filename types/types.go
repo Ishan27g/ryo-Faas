@@ -15,6 +15,7 @@ type FunctionJsonRsp struct {
 	Proxy   string `json:"proxy,omitempty"`
 	AtAgent string `json:"atAgent,omitempty"`
 	IsAsync bool   `json:"IsAsync"`
+	IsMain  bool   `json:"IsMain"`
 }
 
 func JsonFunctionToRpc(jFn FunctionJson) []*deploy.Function {
@@ -35,5 +36,6 @@ func RpcFunctionRspToJson(rFn *deploy.Function) FunctionJsonRsp {
 		Proxy:   rFn.ProxyServiceAddr,
 		AtAgent: rFn.AtAgent,
 		IsAsync: rFn.GetAsync(),
+		IsMain:  rFn.IsMain,
 	}
 }

@@ -77,6 +77,7 @@ message Function {
   string status = 8;
 
   bool async = 9;
+  bool isMain = 10;
 
 }
 

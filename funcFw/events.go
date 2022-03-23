@@ -18,6 +18,9 @@ type storeEvents struct {
 }
 
 func (f funcFw) EventsFor(tableName string) StoreEventsI {
+	if f.storeEvents == nil {
+		f.storeEvents = make(map[string]StoreEventsI)
+	}
 	if f.storeEvents[tableName] == nil {
 		f.storeEvents[tableName] = &storeEvents{
 			Table: tableName,
