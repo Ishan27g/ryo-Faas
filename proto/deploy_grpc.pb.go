@@ -248,11 +248,9 @@ var Database_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DeployClient interface {
 	Deploy(ctx context.Context, in *DeployRequest, opts ...grpc.CallOption) (*DeployResponse, error)
-	List(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error)
 	Stop(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error)
 	Details(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error)
 	Upload(ctx context.Context, opts ...grpc.CallOption) (Deploy_UploadClient, error)
-	Logs(ctx context.Context, in *Function, opts ...grpc.CallOption) (*Logs, error)
 }
 
 type deployClient struct {
@@ -266,15 +264,6 @@ func NewDeployClient(cc grpc.ClientConnInterface) DeployClient {
 func (c *deployClient) Deploy(ctx context.Context, in *DeployRequest, opts ...grpc.CallOption) (*DeployResponse, error) {
 	out := new(DeployResponse)
 	err := c.cc.Invoke(ctx, "/deploy.Deploy/deploy", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *deployClient) List(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error) {
-	out := new(DeployResponse)
-	err := c.cc.Invoke(ctx, "/deploy.Deploy/list", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -333,25 +322,14 @@ func (x *deployUploadClient) CloseAndRecv() (*Empty, error) {
 	return m, nil
 }
 
-func (c *deployClient) Logs(ctx context.Context, in *Function, opts ...grpc.CallOption) (*Logs, error) {
-	out := new(Logs)
-	err := c.cc.Invoke(ctx, "/deploy.Deploy/logs", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // DeployServer is the server API for Deploy service.
 // All implementations must embed UnimplementedDeployServer
 // for forward compatibility
 type DeployServer interface {
 	Deploy(context.Context, *DeployRequest) (*DeployResponse, error)
-	List(context.Context, *Empty) (*DeployResponse, error)
 	Stop(context.Context, *Empty) (*DeployResponse, error)
 	Details(context.Context, *Empty) (*DeployResponse, error)
 	Upload(Deploy_UploadServer) error
-	Logs(context.Context, *Function) (*Logs, error)
 }
 
 // UnimplementedDeployServer must be embedded to have forward compatible implementations.
@@ -361,9 +339,6 @@ type UnimplementedDeployServer struct {
 func (UnimplementedDeployServer) Deploy(context.Context, *DeployRequest) (*DeployResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Deploy not implemented")
 }
-func (UnimplementedDeployServer) List(context.Context, *Empty) (*DeployResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
-}
 func (UnimplementedDeployServer) Stop(context.Context, *Empty) (*DeployResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
@@ -372,9 +347,6 @@ func (UnimplementedDeployServer) Details(context.Context, *Empty) (*DeployRespon
 }
 func (UnimplementedDeployServer) Upload(Deploy_UploadServer) error {
 	return status.Errorf(codes.Unimplemented, "method Upload not implemented")
-}
-func (UnimplementedDeployServer) Logs(context.Context, *Function) (*Logs, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Logs not implemented")
 }
 func (UnimplementedDeployServer) mustEmbedUnimplementedDeployServer() {}
 
@@ -403,24 +375,6 @@ func _Deploy_Deploy_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DeployServer).Deploy(ctx, req.(*DeployRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Deploy_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DeployServer).List(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/deploy.Deploy/list",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeployServer).List(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -487,24 +441,6 @@ func (x *deployUploadServer) Recv() (*File, error) {
 	return m, nil
 }
 
-func _Deploy_Logs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Function)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DeployServer).Logs(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/deploy.Deploy/logs",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeployServer).Logs(ctx, req.(*Function))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Deploy_ServiceDesc is the grpc.ServiceDesc for Deploy service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -517,20 +453,12 @@ var Deploy_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Deploy_Deploy_Handler,
 		},
 		{
-			MethodName: "list",
-			Handler:    _Deploy_List_Handler,
-		},
-		{
 			MethodName: "stop",
 			Handler:    _Deploy_Stop_Handler,
 		},
 		{
 			MethodName: "details",
 			Handler:    _Deploy_Details_Handler,
-		},
-		{
-			MethodName: "logs",
-			Handler:    _Deploy_Logs_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

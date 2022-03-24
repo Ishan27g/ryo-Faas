@@ -1,4 +1,13 @@
 version: '3'
+
+
+vars:
+    DOCKER_REMOTE: ishan27g/ryo-faas
+    IMAGE_AGENT: rfa-agent.v0.1
+    IMAGE_PROXY: rfa-proxy.v0.1
+    IMAGE_DATABASE: rfa-database.v0.1
+    IMAGE_DEPLOY_BASE: rfa-deploy-base.v0.1
+
 tasks:
 
   # cleanup test dirs/
@@ -9,7 +18,7 @@ tasks:
       # - c
   test:
     cmds:
-      - defer: { task: testCleanup }
+      # - defer: { task: testCleanup }
       - go test --v ./...
   test-ci:
     cmds:
@@ -49,13 +58,25 @@ tasks:
       - sleep 2 && echo 'getting'
       - curl http://localhost:9999/get
 
-  imgAgent:
+  # call via go to run in parallel
+  imgProxy:
     cmds:
-      - docker build -f agent.dockerfile -t rfa-agent:v0.1 .
+      - docker build -f proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
   imgDb:
     cmds:
-      - docker build -f db.dockerfile -t rfa-database:v0.1 .
-  buildImages:
+      - docker build -f db.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}} .
+  imgDeployBase:
+    cmds:
+      - docker build -f deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
+
+  pushImages:
       cmds:
-        - task: imgAgent
-        - task: imgDb
+        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
+        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
+        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
+
+  metaGolangTask:
+      cmds:
+        - go run taskFile.go -buildImages
+        - go run taskFile.go -pushImages
+

@@ -33,6 +33,7 @@ services:
       environment: # deployed functions
         "PORT_START": "6000"
         "NUM_PORTS" : "10"
+        "DATABASE": "rfa-database:5000"
       ports: # 
         - "6000-6009:6000-6009" # deployed functions
         - "9000:9000"      # agent
@@ -43,15 +44,15 @@ services:
 #      depends_on:
 #        - database
 
-#  proxy:
-#      image: rfa-proxy:v0.1
-#      container_name: rfa-proxy
-#      hostname: rfa-proxy
-#      networks:
-#        rfa_nw:
-#      ports: #
-#        - "9001:9001"
-#        - "9002:9002"
+  proxy:
+      image: rfa-proxy:v0.1
+      container_name: rfa-proxy
+      hostname: rfa-proxy
+      networks:
+        rfa_nw:
+      ports: #
+        - "9999:9999"
+        - "9998:9998"
 #      # stdin_open: true # docker run -i
 #      # tty: true        # docker run -t
 ##      volumes:
@@ -60,7 +61,7 @@ services:
 #        - agent
 
   nats:
-      image: nats
+      image: nats:alpine
       container_name: rfa-nats
       hostname: rfa-nats
       ports:
@@ -68,8 +69,6 @@ services:
         - "127.0.0.1:8222:8222"
       networks:
         rfa_nw:
-#      depends_on:
-#        - proxy
 
   jaeger:
       container_name: rfa-jaeger

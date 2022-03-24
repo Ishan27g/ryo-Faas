@@ -16,7 +16,10 @@ const (
 )
 
 var opts []nats.Option
-var urls = "nats://localhost:4222"
+var urls = os.Getenv("NATS")
+
+// "nats://localhost:4222"
+//var urls = "nats://raf-nats:4222"
 var showTime = false
 
 var subjects map[string]*subjectMeta
@@ -69,8 +72,8 @@ func init() {
 
 func sub(subj string, cb func(msg *nats.Msg)) {
 	// Connect to NATS
-	// nc, err := nats.Connect(urls, opts...)
-	nc, err := nats.Connect(nats.DefaultURL)
+	nc, err := nats.Connect(urls, opts...)
+	//nc, err := nats.Connect(nats.DefaultURL)
 	if err != nil {
 		log.Println(err)
 		return
@@ -107,7 +110,9 @@ func NatsSubscribe(subj string, cb func(msg *nats.Msg)) {
 	sub(subj, cb)
 }
 func NatsPublish(subj string, msg string, reply *string) bool {
-	nc, err := nats.Connect(nats.DefaultURL)
+
+	nc, err := nats.Connect(urls, opts...)
+	//nats.Connect(nats.DefaultURL)
 	if err != nil {
 		log.Println(err)
 		return false

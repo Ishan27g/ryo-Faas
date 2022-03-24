@@ -4,10 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
-	"os"
-	"os/exec"
-	"syscall"
 	"time"
 
 	"github.com/DavidGamba/dgtools/run"
@@ -36,66 +32,22 @@ func New(o ...Option) Shell {
 		i2(s)
 	}
 	s.logs = []string{}
+	s.done = make(chan bool, 1)
 	return s
 }
 
 type Shell interface {
 	Kill()
 	Run() bool
+	WaitTillDone()
 }
 
-type Cmd struct {
-	out  io.WriteCloser
-	port string
-	ctx  context.Context
-	Cmd  *exec.Cmd
-}
-
-func (c Cmd) Run() error {
-	c.Cmd.Stdout = io.MultiWriter(os.Stdout, c.out)
-	c.Cmd.Stderr = io.MultiWriter(os.Stderr, c.out)
-	if err := c.Cmd.Start(); err != nil {
-		return err
-	}
-	waitDone := make(chan struct{})
-	defer close(waitDone)
-	go func() {
-		select {
-		case <-c.ctx.Done():
-			if err := c.Cmd.Process.Kill(); err != nil {
-				fmt.Println(err.Error())
-			}
-			if err := c.Cmd.Process.Signal(os.Interrupt); err != nil {
-				fmt.Println(err.Error())
-				_ = c.Cmd.Process.Kill()
-			} else {
-				defer time.AfterFunc(time.Second*10, func() {
-					if err := c.Cmd.Process.Kill(); err != nil {
-						fmt.Println(err.Error())
-					}
-				}).Stop()
-				<-waitDone
-			}
-		case <-waitDone:
-		}
-	}()
-	err := c.Cmd.Wait()
-	log.Printf("kill %q", c.Cmd.Args)
-	return err
-}
-func CommandContext(ctx context.Context, filePath string, port string, w io.WriteCloser) Cmd {
-	c := exec.Command("go", "run", filePath, "--port", port)
-	c.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
-	return Cmd{ctx: ctx, Cmd: c, port: port, out: w}
-}
 func (s *shell) Run() bool {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.kill = func() {
 		cancel()
+		s.done <- true
 	}
 	var err error
 	go func(s *shell, ctx context.Context) {
@@ -118,14 +70,15 @@ type shell struct {
 	logs      []string
 	logWriter io.WriteCloser
 	kill
+	done chan bool
+}
+
+func (s *shell) WaitTillDone() {
+	<-s.done
+	fmt.Println("done")
+	return
 }
 
 func (s *shell) Kill() {
 	s.kill()
-}
-func buildCommand(filePath string, entrypoint string, port string, ctx context.Context) *run.RunInfo {
-	cmd := run.CMD("go", "run", filePath, "--port", port).
-		Env("PORT=" + port).SaveErr().Ctx(ctx)
-	// Env("PORT="+port, "URL="+strings.ToLower(entrypoint)).SaveErr().Ctx(ctx)
-	return cmd
 }

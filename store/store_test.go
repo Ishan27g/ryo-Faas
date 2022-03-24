@@ -15,6 +15,8 @@ import (
 func TestName(t *testing.T) {
 	var dbShell shell.Shell
 
+	os.Setenv("NATS", "nats://localhost:4222")
+
 	err := os.Chdir("../database")
 	assert.NoError(t, err)
 

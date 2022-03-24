@@ -1,4 +1,4 @@
-package main
+package notMain
 
 import (
 	"fmt"
@@ -8,8 +8,10 @@ import (
 	"github.com/Ishan27g/ryo-Faas/store"
 )
 
+const TableName = "payments"
+
 // background job to generate pdf for a new payment
-func generatePaymentPdf(document store.Doc) {
+func GeneratePaymentPdf(document store.Doc) {
 	fmt.Println("Document.Create - generatePaymentPdf")
 	payment := payment.FromDocument(document)
 
@@ -23,7 +25,7 @@ func generatePaymentPdf(document store.Doc) {
 }
 
 // background job to email users once invoice is created
-func emailUsers(document store.Doc) {
+func EmailUsers(document store.Doc) {
 	fmt.Println("Document.Update - emailUsers")
 	payment := payment.FromDocument(document)
 
@@ -38,7 +40,7 @@ func emailUsers(document store.Doc) {
 	fmt.Println("Emailed users pdf payment:", payment.Id)
 }
 
-func paymentsUpdated(document store.Doc) {
+func PaymentsUpdated(document store.Doc) {
 	fmt.Println("Document.OnUpdate")
 	payment := payment.FromDocument(document)
 	fmt.Println("Updated payment:", payment)
