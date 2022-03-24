@@ -8,6 +8,28 @@ package deploy;
 
 option go_package = "./proto;deploy";
 
+service Database {
+  rpc new(Documents) returns  (Ids) {}
+  rpc update(Documents) returns  (Ids) {}
+  rpc get(Ids) returns  (Documents) {}
+  rpc all(Ids) returns  (Documents) {}
+  rpc delete(Ids) returns  (Ids) {}
+}
+message Documents {
+  repeated Document document = 1;
+}
+message Document {
+  string table = 1;
+  string Id = 2;
+  bytes data = 3;
+}
+message Ids {
+  repeated string id = 1;
+}
+message Ack {
+  bool ok = 1;
+}
+
 service Deploy {
   rpc deploy(DeployRequest) returns (DeployResponse);
   rpc list(Empty) returns (DeployResponse);
@@ -18,6 +40,8 @@ service Deploy {
   rpc upload(stream File) returns (Empty) {}
   rpc logs(Function) returns(Logs){}
 }
+
+
 message Logs {
  // Function fn = 1;
   repeated string data = 1;
@@ -52,10 +76,12 @@ message Function {
   string url = 7;
   string status = 8;
 
+  bool async = 9;
+
 }
 
 message DeployRequest {
-  Function functions = 1;
+  repeated Function functions = 1;
 }
 message DeployResponse {
   repeated Function functions = 1;

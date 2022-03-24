@@ -1,0 +1,61 @@
+version: '3'
+tasks:
+
+  # cleanup test dirs/
+  testCleanup:
+    cmds:
+      - rm -rf ./agent/registry/deploy/
+      - rm -rf ./database/handler/ok*
+      # - c
+  test:
+    cmds:
+      - defer: { task: testCleanup }
+      - go test --v ./...
+  test-ci:
+    cmds:
+      - go test --v ./...
+  nats:
+    cmds:
+      - docker compose run --service-ports --rm nats
+
+  # run database
+  database:
+    dir: database
+    cmds:
+      - go run main.go
+
+  # run proxy
+  proxy:
+    dir: proxy
+    cmds:
+      - go run main.go -agents :9000
+  
+  # run agent
+  agent:
+    dir: agent
+    cmds:
+      - go run main.go
+
+  # run database events example
+  examples-db:
+     dir: examples/database-events
+     cmds:
+      - go run main.go subscribe.go
+  
+  # test database events example 
+  examples-db-test:
+    cmds:
+      - curl http://localhost:9999/pay
+      - sleep 2 && echo 'getting'
+      - curl http://localhost:9999/get
+
+  imgAgent:
+    cmds:
+      - docker build -f agent.dockerfile -t rfa-agent:v0.1 .
+  imgDb:
+    cmds:
+      - docker build -f db.dockerfile -t rfa-database:v0.1 .
+  buildImages:
+      cmds:
+        - task: imgAgent
+        - task: imgDb

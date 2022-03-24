@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,28 +21,23 @@ var importPath = "github.com/Ishan27g/ryo-Faas/agent/registry/deploy/functions/"
 
 var path = func() string {
 	cwd, _ := os.Getwd()
-	// if cwd == "/"{
-	// 	return "/remote"
-	// }
-	return cwd //+ "/remote"
+	if cwd == "/app" { // docker
+		return "/app/agent"
+	}
+	return cwd
 }
-var agentDir = "/registry"
 
-const FnFw = "/deploy/"
+const registryDir = "/registry"
+const deployDir = "/deploy/"
 
-var pathToDeployment = path() + agentDir + FnFw
+var pathToDeployment = path() + registryDir + deployDir
 var PathToFns = pathToDeployment + "functions/"
 
-// func defaultPath() string {
-// 	unzipDir = pathToDeployment
-// 	return path() + agentDir + FnFw
-// }
-
 var getGenFilePath = func(fileName string) string {
-	return PathToFns + strings.ToLower(fileName) + "_generated.go"
+	return PathToFns + strings.ToLower(fileName) + "_generated" + strconv.Itoa(rand.Intn(10000)) + ".go"
 }
 var modFile = func() string {
-	return pathToDeployment + "template.go"
+	return path() + registryDir + "/template/template.go"
 }
 
 type AgentHandler struct {
@@ -48,6 +45,11 @@ type AgentHandler struct {
 	*log.Logger
 }
 
+func (a *AgentHandler) Close() {
+	for _, stop := range a.registry.systemCmd {
+		stop()
+	}
+}
 func timeIt(since time.Time) {
 	fmt.Println("\n----- took : ", time.Since(since).String())
 }
@@ -55,7 +57,7 @@ func (a *AgentHandler) Deploy(ctx context.Context, request *deploy.DeployRequest
 	defer timeIt(time.Now())
 	var rsp = new(deploy.DeployResponse)
 	r := a.registry.deploy(request.Functions)
-	rsp.Functions = append(rsp.Functions, r)
+	rsp.Functions = r
 	return rsp, nil
 }
 
@@ -68,7 +70,7 @@ func (a *AgentHandler) List(ctx context.Context, empty *deploy.Empty) (*deploy.D
 func (a *AgentHandler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
 	defer timeIt(time.Now())
 	var rsp = new(deploy.DeployResponse)
-	rsp.Functions = append(rsp.Functions, a.registry.stopped(request.GetEntrypoint()))
+	rsp.Functions = a.registry.stopped(&deploy.Function{Entrypoint: request.GetEntrypoint()})
 	return rsp, nil
 }
 
@@ -127,12 +129,13 @@ END:
 		return err
 	}
 	_, fname := filepath.Split(fileName)
+
 	unzipTo := PathToFns + strings.TrimSuffix(fname, ".zip") + "/"
 
 	fmt.Println("unzipping ", fileName, " to ", PathToFns)
 	err = archiver.Unarchive(tmpZip, PathToFns)
 	if err != nil {
-		fmt.Println("Un-archive error ", err.Error())
+		fmt.Println("unarchive error ", err.Error())
 		return err
 	}
 
@@ -143,24 +146,24 @@ END:
 
 func (a *AgentHandler) Logs(ctx context.Context, function *deploy.Function) (*deploy.Logs, error) {
 	defer timeIt(time.Now())
-	logs := a.registry.system.logs(function.Entrypoint)
+	//logs := a.registry.system.logs(function.Entrypoint)
 	return &deploy.Logs{
-		Data: logs,
+		Data: nil,
 	}, nil
 }
 
 func Init(rpcAddress string) *AgentHandler {
-	// pathToFnFw = defaultPath()
 
-	fmt.Println(rpcAddress)
+	fmt.Println("Path is ", path())
+
 	agent := new(AgentHandler)
 	agent.registry = new(registry)
 	agent.address = rpcAddress
 	agent.Logger = log.New(os.Stdout, "[AGENT-HANDLER]", log.Ltime)
 	*agent.registry = setup(rpcAddress)
-	agent.Println("AgentInterface configured at ", agent.address)
 
-	os.Mkdir(PathToFns, os.ModePerm)
+	os.RemoveAll(PathToFns)
+	os.MkdirAll(PathToFns, os.ModePerm)
 
 	return agent
 }

@@ -1,12 +1,19 @@
 # github.com/DavidGamba/dgtools/run v0.6.0
 ## explicit; go 1.14
 github.com/DavidGamba/dgtools/run
+# github.com/Ishan27g/go-utils/mLogger v0.0.0-20220308132511-ad5f5c0e8f14
+## explicit; go 1.17
+github.com/Ishan27g/go-utils/mLogger
 # github.com/andybalholm/brotli v1.0.1
 ## explicit; go 1.12
 github.com/andybalholm/brotli
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
+# github.com/brianvoe/gofakeit/v6 v6.15.0
+## explicit; go 1.17
+github.com/brianvoe/gofakeit/v6
+github.com/brianvoe/gofakeit/v6/data
 # github.com/cespare/xxhash/v2 v2.1.2
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
@@ -27,6 +34,9 @@ github.com/dsnet/compress/bzip2/internal/sais
 github.com/dsnet/compress/internal
 github.com/dsnet/compress/internal/errors
 github.com/dsnet/compress/internal/prefix
+# github.com/fatih/color v1.7.0
+## explicit
+github.com/fatih/color
 # github.com/felixge/httpsnoop v1.0.2
 ## explicit; go 1.13
 github.com/felixge/httpsnoop
@@ -77,16 +87,23 @@ github.com/golang/protobuf/ptypes/timestamp
 # github.com/golang/snappy v0.0.3
 ## explicit
 github.com/golang/snappy
+# github.com/google/uuid v1.1.2
+## explicit
+github.com/google/uuid
+# github.com/hashicorp/go-hclog v1.2.0
+## explicit; go 1.13
+github.com/hashicorp/go-hclog
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/klauspost/compress v1.11.4
-## explicit; go 1.13
+# github.com/klauspost/compress v1.14.4
+## explicit; go 1.15
+github.com/klauspost/compress
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/gzip
 github.com/klauspost/compress/huff0
-github.com/klauspost/compress/snappy
+github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/zip
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
@@ -98,6 +115,9 @@ github.com/klauspost/pgzip
 # github.com/leodido/go-urn v1.2.0
 ## explicit; go 1.13
 github.com/leodido/go-urn
+# github.com/mattn/go-colorable v0.1.4
+## explicit
+github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.12
 ## explicit; go 1.12
 github.com/mattn/go-isatty
@@ -113,11 +133,27 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 ## explicit; go 1.12
 github.com/modern-go/reflect2
+# github.com/nats-io/nats-server/v2 v2.7.4
+## explicit; go 1.17
+# github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
+## explicit; go 1.16
+github.com/nats-io/nats.go
+github.com/nats-io/nats.go/encoders/builtin
+github.com/nats-io/nats.go/util
+# github.com/nats-io/nkeys v0.3.0
+## explicit; go 1.16
+github.com/nats-io/nkeys
+# github.com/nats-io/nuid v1.0.1
+## explicit
+github.com/nats-io/nuid
 # github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 ## explicit; go 1.12
 # github.com/nwaples/rardecode v1.1.0
 ## explicit
 github.com/nwaples/rardecode
+# github.com/patrickmn/go-cache v2.1.0+incompatible
+## explicit
+github.com/patrickmn/go-cache
 # github.com/pierrec/lz4/v4 v4.1.2
 ## explicit; go 1.14
 github.com/pierrec/lz4/v4
@@ -153,6 +189,9 @@ github.com/russross/blackfriday/v2
 # github.com/shurcooL/sanitized_anchor_name v1.0.0
 ## explicit
 github.com/shurcooL/sanitized_anchor_name
+# github.com/sonyarouje/simdb v0.1.0
+## explicit; go 1.16
+github.com/sonyarouje/simdb
 # github.com/stretchr/testify v1.7.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
@@ -220,10 +259,12 @@ go.opentelemetry.io/otel/sdk/trace
 # go.opentelemetry.io/otel/trace v1.4.1
 ## explicit; go 1.16
 go.opentelemetry.io/otel/trace
-# golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-## explicit; go 1.11
+# golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce
+## explicit; go 1.17
+golang.org/x/crypto/ed25519
+golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/sha3
-# golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+# golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 ## explicit; go 1.17
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2

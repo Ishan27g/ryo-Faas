@@ -2,32 +2,43 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/DavidGamba/dgtools/run"
 	"github.com/Ishan27g/ryo-Faas/agent/registry"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/stretchr/testify/assert"
 )
 
+func printJson(js interface{}) {
+	data, err := json.MarshalIndent(js, "", " ")
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Println(string(data))
+}
 func setup(ctx context.Context, registryPort string) *registry.AgentHandler {
-	registry.SetBuildCommand(run.CMD("sleep", "10").Ctx(ctx))
+	// registry.SetBuildCommand(run.CMD("sleep", "10").Ctx(ctx))
 	agent := registry.Init(registryPort)
-	transport.Init(ctx, agent, DefaultPort, nil, "").Start()
+	transport.Init(ctx, struct {
+		IsDeploy bool
+		Server   interface{}
+	}{IsDeploy: true, Server: agent}, DefaultPort, nil, "").Start()
 	return agent
 }
 
 func TestSetup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		<-time.After(3 * time.Second)
 		cancel()
+		<-time.After(3 * time.Second)
 	}()
 	assert.NotNil(t, setup(ctx, DefaultPort))
+	<-time.After(3 * time.Second)
 }
 func TestList(t *testing.T) {
 
@@ -40,46 +51,66 @@ func TestList(t *testing.T) {
 	}()
 	agentHandler := setup(ctx, DefaultPort)
 	assert.NotNil(t, agentHandler)
+	<-time.After(1 * time.Second)
 
-	dir := "examples/method1"
-	filePath := dir + "/method1.go"
-	entrypoint := "Method1"
+	type export = struct {
+		dir        string
+		filepath   string
+		entrypoint string
+		isAsync    bool
+	}
+	var exports = []export{
+		{
+			dir:        "../examples/method1",
+			filepath:   "../examples/method1/method1.go",
+			entrypoint: "Method1",
+		}, {
+			dir:        "../examples/method2",
+			filepath:   "../examples/method2/method2.go",
+			entrypoint: "Method2",
+		},
+		{
+			dir:        "../examples/async",
+			filepath:   "../examples/async/main.go",
+			entrypoint: "MethodAsync",
+			isAsync:    true,
+		},
+	}
 	c := transport.ProxyGrpcClient(DefaultPort)
-
-	uploaded := transport.UploadDir(c, ctx, dir, entrypoint)
-	assert.True(t, uploaded)
-
-	deployRsp, err := c.Deploy(ctx, &deploy.DeployRequest{Functions: &deploy.Function{
-		Entrypoint:       entrypoint,
-		FilePath:         filePath,
-		Dir:              dir,
-		Zip:              "",
-		AtAgent:          "",
-		ProxyServiceAddr: "",
-		Url:              "",
-		Status:           "",
-	},
-	})
+	for _, e := range exports {
+		uploaded := transport.UploadDir(c, ctx, e.dir, e.entrypoint)
+		assert.True(t, uploaded)
+	}
+	var fns []*deploy.Function
+	for _, e := range exports {
+		fns = append(fns, &deploy.Function{
+			Entrypoint:       e.entrypoint,
+			FilePath:         e.filepath,
+			Dir:              e.dir,
+			Zip:              "",
+			AtAgent:          "",
+			ProxyServiceAddr: "",
+			Url:              "",
+			Status:           "",
+			Async:            e.isAsync,
+		})
+	}
+	deployRsp, err := c.Deploy(ctx, &deploy.DeployRequest{Functions: fns})
 	assert.NoError(t, err)
-
+	<-time.After(3 * time.Second)
 	agentHandler.Println(deployRsp)
-
-	list, err := c.List(ctx, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: entrypoint}})
-	assert.NoError(t, err)
-	assert.Equal(t, "DEPLOYED", list.Functions[0].Status)
-
-	//<-time.After(5 * time.Second)
-	//list, err = c.List(ctx, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: entrypoint}})
-	//assert.NoError(t, err)
-	//assert.Equal(t, "DEPLOYED", list.Functions[0].Status)
-	//
-	//logs, err := c.Logs(ctx, &deploy.Function{Entrypoint: entrypoint})
-	//assert.NoError(t, err)
-	//agentHandler.Println(logs)
-	//assert.NotNil(t, logs)
-
-	fmt.Println(list)
-	os.RemoveAll(list.Functions[0].Dir)
-	os.Remove(list.Functions[0].FilePath)
-
+	for _, e := range exports {
+		list, err := c.List(ctx, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: e.entrypoint}})
+		assert.NoError(t, err)
+		printJson(list)
+		assert.Equal(t, "DEPLOYED", list.Functions[0].Status)
+		stop, err := c.Stop(ctx, &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: e.entrypoint}})
+		assert.Equal(t, "STOPPED", stop.Functions[0].Status)
+		printJson(stop)
+		for _, function := range list.Functions {
+			if e.entrypoint == function.Entrypoint {
+				os.RemoveAll(function.Dir)
+			}
+		}
+	}
 }

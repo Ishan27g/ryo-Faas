@@ -15,19 +15,21 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const Functions = "/functions"
+
+type definition struct {
+	fnName    string
+	proxyFrom string // /functions/fnName
+	proxyTo   string // fn.url -> hostname:service-port/entryPoint
+
+	agentAddr   string // rpc or http
+	isAsyncNats bool
+}
 type proxy struct {
 	urlMap map[string]proxyFunction
 	*proxyDefinitions
 }
 
-func newProxy() proxy {
-	return proxy{
-		urlMap:           make(map[string]proxyFunction),
-		proxyDefinitions: &proxyDefinitions{functions: make(map[string]*definition)},
-	}
-}
-
-// fn-url and proxyDefinitions
 type proxyDefinitions struct {
 	functions map[string]*definition
 }
@@ -37,16 +39,12 @@ type proxyFunction struct {
 	remoteUrl string
 }
 
-// single function and its proxyDefinitions definition
-type definition struct {
-	fnName    string
-	proxyFrom string // /functions/fnName
-	proxyTo   string // fn.url -> hostname:service-port/entryPoint
-
-	agentAddr string // rpc or http
+func newProxy() proxy {
+	return proxy{
+		urlMap:           make(map[string]proxyFunction),
+		proxyDefinitions: &proxyDefinitions{functions: make(map[string]*definition)},
+	}
 }
-
-const Functions = "/functions"
 
 func (p *proxyDefinitions) details() []types.FunctionJsonRsp {
 	var str []types.FunctionJsonRsp
@@ -75,13 +73,13 @@ func (p *proxyDefinitions) getFn(fnName string) *definition {
 	}
 	return p.functions[fnName]
 }
-func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string) {
+func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string, bool) {
 	fnName = strings.ToLower(fnName)
 	if p.functions[fnName] == nil {
 		fmt.Println("not found in proxyDefinitions", fnName)
-		return nil, "", ""
+		return nil, "", "", false
 	}
-	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr
+	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr, p.functions[fnName].isAsyncNats
 }
 func (p *proxyDefinitions) urlPair(fnName string) (string, string) {
 	fnName = strings.ToLower(fnName)
@@ -93,10 +91,11 @@ func (p *proxyDefinitions) urlPair(fnName string) (string, string) {
 }
 func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 	d := &definition{
-		fnName:    fn.Name,
-		proxyFrom: Functions + "/" + strings.ToLower(fn.Name),
-		proxyTo:   fn.Proxy,
-		agentAddr: fn.AtAgent,
+		fnName:      fn.Name,
+		proxyFrom:   Functions + "/" + strings.ToLower(fn.Name),
+		proxyTo:     fn.Proxy,
+		agentAddr:   fn.AtAgent,
+		isAsyncNats: fn.IsAsync,
 	}
 	p.functions[strings.ToLower(fn.Name)] = d
 	fmt.Println("ADDED PROXY ", d)

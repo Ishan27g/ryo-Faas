@@ -7,13 +7,76 @@
 version: "3.7"
 
 services:
+  database:
+      image: rfa-database:v0.1
+      container_name: rfa-database
+      hostname: rfa-database
+      networks:
+        rfa_nw:
+      ports: # 
+        - "5000:5000" 
+        - "5001:5001"
+      deploy:
+        resources:
+          limits:
+            cpus: '0.02'
+            memory: 100M
+      #volumes:
+      #  - ./:/app:rw
+
+  agent:
+      image: rfa-agent:v0.1
+      container_name: rfa-agent
+      hostname: rfa-agent
+      networks:
+        rfa_nw:
+      environment: # deployed functions
+        "PORT_START": "6000"
+        "NUM_PORTS" : "10"
+      ports: # 
+        - "6000-6009:6000-6009" # deployed functions
+        - "9000:9000"      # agent
+      stdin_open: true # docker run -i
+      tty: true        # docker run -t
+#      volumes:
+#        - ./:/app:rw
+#      depends_on:
+#        - database
+
+#  proxy:
+#      image: rfa-proxy:v0.1
+#      container_name: rfa-proxy
+#      hostname: rfa-proxy
+#      networks:
+#        rfa_nw:
+#      ports: #
+#        - "9001:9001"
+#        - "9002:9002"
+#      # stdin_open: true # docker run -i
+#      # tty: true        # docker run -t
+##      volumes:
+##        - ./:/app:rw
+#      depends_on:
+#        - agent
+
+  nats:
+      image: nats
+      container_name: rfa-nats
+      hostname: rfa-nats
+      ports:
+        - "127.0.0.1:4222:4222"
+        - "127.0.0.1:8222:8222"
+      networks:
+        rfa_nw:
+#      depends_on:
+#        - proxy
 
   jaeger:
-      container_name: jaeger
-      hostname: jaeger
+      container_name: rfa-jaeger
+      hostname: rfa-jaeger
       image: jaegertracing/all-in-one:1.31
       networks:
-        faas_nw:
+        rfa_nw:
       ports:
       - "16686:16686"
       - "14268:14268"
@@ -23,33 +86,8 @@ services:
             cpus: '0.05'
             memory: 250M
 
-  rms:
-    image: cloud-agent:v0.1
-    networks:
-      faas_nw:
-    environment: # deployed functions
-      "PORT_START": "5000"
-      "NUM_PORTS" : "5"
-    ports: # 
-      - "5000-5004:5000-5004" # deployed functions
-      - "9000:9000"      # agent
-    container_name: cloud-agent
-    hostname: agent-faas
-    stdin_open: true # docker run -i
-    tty: true        # docker run -t
-    volumes:
-      - ./:/app:rw
-    
-  redis:
-      image: "redis:alpine3.13"
-      ports:
-        - "6379:6379"
-      container_name: redis
-      hostname: redis  
-      networks:
-        faas_nw:
 
 networks:
-  faas_nw:
+  rfa_nw:
     external:
       true

@@ -3,9 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/Ishan27g/ryo-Faas/agent/registry"
-	"github.com/Ishan27g/ryo-Faas/plugins"
+	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	"github.com/Ishan27g/ryo-Faas/transport"
 )
 
@@ -27,8 +31,14 @@ func main() {
 	defer jp.Close()
 
 	agent := registry.Init(*port)
-	transport.Init(ctx, agent, rpcAddr, nil, "").Start()
+	transport.Init(ctx, struct {
+		IsDeploy bool
+		Server   interface{}
+	}{IsDeploy: true, Server: agent}, rpcAddr, nil, "").Start()
 
-	agent.Println(*agent)
-	<-make(chan bool)
+	closeLogs := make(chan os.Signal, 1)
+	signal.Notify(closeLogs, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	<-closeLogs
+	agent.Close()
+	fmt.Println("EXITING?")
 }
