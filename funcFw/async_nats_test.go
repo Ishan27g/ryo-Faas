@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 )
 
 func TestNatsSimple(t *testing.T) {
+	os.Setenv("NATS", "nats://localhost:4222")
+
 	var ok = false
 	transport.NatsSubscribe(store.DocumentCREATE, func(msg *nats.Msg) {
 		fmt.Println("[SUB]", string(msg.Data))
@@ -32,6 +35,8 @@ func TestNatsSimple(t *testing.T) {
 }
 
 func TestNatsJson(t *testing.T) {
+	os.Setenv("NATS", "nats://localhost:4222")
+
 	var ok = false
 
 	var sendStruct = NewAsyncNats("any", "")
@@ -110,6 +115,8 @@ func mockIncomingRequest(t *testing.T, cb func(w http.ResponseWriter, r *http.Re
 	assert.Equal(t, http.StatusAccepted, ww.Result().StatusCode)
 }
 func TestNatsHttpFunction(t *testing.T) {
+	os.Setenv("NATS", "nats://localhost:4222")
+
 	var method2 = func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 		fmt.Println("method2 hit....")

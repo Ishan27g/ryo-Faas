@@ -18,7 +18,7 @@ tasks:
       # - c
   test:
     cmds:
-      - defer: { task: testCleanup }
+      # - defer: { task: testCleanup }
       - go test --v ./...
   test-ci:
     cmds:

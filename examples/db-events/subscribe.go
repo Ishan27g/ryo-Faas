@@ -9,9 +9,9 @@ import (
 
 const TableName = "payment"
 
-var toPayment = func(doc database.NatsDoc) payment.payment {
+var toPayment = func(doc database.NatsDoc) payment.Payment {
 	m := doc.Document()
-	return m[TableName].(payment.payment)
+	return m[TableName].(payment.Payment)
 }
 
 func PaymentMade(document database.NatsDoc) {
