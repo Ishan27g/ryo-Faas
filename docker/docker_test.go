@@ -2,9 +2,12 @@ package docker
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,4 +43,20 @@ func TestDocker_StopFunction(t *testing.T) {
 func TestDocker_CheckLabel(t *testing.T) {
 	d := New()
 	d.CheckLabel()
+}
+func TestDocker_StartProxy(t *testing.T) {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return
+	}
+	d := docker{false, cli, log.New(os.Stdout, "docker", log.LstdFlags)}
+	d.startProxy()
+}
+func TestDocker_StopProxy(t *testing.T) {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return
+	}
+	d := docker{false, cli, log.New(os.Stdout, "docker", log.LstdFlags)}
+	d.stopProxy()
 }

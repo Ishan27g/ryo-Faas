@@ -33,9 +33,9 @@ const (
 	natsContainerName = "rfa-" + natsImage
 
 	networkName = "rfa_nw"
+	natsNwHost  = "nats://rfa-nats:4222"
 
 	databaseHostRpcPort = "5000"
-	agentHostPost       = "9000"
 	proxyRpcHostPort    = "9998"
 	proxyHttpHostPort   = "9999"
 
@@ -45,6 +45,8 @@ const (
 	localTimeout  = 30 * time.Second
 	remoteTimeout = 100 * time.Second
 )
+
+var defaultEnv = []string{"DATABASE=" + databaseNwHost(), "NATS=" + natsNwHost}
 
 var labels = map[string]string{
 	"rfa": "faas",
@@ -368,7 +370,7 @@ func (d *docker) startProxy() error {
 	config = &container.Config{Image: proxyImage, Hostname: name, ExposedPorts: map[nat.Port]struct{}{
 		"9999/tcp": {},
 		"9998/tcp": {},
-	}, Labels: labels}
+	}, Env: defaultEnv, Labels: labels}
 
 	// bind container port to host port
 	hostHttpBinding := nat.PortBinding{
@@ -420,7 +422,7 @@ func (d *docker) startDatabase() error {
 	var networkingConfig = &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{},
 	}
-	config = &container.Config{Image: databaseImage, Hostname: trimVersion(databaseImage), Labels: labels}
+	config = &container.Config{Image: databaseImage, Hostname: trimVersion(databaseImage), Env: defaultEnv, Labels: labels}
 
 	// bind container port to host port
 	hostBinding := nat.PortBinding{

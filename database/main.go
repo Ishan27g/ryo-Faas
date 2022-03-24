@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Ishan27g/ryo-Faas/database/handler"
 	"github.com/Ishan27g/ryo-Faas/transport"
@@ -30,6 +31,10 @@ func main() {
 		IsDeploy bool
 		Server   interface{}
 	}{IsDeploy: false, Server: &handler.Rpc}, *grpcPort, handler.Gin, *httpPort).Start()
+
+	<-time.After(5 * time.Second)
+	// todo only to check connectivity
+	transport.NatsPublish("hello", "ok", nil)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

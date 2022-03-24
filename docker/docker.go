@@ -151,8 +151,6 @@ func (d *docker) RunFunction(serviceName string) error {
 
 	ctx := context.Background()
 
-	dbAddress := trimVersion(databaseImage) + ":" + databaseHostRpcPort
-
 	var config = new(container.Config)
 	var hostConfig = new(container.HostConfig)
 	var networkingConfig = &network.NetworkingConfig{
@@ -162,10 +160,7 @@ func (d *docker) RunFunction(serviceName string) error {
 		"6000/tcp": {},
 	}
 
-	config = &container.Config{Image: name, Hostname: name, ExposedPorts: ports,
-		Env:    []string{"DATABASE=" + dbAddress},
-		Labels: labels,
-	}
+	config = &container.Config{Image: name, Hostname: name, ExposedPorts: ports, Env: defaultEnv, Labels: labels}
 
 	// attach container to network
 	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}
@@ -186,6 +181,10 @@ func (d *docker) RunFunction(serviceName string) error {
 
 	return nil
 
+}
+
+func databaseNwHost() string {
+	return trimVersion(databaseImage) + ":" + databaseHostRpcPort
 }
 
 func (d *docker) SetForcePull() {

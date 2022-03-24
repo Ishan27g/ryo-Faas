@@ -71,7 +71,7 @@ tasks:
       cmds:
         - task: imgDb
         - task: imgProxy
-        - task: imgDeployBase
+      #  - task: imgDeployBase
 
   pushImages:
       cmds:

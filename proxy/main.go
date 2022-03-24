@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"strings"
+	"time"
 
 	"github.com/Ishan27g/ryo-Faas/examples/plugins"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
+	"github.com/Ishan27g/ryo-Faas/store"
+	"github.com/Ishan27g/ryo-Faas/transport"
 )
 
 // var host = "localhost"
@@ -15,15 +17,9 @@ import (
 var httpPort = flag.String("http", proxy.DefaultHttp, "http port")
 var grpcPort = flag.String("rpc", proxy.DefaultRpc, "rpc port")
 
-var agents = flag.String("agents", "", "agent address's")
-
 func main() {
 	flag.Parse()
 
-	var ag []string
-	if *agents != "" {
-		ag = append(strings.Split(*agents, " "), flag.Args()...)
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 
 	defer cancel()
@@ -31,7 +27,13 @@ func main() {
 	provider := plugins.InitJaeger(ctx, "ryo-Faas-proxy", "proxy-server", url)
 	defer provider.Close()
 
-	proxy.Start(ctx, *grpcPort, *httpPort, ag...)
+	proxy.Start(ctx, *grpcPort, *httpPort)
+
+	<-time.After(5 * time.Second)
+	// todo only to check connectivity
+	transport.NatsPublish("hello", "ok", nil)
+	store.Get("any")
+
 	// handler.AgentConnectionType = transport.RPC
 	<-make(chan bool)
 }

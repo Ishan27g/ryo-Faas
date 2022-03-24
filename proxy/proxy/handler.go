@@ -225,7 +225,7 @@ func checkHealth(addr string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-func Start(ctx context.Context, grpcPort, http string, agents ...string) {
+func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
 	h.httpFnProxyPort = http
 	h.proxies = newProxy()

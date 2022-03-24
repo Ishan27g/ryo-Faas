@@ -3,8 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
+	"github.com/Ishan27g/ryo-Faas/store"
+	"github.com/Ishan27g/ryo-Faas/transport"
 )
 
 // init definition gets generated
@@ -20,6 +23,13 @@ func main() {
 		return
 	}
 	FuncFw.Start(*port)
+
+	go func() {
+		<-time.After(3 * time.Second)
+		// todo only to check connectivity
+		transport.NatsPublish("hello", "ok", nil)
+		store.Get("any")
+	}()
 
 	<-make(chan byte)
 	fmt.Println("exited.....")
