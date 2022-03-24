@@ -211,8 +211,6 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mholt/archiver/v3 v3.5.1
 ## explicit; go 1.13
 github.com/mholt/archiver/v3
-# github.com/mitchellh/go-homedir v1.1.0
-github.com/mitchellh/go-homedir
 # github.com/moby/sys/mount v0.3.1
 ## explicit; go 1.16
 github.com/moby/sys/mount
@@ -254,8 +252,6 @@ github.com/opencontainers/runc/libcontainer/user
 # github.com/otiai10/copy v1.7.0
 ## explicit; go 1.14
 github.com/otiai10/copy
-# github.com/patrickmn/go-cache v2.1.0+incompatible
-## explicit
 # github.com/pierrec/lz4/v4 v4.1.2
 ## explicit; go 1.14
 github.com/pierrec/lz4/v4
