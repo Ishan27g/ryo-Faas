@@ -212,7 +212,6 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 ## explicit; go 1.13
 github.com/mholt/archiver/v3
 # github.com/mitchellh/go-homedir v1.1.0
-## explicit
 github.com/mitchellh/go-homedir
 # github.com/moby/sys/mount v0.3.1
 ## explicit; go 1.16
