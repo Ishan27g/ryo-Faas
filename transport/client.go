@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,11 +22,9 @@ import (
 // AgentWrapper expose an agent with plugins
 type AgentWrapper interface {
 	Deploy(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
-	List(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	Details(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	Upload(ctx context.Context, opts ...grpc.CallOption) (deploy.Deploy_UploadClient, error)
-	Logs(ctx context.Context, in *deploy.Function, opts ...grpc.CallOption) (*deploy.Logs, error)
 }
 
 type rpcClient struct {
@@ -53,19 +50,6 @@ func (r *rpcClient) Deploy(ctx context.Context, in *deploy.DeployRequest, opts .
 	return rsp, err
 }
 
-func (r *rpcClient) List(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
-	entrypoint := in.GetEntrypoint()
-	span := trace.SpanFromContext(ctx)
-	if entrypoint == "" {
-		fmt.Println("no entrypoint in request")
-		return nil, errors.New("no entrypoint in request")
-	}
-	span.SetAttributes(attribute.Key("entrypoint-at-rpc").String(in.GetEntrypoint()))
-	rsp, err := r.DeployClient.List(ctx, in, opts...)
-	// span.AddEvent(printJson(rsp)) // already added by agent
-	return rsp, err
-}
-
 func (r *rpcClient) Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
 	span := trace.SpanFromContext(ctx)
 	rsp, err := r.DeployClient.Stop(ctx, in, opts...)
@@ -75,12 +59,6 @@ func (r *rpcClient) Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.Cal
 
 func (r *rpcClient) Details(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
 	span := trace.SpanFromContext(ctx)
-
-	entrypoint := in.GetEntrypoint()
-	if entrypoint == "" {
-		span.AddEvent("no entrypoint in request")
-		return nil, errors.New("no entrypoint in request")
-	}
 	rsp, err := r.DeployClient.Details(ctx, in, opts...)
 	span.AddEvent(printJson(rsp))
 	return rsp, err
@@ -89,14 +67,6 @@ func (r *rpcClient) Details(ctx context.Context, in *deploy.Empty, opts ...grpc.
 func (r *rpcClient) Upload(ctx context.Context, opts ...grpc.CallOption) (deploy.Deploy_UploadClient, error) {
 	dc, err := r.DeployClient.Upload(ctx, opts...)
 	return dc, err
-}
-
-func (r *rpcClient) Logs(ctx context.Context, in *deploy.Function, opts ...grpc.CallOption) (*deploy.Logs, error) {
-	span := trace.SpanFromContext(ctx)
-	rsp, err := r.DeployClient.Logs(ctx, in, opts...)
-	span.AddEvent(printJson(rsp))
-
-	return rsp, err
 }
 
 func ProxyGrpcClient(agentAddr string) AgentWrapper {

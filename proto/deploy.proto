@@ -32,20 +32,11 @@ message Ack {
 
 service Deploy {
   rpc deploy(DeployRequest) returns (DeployResponse);
-  rpc list(Empty) returns (DeployResponse);
   rpc stop(Empty) returns (DeployResponse);
-
   rpc details(Empty) returns(DeployResponse);
-
   rpc upload(stream File) returns (Empty) {}
-  rpc logs(Function) returns(Logs){}
 }
 
-
-message Logs {
- // Function fn = 1;
-  repeated string data = 1;
-}
 message File {
   string fileName = 1;
   string entrypoint = 2;

@@ -67,29 +67,31 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 }
 
 func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
+	response := new(deploy.DeployResponse)
 
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.Key("entrypoint").String(request.GetEntrypoint()))
-	h.proxies.remove(request.GetEntrypoint())
 
-	if docker.New().StopFunction(request.GetEntrypoint()) != nil {
+	if docker.New().StopFunction(strings.ToLower(request.GetEntrypoint())) != nil {
 		h.Println("Unable to stop ", request.GetEntrypoint())
+		return response, nil
 	}
-
-	response := new(deploy.DeployResponse)
+	h.proxies.remove(request.GetEntrypoint())
 	return response, nil
 }
 
-func (h *handler) List(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
-	response := new(deploy.DeployResponse)
-	return response, nil
-}
 func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
-	var details *deploy.DeployResponse
-
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent(prettyJson(h.proxies.details()))
-
+	var details = new(deploy.DeployResponse)
+	for _, rsp := range h.proxies.details() {
+		details.Functions = append(details.Functions, &deploy.Function{
+			Entrypoint:       rsp.Name,
+			ProxyServiceAddr: rsp.Proxy,
+			Url:              "http://localhost" + h.httpFnProxyPort + rsp.Url,
+			Status:           rsp.Status,
+			Async:            rsp.IsAsync,
+			IsMain:           rsp.IsMain,
+		})
+	}
 	h.Println("Proxy details : ", h.proxies.details())
 	return details, nil
 }
@@ -98,11 +100,6 @@ func (h *handler) Upload(stream deploy.Deploy_UploadServer) error {
 
 	return errors.New("no upload method")
 
-}
-
-func (h *handler) Logs(ctx context.Context, function *deploy.Function) (*deploy.Logs, error) {
-	r := new(deploy.Logs)
-	return r, nil
 }
 
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
@@ -159,6 +156,7 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 				Name:    pFn.fnName,
 				Proxy:   pFn.proxyTo,
 				IsAsync: pFn.isAsyncNats,
+				IsMain:  pFn.isMain,
 			})
 		} else {
 			h.Println(h.proxies.getFuncFwHost(fn.Name) + " unreachable")

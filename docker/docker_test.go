@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,48 +9,35 @@ import (
 )
 
 func TestDocker_Start(t *testing.T) {
-
-	err := New().StartNats()
-	assert.NoError(t, err)
-
-	err = New().StartProxy()
-	assert.NoError(t, err)
-
-	<-time.After(1 * time.Second)
-	err = New().StartDatabase()
-	assert.NoError(t, err)
-	//
-	//<-time.After(1 * time.Second)
-
+	assert.True(t, New().Start())
 }
-
-func TestDocker_Stop(t *testing.T) {
+func TestDocker_StopRfa(t *testing.T) {
 	d := New()
 	assert.NotNil(t, d)
-	err := d.StopNats()
-	assert.NoError(t, err)
+	d.Stop()
+	fmt.Println(d.StatusAll())
+}
 
-	err = d.StopProxy()
-	assert.NoError(t, err)
-
-	<-time.After(1 * time.Second)
-	err = d.StopDatabase()
-	assert.NoError(t, err)
-	//
-	//<-time.After(1 * time.Second)
-
+func TestDocker_Stop_Step(t *testing.T) {
+	d := New()
+	assert.NotNil(t, d.Stop())
 }
 
 func TestDocker_List(t *testing.T) {
-
-	New().Status()
+	New().StatusAll()
 }
 
 func TestDocker_RunFunction(t *testing.T) {
-	//	assert.NoError(t, New().RunFunction("deployments", "async-1"))
-
-	New().RunFunction("method-async")
+	d := New()
+	d.RunFunction("method-async")
+	<-time.After(5 * time.Second)
+	isRunning := d.CheckFunction("method-async")
+	fmt.Println("isRunning", isRunning)
 }
 func TestDocker_StopFunction(t *testing.T) {
-	New().StopFunction("methodasync")
+	New().StopFunction("method-async")
+}
+func TestDocker_CheckLabel(t *testing.T) {
+	d := New()
+	d.CheckLabel()
 }

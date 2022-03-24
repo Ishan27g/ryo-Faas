@@ -12,7 +12,7 @@ services:
       container_name: rfa-database
       hostname: rfa-database
       networks:
-        rfa_nw:
+        rfa-nw:
       ports: # 
         - "5000:5000" 
         - "5001:5001"
@@ -29,7 +29,7 @@ services:
       container_name: rfa-agent
       hostname: rfa-agent
       networks:
-        rfa_nw:
+        rfa-nw:
       environment: # deployed functions
         "PORT_START": "6000"
         "NUM_PORTS" : "10"
@@ -49,7 +49,7 @@ services:
       container_name: rfa-proxy
       hostname: rfa-proxy
       networks:
-        rfa_nw:
+        rfa-nw:
       ports: #
         - "9999:9999"
         - "9998:9998"
@@ -68,14 +68,14 @@ services:
         - "127.0.0.1:4222:4222"
         - "127.0.0.1:8222:8222"
       networks:
-        rfa_nw:
+        rfa-nw:
 
   jaeger:
       container_name: rfa-jaeger
       hostname: rfa-jaeger
       image: jaegertracing/all-in-one:1.31
       networks:
-        rfa_nw:
+        rfa-nw:
       ports:
       - "16686:16686"
       - "14268:14268"
@@ -87,6 +87,6 @@ services:
 
 
 networks:
-  rfa_nw:
+  rfa-nw:
     external:
       true

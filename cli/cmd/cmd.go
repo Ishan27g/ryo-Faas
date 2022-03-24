@@ -17,7 +17,6 @@ import (
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/transport"
-	"github.com/Ishan27g/ryo-Faas/types"
 	cp "github.com/otiai10/copy"
 	"github.com/urfave/cli/v2"
 )
@@ -141,10 +140,10 @@ func sendHttp(url, agentAddr string) []byte {
 }
 
 var deployCmd = cli.Command{
-	Name:            "run",
-	Aliases:         []string{"r"},
-	Usage:           "run a definition",
-	ArgsUsage:       "proxy-cli run {path to definition.json}",
+	Name:            "deploy",
+	Aliases:         []string{"d"},
+	Usage:           "deploy a definition",
+	ArgsUsage:       "proxyCli deploy {path to definition.json}",
 	HideHelp:        false,
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
@@ -190,57 +189,18 @@ var deployCmd = cli.Command{
 }
 var detailsProxyCmd = cli.Command{
 	Name:            "details",
-	Usage:           "list current details",
+	Usage:           "get current details",
 	ArgsUsage:       "server-cli details",
 	HideHelp:        false,
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
-		var rsp []types.FunctionJsonRsp
-		json.Unmarshal(sendHttp("/details", ""), &rsp)
-		for _, v := range rsp {
-			fmt.Printf("%s\t\t%s\t%s\n", v.Url, v.Name, v.Status)
-		}
-		return nil
-	},
-}
-var functionStatusProxyCmd = cli.Command{
-	Name:            "details",
-	Usage:           "list current details",
-	ArgsUsage:       "server-cli details",
-	HideHelp:        false,
-	HideHelpCommand: false,
-	Action: func(c *cli.Context) error {
-		var rsp []types.FunctionJsonRsp
-		json.Unmarshal(sendHttp("/details", ""), &rsp)
-		for _, v := range rsp {
-			fmt.Printf("%s\t\t%s\t%s\n", v.Url, v.Name, v.Status)
-		}
-		return nil
-	},
-}
-var listCmd = cli.Command{
-	Name:            "list",
-	Aliases:         []string{"l"},
-	Usage:           "list function details",
-	ArgsUsage:       "server-cli list {entrypoint}",
-	HideHelp:        false,
-	HideHelpCommand: false,
-	Action: func(c *cli.Context) error {
-		if c.Args().Len() == 0 {
-			return cli.Exit("entrypoint not provided", 1)
-		}
-		fmt.Println(c.Args().First())
-
-		proxy := getProxy()
-		if proxy == nil {
-			return cli.Exit("cannot connect to "+proxyAddress, 1)
-		}
-		response, err := proxy.List(context.Background(), &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: c.Args().First()}})
+		rsp, err := getProxy().Details(context.Background(), &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: ""}})
 		if err != nil {
-			fmt.Println(err.Error())
-			return nil
+			return cli.Exit("cannot get details", 1)
 		}
-		printResonse(response)
+		for _, f := range rsp.Functions {
+			fmt.Println(f)
+		}
 		return nil
 	},
 }
@@ -271,52 +231,9 @@ var stopCmd = cli.Command{
 		return nil
 	},
 }
-var logsCmd = cli.Command{
-	Name:            "log",
-	Aliases:         []string{"l"},
-	Usage:           "log a function",
-	ArgsUsage:       "server-cli log {entrypoint}",
-	HideHelp:        false,
-	HideHelpCommand: false,
-	Action: func(c *cli.Context) error {
-		if c.Args().Len() == 0 {
-			return cli.Exit("entrypoint not provided", 1)
-		}
-		fmt.Println(c.Args().First())
-
-		proxy := getProxy()
-		if proxy == nil {
-			return cli.Exit("cannot connect to "+proxyAddress, 1)
-		}
-
-		response, err := proxy.Logs(c.Context, &deploy.Function{Entrypoint: c.Args().First()})
-		if err != nil {
-			fmt.Println(err.Error())
-			return nil
-		}
-		printJson(response)
-		// printResonse(response)
-		return nil
-	},
-}
-var agentAddCmd = cli.Command{
-	Name:            "add",
-	Aliases:         []string{"a"},
-	Usage:           "add an agent",
-	ArgsUsage:       "server-cli add {address}",
-	HideHelp:        false,
-	HideHelpCommand: false,
-	Action: func(c *cli.Context) error {
-		if c.Args().Len() == 0 {
-			return cli.Exit("address not provided", 1)
-		}
-		fmt.Println(c.Args().First())
-		sendHttp("/addAgent?address=", c.Args().First())
-		return nil
-	},
-}
 var proxyResetCmd = cli.Command{
 	Name:            "reset",
+	Aliases:         []string{"r"},
 	Usage:           "reset the proxy",
 	ArgsUsage:       "server-cli reset",
 	HideHelp:        false,
@@ -328,8 +245,8 @@ var proxyResetCmd = cli.Command{
 }
 
 func Init() *cli.App {
-	app := &cli.App{Commands: []*cli.Command{&deployCmd, &listCmd, &stopCmd, &agentAddCmd, &detailsProxyCmd,
-		&logsCmd, &proxyResetCmd, &startRyoFaas, &stopRyoFaas},
+	app := &cli.App{Commands: []*cli.Command{&deployCmd, &stopCmd, &detailsProxyCmd,
+		&proxyResetCmd, &startRyoFaas, &stopRyoFaas},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "proxy",
