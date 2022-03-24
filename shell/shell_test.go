@@ -33,3 +33,19 @@ func TestShell_Run(t *testing.T) {
 	<-time.After(2 * time.Second)
 
 }
+func Test_TaskShell(t *testing.T) {
+	err := os.Chdir("../")
+	assert.NoError(t, err)
+
+	pr, pw := io.Pipe()
+	defer pw.Close()
+
+	shOpts := []Option{WithOutput(pw), WithCmd(run.CMD("task", "imgDb"))}
+	sh := New(shOpts...)
+
+	sh.Run()
+	go func() {
+		io.Copy(os.Stdout, pr)
+	}()
+	sh.WaitTillDone()
+}

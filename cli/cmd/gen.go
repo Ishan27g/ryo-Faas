@@ -21,6 +21,7 @@ import (
 var httpFn = "FuncFw.Export.Http"
 var httpAsyncFn = "FuncFw.Export.HttpAsync"
 var httpNatsAsyncFn = "FuncFw.Export.NatsAsync" // todo with Pxy{}
+
 func AstLocalCopy(toDir string, fns []*deploy.Function) (bool, string) {
 	var deployments []function
 	for _, fn := range fns {

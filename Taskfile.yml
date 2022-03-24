@@ -58,20 +58,16 @@ tasks:
       - sleep 2 && echo 'getting'
       - curl http://localhost:9999/get
 
+  # call via go to run in parallel
   imgProxy:
     cmds:
-     - docker build -f proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
+      - docker build -f proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
   imgDb:
     cmds:
       - docker build -f db.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}} .
   imgDeployBase:
     cmds:
       - docker build -f deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
-  buildImages:
-      cmds:
-        - task: imgDb
-        - task: imgProxy
-      #  - task: imgDeployBase
 
   pushImages:
       cmds:
@@ -79,7 +75,8 @@ tasks:
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
 
-  dockerRemote:
+  metaGolangTask:
       cmds:
-        - task: buildImages
-        - task: pushImages
+        - go run taskFile.go -buildImages
+        - go run taskFile.go -pushImages
+
