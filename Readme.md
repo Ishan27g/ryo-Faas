@@ -41,12 +41,14 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
 
 #### Start ryo-Faas
 
-Will take a few minutes to download the docker images
+Will take a few minutes to download the following docker images
 
-- [proxy] ()
-- [database] ()
-- [nats] ()
-- [functionBase] ()
+- [proxy](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) running at `localhost:9999`
+- [database](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) running at `localhost:5000/5001`
+- [functionBase](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) attached to internal docker network
+
+- nats:alpine3.15	running at `localhost:4222/8222`
+- openzipkin/zipkin:2.23.15 running at `localhost:9411`
 
 ```shell
 ./proxyCli startFaas
@@ -117,17 +119,29 @@ func documentTrigger(document store.Doc) {
 	fmt.Println(document.CreatedAt + " " + document.Id + " ---- at GenericCb()")
 }
 func main() {
-    // register a http method
+
+// Http
+
+	// register a http method
 	FuncFw.Export.Http("HttpMethod", "/method1", HttpMethod)
-    // register your http async method
-	FuncFw.Export.NatsAsync("HttpAsyncMethod", "/async", HttpAsyncMethod)
-    // register a function to be called when a new `payments` document is created
+
+//Async
+
+	// register your http async method over Nats
+	FuncFw.Export.NatsAsync("HttpAsyncMethod-Nats", "/asyncNats", HttpAsyncMethod)
+	
+	// or register your http async method over Http
+	FuncFw.Export.Async("HttpAsyncMethod", "/async", HttpAsyncMethod)
+
+//DataStore events
+
+    	// register a function to be called when a new `payments` document is created
 	FuncFw.Export.EventsFor("payments").On(store.DocumentCREATE, documentTrigger)
-    // register a function to be called when some existing `bills` document is updated
+   	// register a function to be called when some existing `bills` document is updated
 	FuncFw.Export.EventsFor("bills").On(store.DocumentUPDATE, documentTrigger)
-    // register a function to be called when a known `payments` document (by its ID) is retrieved
+    	// register a function to be called when a known `payments` document (by its ID) is retrieved
 	FuncFw.Export.EventsFor("payments").OnIds(store.DocumentGET, cb, "some-known-id")
-    // register a function to be called when a known `bills` document (by its ID) is retrieved
+    	// register a function to be called when a known `bills` document (by its ID) is retrieved
 	FuncFw.Export.EventsFor("bills").OnIds(store.DocumentGET, cb, "some-known-id")
 }
 ```
