@@ -1,19 +1,15 @@
 # RunYourOwn-FaaS
 
-Run your own `Functions as a service` and `Json datastore`.
+Run your own `Functions as a service` and `Json datastore` with built in OpenTelemetry tracing
 
-Deploy `functions` and `triggers` as containers.
-
-- run `http` functions as individual services (examples/method2)
-- run `async` / `background` http functions over Nats (examples/async)
-- run functions on `Json datastore` triggers like `new-doc`,`updated-doc`, `deleted-doc` (examples/database-events)
-- run a `combination` of above as a service (examples/database-events)
-
-- built in opentelemetry `traces` & prometheus `metrics`
+- Run `http functions` as individual services (see examples/method2)
+- Run `Async / background http` functions over Nats (see examples/async)
+- Run functions triggered on changes to the `Json datastore` like `new`,`updated`,`deleted`, `get` (see examples/database-events)
+- Run a `combination` of above as a service (examples/database-events)
 
 ## Definition
 
-`Define a golang function` - `hello/helloWorld.go`
+#### Define a golang function - `hello/helloWorld.go`
 
 ```go
 package hello
@@ -29,7 +25,7 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-`Create its definition File` - `deploy.json`
+#### Create its definition File - `deploy.json`
 
 ```json
 {
@@ -43,7 +39,42 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-__Add `"async": true` to deploy as an `async` function__ ()
+#### Start ryo-Faas
+
+Will take a few minutes to download the docker images
+
+- [proxy] ()
+- [database] ()
+- [nats] ()
+- [functionBase] ()
+
+```shell
+./proxyCli startFaas
+```
+
+#### Deploy
+
+```shell
+./proxyCli deploy deploy.json
+```
+
+- The function `HelloWorld` gets deployed as its own Docker container behind a network
+- Proxy forwards the corresponding requests to the `HelloWorld` running at `http://rfa-helloworld:6000`
+
+#### Get details of all deployments
+
+```shell
+./proxyCli details
+```
+__The function is available via the proxy at `http://localhost:9999/functions/helloworld`__
+
+## Individual HTTP/ASYNC Functions
+
+Should follow the standard go http library for the handler
+```go
+func SomeHandler(w http.ResponseWriter, r *http.Request){}
+```
+> __Add `"async": true` to deploy as an `async` function__ ()
 
 ```json
 {
@@ -58,7 +89,50 @@ __Add `"async": true` to deploy as an `async` function__ ()
 }
 ```
 
-__Add `"mainProcess" : true` to deploy a combination of `http` `async` & `events`__
+## DataStore Event Triggers , or a combination with HTTP/ASYNC Functions
+
+Should export a single `Init()` method that registers the requires triggers, http & async functions. See (example/database-events/)
+
+```go
+# NOTE THE PACKAGE NAME, IT SHOULD NOT BE A MAIN PACKAGE
+package notMain
+
+import (
+	"fmt"
+	"net/http"
+	"time"
+
+	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
+	"github.com/Ishan27g/ryo-Faas/store"
+)
+func HttpMethod(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprint(w, "Accepted at method - HttpMethod ..."+"\n")
+}
+func HttpAsyncMethod(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprint(w, "Accepted at method - HttpAsyncMethod..."+"\n")
+}
+func documentTrigger(document store.Doc) {
+	fmt.Println(document.CreatedAt + " " + document.Id + " ---- at GenericCb()")
+}
+func main() {
+    // register a http method
+	FuncFw.Export.Http("HttpMethod", "/method1", HttpMethod)
+    // register your http async method
+	FuncFw.Export.NatsAsync("HttpAsyncMethod", "/async", HttpAsyncMethod)
+    // register a function to be called when a new `payments` document is created
+	FuncFw.Export.EventsFor("payments").On(store.DocumentCREATE, documentTrigger)
+    // register a function to be called when some existing `bills` document is updated
+	FuncFw.Export.EventsFor("bills").On(store.DocumentUPDATE, documentTrigger)
+    // register a function to be called when a known `payments` document (by its ID) is retrieved
+	FuncFw.Export.EventsFor("payments").OnIds(store.DocumentGET, cb, "some-known-id")
+    // register a function to be called when a known `bills` document (by its ID) is retrieved
+	FuncFw.Export.EventsFor("bills").OnIds(store.DocumentGET, cb, "some-known-id")
+}
+```
+
+> __Add `"mainProcess" : true` to deploy a combination of `http` `async` & `events`__
 
 ```json
 {
@@ -73,36 +147,7 @@ __Add `"mainProcess" : true` to deploy a combination of `http` `async` & `events
 }
 ```
 
-## Start ryo-Faas
-
-Will take a few minutes to download the docker images
-
-- [proxy] ()
-- [database] ()
-- [nats] ()
-- [functionBase] ()
-
-```shell
-./proxyCli startFaas
-```
-
-## Deploy
-
-```shell
-./proxyCli deploy deploy.json
-```
-
-- The function `HelloWorld` gets deployed as its own Docker container behind a network
-- The function is available via the proxy at `http://localhost:9999/functions/helloworld`
-- Proxy forwards the corresponding requests to the `HelloWorld` running at `http://rfa-helloworld:6000`
-
-## Get details of all deployments
-
-```shell
-./proxyCli details
-```
-
-### How it works
+## How it works
 
 - `Http` functions are run in a manner similar to Google's [functions-framework-go](https://github.com/GoogleCloudPlatform/functions-framework-go).
 It simply registers the http-functions and then starts an HTTP server serving that function. (not considering cloudEvents).
@@ -115,5 +160,6 @@ It simply registers the http-functions and then starts an HTTP server serving th
   - verifies the signature
     - of the exported `http-function`, or
     - of the exported `main-service`
-  - generates a `exported_{function}.go` file which registers the provided function with the `functionFramework`.  See [template.go](https://github.com/Ishan27g/ryo-faas/blob/main/remote/agent/funcFrameworkWrapper/template.go) before starting an http-server.
+  - generates a `exported_{function}.go` file which registers the provided function with the `functionFramework` (https://github.com/Ishan27g/ryo-faas/blob/main/remote/agent/funcFrameworkWrapper/template.go) before starting an http-server. See [template.go]
 - The generated `service` is then built into a Docker image and run as its own container
+
