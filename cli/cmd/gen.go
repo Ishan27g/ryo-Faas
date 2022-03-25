@@ -19,7 +19,8 @@ import (
 )
 
 var httpFn = "FuncFw.Export.Http"
-var httpAsyncFn = "FuncFw.Export.HttpAsync"
+
+// var httpAsyncFn = "FuncFw.Export.HttpAsync"
 var httpNatsAsyncFn = "FuncFw.Export.NatsAsync" // todo with Pxy{}
 
 func AstLocalCopy(toDir string, fns []*deploy.Function) (bool, string) {
@@ -153,7 +154,7 @@ func rewriteDeployDotGo(toDir string, fns ...function) (string, error) {
 	for _, fn := range fns {
 		var fnFwCall = httpFn
 		if fn.isAsync {
-			fnFwCall = httpAsyncFn
+			fnFwCall = httpNatsAsyncFn
 		}
 		packageAlias := strings.ReplaceAll(fn.pkgName, "-", "")
 		for i := 0; i < len(node.Decls); i++ {

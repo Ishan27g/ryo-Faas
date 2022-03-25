@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/docker"
+	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
@@ -113,28 +114,28 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	ctxR := trace.ContextWithSpan(c.Request.Context(), sp)
 
 	now := time.Now()
-	if proxy, fnServiceHost, atAgent, _, isMain := h.proxies.get(fnName); fnServiceHost != "" {
-		//if isAsyncNats {
-		//	FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, c.Request)
-		//	sp.SetAttributes(attribute.Key("function-ASYNC-NATS").String(atAgent))
-		//	sp.SetAttributes(attribute.Key("function-at-agent").String(atAgent))
-		//	sp.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
-		//	sp.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
-		//	sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
-		//} else {
-		var stc int
-		var span trace.Span
-		if isMain {
-			stc, span = proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost, strings.ToLower(fnName))
+	if proxy, fnServiceHost, atAgent, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
+		if isAsyncNats {
+			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, c.Request)
+			sp.SetAttributes(attribute.Key("function-ASYNC-NATS").String(atAgent))
+			sp.SetAttributes(attribute.Key("function-at-agent").String(atAgent))
+			sp.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
+			sp.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
+			sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
 		} else {
-			stc, span = proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost, "")
+			var stc int
+			var span trace.Span
+			if isMain {
+				stc, span = proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost, strings.ToLower(fnName))
+			} else {
+				stc, span = proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost, "")
+			}
+			statusCode = stc
+			span.SetAttributes(attribute.Key("function-at-agent").String(atAgent))
+			span.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
+			span.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
+			span.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
 		}
-		statusCode = stc
-		span.SetAttributes(attribute.Key("function-at-agent").String(atAgent))
-		span.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
-		span.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
-		span.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
-		//}
 	} else {
 		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/Ishan27g/ryo-Faas/transport"
 )
@@ -23,7 +24,7 @@ func (hn HttpAsyncNats) SubscribeAsync(fn HttpFn) {
 	})
 }
 func (hn HttpAsyncNats) getSubj() string {
-	return transport.HttpAsync + "." + hn.entrypoint
+	return transport.HttpAsync + "." + strings.ToLower(hn.entrypoint)
 }
 func (hn HttpAsyncNats) HandleAsyncNats(w http.ResponseWriter, r *http.Request) {
 	callback := r.Header.Get("X-Callback-Url")
@@ -39,7 +40,7 @@ func (hn HttpAsyncNats) HandleAsyncNats(w http.ResponseWriter, r *http.Request) 
 		fmt.Println(" ha.req.Write", err.Error())
 		return
 	}
-
+	fmt.Println("publishing json", ha.getSubj())
 	if transport.NatsPublishJson(ha.getSubj(), transport.AsyncNats{
 		Callback:   ha.callback,
 		Entrypoint: ha.entrypoint,

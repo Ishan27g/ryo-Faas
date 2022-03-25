@@ -218,7 +218,7 @@ func NatsSubscribeJson(subj string, cb func(msg *AsyncNats)) {
 		log.Fatal(err)
 	}
 
-	// log.Printf("Listening on [%s]", subj)
+	log.Printf("Listening on [%s]", subj)
 	if showTime {
 		log.SetFlags(log.LstdFlags)
 	}
