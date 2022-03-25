@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/examples/plugins"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
@@ -18,27 +18,27 @@ import (
 // https://github.com/open-telemetry/opentelemetry-go-contrib/tree/main/instrumentation/net/http/otelhttp/example
 var url = "http://localhost:9999/functions/methodwithotel"
 
-// example of a jaeger metric
+// example of using opentelemetry metrics
 // assumes `methodwithotel` is deployed and available via proxy at `url`
-// starts a span that gets propagated from this client to the proxy and then to the deployed function.
 func main() {
 	requestWithOtel()
 }
 
+// starts a span that gets propagated from this client to the proxy and then to the deployed function.
 func requestWithOtel() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	// connect to jaeger
-	jp := plugins.InitJaeger(ctx, "otel-client", "test-Client", "http://localhost:14268/api/traces")
+	jp := plugins.Init("zipkin", "otel-client", "test-Client")
 	defer jp.Close()
 
-	tr := jp.Tracer("otel-client")
-
 	// new span
+	tr := jp.Get().Tracer("otel-client")
 	ctx2, span := tr.Start(ctx, "client-with-otel-header", trace.WithAttributes(semconv.MessagingDestinationKey.String(url)))
 
 	// add baggage to span
-	bag, err := baggage.Parse("username=goku")
+	bag, err := baggage.Parse("Goku=Saiyan")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -56,7 +56,7 @@ func requestWithOtel() {
 	// add ctx to http request
 	req, _ := http.NewRequestWithContext(ctx3, "GET", url, nil)
 
-	// receiving server's will extract the span from the context
+	// receiving server will extract the span from the context, add events/attributes
 	res, err := client.Do(req)
 	if err != nil {
 		panic(err)

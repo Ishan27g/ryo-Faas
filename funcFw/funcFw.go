@@ -2,6 +2,7 @@ package FuncFw
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -9,20 +10,23 @@ import (
 	"time"
 
 	database "github.com/Ishan27g/ryo-Faas/database/client"
-	"github.com/Ishan27g/ryo-Faas/examples/plugins"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
-	databaseAddress              = "localhost:5000"
-	port                         = ""
-	jaegerHost                   = os.Getenv("JAEGER")
-	jp                           = plugins.InitJaeger(context.Background(), "ryo-Faas-agent", "", "http://"+jaegerHost+":14268/api/traces")
-	httpSrv         *http.Server = nil
-	logger                       = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
-	healthCheckUrl               = "/healthcheck"
-	stopUrl                      = "/stop"
-	Export                       = funcFw{
+	appName                               = "ryo-faas-func"
+	serviceName                           = ""
+	port                                  = ""
+	jaegerHost                            = os.Getenv("JAEGER")
+	zipkinHost                            = os.Getenv("ZIPKIN")
+	databaseAddress                       = "localhost:5000"
+	jp              plugins.TraceProvider = nil
+	httpSrv         *http.Server          = nil
+	logger                                = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
+	healthCheckUrl                        = "/healthcheck"
+	stopUrl                               = "/stop"
+	Export                                = funcFw{
 		httpFns:       make(map[string]*HttpFunction),
 		httpAsync:     make(map[string]*HttpAsync),
 		httpAsyncNats: make(map[string]*HttpAsync),
@@ -31,6 +35,21 @@ var (
 )
 
 func Start(port string) {
+	serviceName, _ = os.Hostname()
+
+	var provider plugins.TraceProvider
+	if jaegerHost == "" && zipkinHost != "" {
+		provider = plugins.Init("zipkin", appName, serviceName)
+	}
+	if zipkinHost == "" && jaegerHost != "" {
+		provider = plugins.Init("jaeger", appName, serviceName)
+	}
+	if provider == nil {
+		fmt.Println("provider ENV not set")
+		return
+	}
+	defer provider.Close()
+
 	// apply store event handlers
 	if Export.storeEvents != nil {
 		if database.Connect(databaseAddress) == nil {

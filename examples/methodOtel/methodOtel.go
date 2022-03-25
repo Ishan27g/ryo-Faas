@@ -20,13 +20,13 @@ func MethodWithOtel(w http.ResponseWriter, r *http.Request) {
 	span := trace.SpanFromContext(ctx)
 
 	bag := baggage.FromContext(ctx)
-	fmt.Println("bag is ", bag.String())
+	fmt.Println("baggage extracted from context is ", bag.String())
 
 	username := bag.Member("username").Value()
 	span.AddEvent("handling this...", trace.WithAttributes(uk.String(username)))
 
 	w.WriteHeader(http.StatusAccepted)
-	_, _ = io.WriteString(w, "Hello, world!\n"+bag.String())
+	_, _ = io.WriteString(w, "Cool!\n"+bag.String())
 
 	span.SetAttributes(attribute.String("username", username))
 	span.SetAttributes(attribute.Key("time").String(time.Since(now).String()))

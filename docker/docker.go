@@ -41,8 +41,13 @@ func (d *docker) Start() bool {
 		return false
 	}
 
-	var errs = make(chan error, 3)
+	var errs = make(chan error, 4)
 	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		errs <- d.startZipkin()
+	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -78,10 +83,11 @@ func (d *docker) Stop() bool {
 			return false
 		}
 	}
-	// force
-	//d.stopDatabase()
-	//d.stopNats()
-	//d.stopProxy()
+	//force
+	d.stopDatabase()
+	d.stopNats()
+	d.stopProxy()
+	d.stopZipkin()
 	return true
 }
 
@@ -117,6 +123,7 @@ func (d *docker) Check() map[string]string {
 	status[natsContainerName] = d.check(asFilter("name", natsContainerName))
 	status[databaseContainerName()] = d.check(asFilter("name", databaseContainerName()))
 	status[proxyContainerName()] = d.check(asFilter("name", proxyContainerName()))
+	status[zipkinContainerName()] = d.check(asFilter("name", zipkinContainerName()))
 	return status
 }
 func (d *docker) CheckLabel() bool {

@@ -29,6 +29,9 @@ tasks:
   jaeger:
     cmds:
       - docker compose run --service-ports --rm jaeger
+  zipkin:
+    cmds:
+      - docker compose run --service-ports --rm zipkin
 
   # run database
   database:

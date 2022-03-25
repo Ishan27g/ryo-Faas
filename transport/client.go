@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
@@ -33,19 +34,19 @@ type rpcClient struct {
 }
 
 func (r *rpcClient) Deploy(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error) {
-	//now := time.Now()
+	now := time.Now()
 
-	//span := trace.SpanFromContext(ctx)
+	span := trace.SpanFromContext(ctx)
 
 	rsp, err := r.DeployClient.Deploy(ctx, in, opts...)
 
-	//for i, r := range rsp.Functions {
-	//	span.AddEvent(printJson(r))
-	//	span.SetAttributes(attribute.Key("entrypoint-" + strconv.Itoa(i)).String(r.Entrypoint))
-	//	span.SetAttributes(attribute.Key("status-" + strconv.Itoa(i)).String(r.Status))
-	//	span.SetAttributes(attribute.Key("url-" + strconv.Itoa(i)).String(r.Url))
-	//	span.SetAttributes(attribute.Key("time-" + strconv.Itoa(i)).String(time.Since(now).String()))
-	//}
+	for i, r := range rsp.Functions {
+		span.AddEvent(printJson(r))
+		span.SetAttributes(attribute.Key("entrypoint-" + strconv.Itoa(i)).String(r.Entrypoint))
+		span.SetAttributes(attribute.Key("status-" + strconv.Itoa(i)).String(r.Status))
+		span.SetAttributes(attribute.Key("url-" + strconv.Itoa(i)).String(r.Url))
+		span.SetAttributes(attribute.Key("time-" + strconv.Itoa(i)).String(time.Since(now).String()))
+	}
 
 	return rsp, err
 }
@@ -72,7 +73,6 @@ func (r *rpcClient) Upload(ctx context.Context, opts ...grpc.CallOption) (deploy
 func ProxyGrpcClient(agentAddr string) AgentWrapper {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	fmt.Println("Connecting to rpc -", agentAddr)
 	grpc.WaitForReady(true)
 	grpcClient, err := grpc.DialContext(ctx, agentAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -81,7 +81,7 @@ func ProxyGrpcClient(agentAddr string) AgentWrapper {
 		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
 	if err != nil {
-		fmt.Println(err.Error())
+		// fmt.Println(err.Error())
 		return nil
 	}
 	rpc := rpcClient{

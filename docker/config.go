@@ -31,6 +31,9 @@ const (
 	natsImage         = "nats"
 	natsVersion       = ":alpine3.15"
 	natsContainerName = "rfa-" + natsImage
+	zipKinRep         = "openzipkin/"
+	zipkinImage       = "zipkin"
+	zipkinVersion     = ":2.23.15"
 
 	networkName = "rfa_nw"
 	natsNwHost  = "nats://rfa-nats:4222"
@@ -42,11 +45,15 @@ const (
 	natsHostPort1 = "4222"
 	natsHostPort2 = "8222"
 
+	zipkinHostPort = "9411"
+
 	localTimeout  = 30 * time.Second
 	remoteTimeout = 100 * time.Second
+
+	defaultProvider = "ZIPKIN="
 )
 
-var defaultEnv = []string{"DATABASE=" + databaseNwHost(), "NATS=" + natsNwHost}
+var defaultEnv = []string{"DATABASE=" + databaseNwHost(), "NATS=" + natsNwHost, defaultProvider + zipkinContainerName()}
 
 var labels = map[string]string{
 	"rfa": "faas",
@@ -74,6 +81,10 @@ func proxyContainerName() string {
 
 func serviceContainerName(serviceName string) string {
 	return "rfa-deploy-" + serviceName
+}
+
+func zipkinContainerName() string {
+	return "rfa-" + zipkinImage
 }
 func asFilter(key, val string) filters.Args {
 	filter := filters.NewArgs()
@@ -105,7 +116,10 @@ func (d *docker) ensureNetwork() bool {
 func (d *docker) stop(name string) error {
 	ctx := context.Background()
 	if err := d.ContainerStop(ctx, name, nil); err != nil {
-		log.Printf("Unable to stop container %s: %s", name, err)
+		if !strings.Contains(err.Error(), "No such container") {
+			log.Printf("Unable to stop container %s: %s", name, err)
+			return err
+		}
 	}
 
 	removeOptions := types.ContainerRemoveOptions{
@@ -114,11 +128,18 @@ func (d *docker) stop(name string) error {
 	}
 
 	if err := d.ContainerRemove(ctx, name, removeOptions); err != nil {
-		log.Printf("Unable to remove container: %s", err)
-		return err
+		if !strings.Contains(err.Error(), "No such container") {
+			log.Printf("Unable to remove container: %s", err)
+			return err
+		}
 	}
 	return nil
 }
+func (d *docker) stopZipkin() error {
+	name := zipkinContainerName()
+	return d.stop(name)
+}
+
 func (d *docker) stopProxy() error {
 	name := proxyContainerName()
 	return d.stop(name)
@@ -250,7 +271,18 @@ func (d *docker) ensureImages() error {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(remoteTimeout))
 	defer cancel()
 
-	var errs = make(chan error, 4)
+	var errs = make(chan error, 5)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
+			if err := d.pull(ctx, zipKinRep+zipkinImage+zipkinVersion); err != nil {
+				d.Println("error-pull", zipKinRep+zipkinImage+zipkinVersion, err.Error())
+				errs <- err
+			}
+		}
+	}()
 
 	wg.Add(1)
 	go func() {
@@ -304,6 +336,47 @@ func (d *docker) ensureImages() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (d *docker) startZipkin() error {
+	ctx := context.Background()
+
+	name := zipkinContainerName()
+
+	var config = new(container.Config)
+	var hostConfig = new(container.HostConfig)
+	var networkingConfig = &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{},
+	}
+	config = &container.Config{Image: zipKinRep + zipkinImage + zipkinVersion, Hostname: name, Labels: labels}
+
+	// bind container port to host port
+	hostBinding := nat.PortBinding{
+		HostIP:   "0.0.0.0",
+		HostPort: zipkinHostPort,
+	}
+	containerPort, err := nat.NewPort("tcp", zipkinHostPort)
+	if err != nil {
+		d.Println("Unable to get the port", err.Error())
+		return err
+	}
+	hostConfig.PortBindings = nat.PortMap{containerPort: []nat.PortBinding{hostBinding}}
+
+	// attach container to network
+	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}
+
+	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	if err := d.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
 	return nil
 }
 

@@ -54,8 +54,8 @@ func main() {
 			wg.Add(1)
 			go runTask(&wg, image...)
 		}
+		wg.Wait()
 	}
-	wg.Wait()
 	if *pI {
 		for _, image := range pushImages {
 			wg.Add(1)

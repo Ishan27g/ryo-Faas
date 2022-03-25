@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"log"
 	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
@@ -56,7 +55,6 @@ func Connect(addr string) Client {
 		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
 	if err != nil {
-		log.Fatalln(err.Error())
 		return nil
 	}
 	return &client{dc: deploy.NewDatabaseClient(grpcClient)}

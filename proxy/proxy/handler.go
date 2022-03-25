@@ -18,7 +18,6 @@ import (
 	"github.com/Ishan27g/ryo-Faas/transport"
 	"github.com/Ishan27g/ryo-Faas/types"
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -28,7 +27,7 @@ import (
 const MetricTracerFwToAgent = "proxy-function-call"
 const UrlLookup = "proxy-lookup"
 const HttpProxy = "http-proxy"
-const TracerName = "proxy"
+const ServiceName = "rfa-proxy"
 
 const DefaultRpc = ":9998"
 const DefaultHttp = ":9999"
@@ -42,7 +41,7 @@ type handler struct {
 }
 
 func getTracer() trace.Tracer {
-	return otel.GetTracerProvider().Tracer(TracerName)
+	return otel.GetTracerProvider().Tracer(ServiceName)
 }
 func prettyJson(js interface{}) string {
 	data, err := json.MarshalIndent(js, "", " ")
@@ -53,15 +52,24 @@ func prettyJson(js interface{}) string {
 }
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 
+	span := trace.SpanFromContext(ctx)
+	for _, function := range request.Functions {
+		span.SetAttributes(attribute.Key("entrypoint").String(function.GetEntrypoint()))
+	}
+
 	response := new(deploy.DeployResponse)
 
 	for _, function := range request.Functions {
+
 		hnFn := "http://" + "rfa-deploy-" + strings.ToLower(function.Entrypoint) + ":6000"
 		function.ProxyServiceAddr = hnFn // + function.Entrypoint
 		jsonFn := types.RpcFunctionRspToJson(function)
 		proxyUrl := h.proxies.add(jsonFn)
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
+
+		span.SetAttributes(attribute.Key(function.Entrypoint).String(prettyJson(function)))
+
 	}
 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
 	return response, nil
@@ -71,36 +79,41 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	response := new(deploy.DeployResponse)
 
 	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.Key("entrypoint").String(request.GetEntrypoint()))
+	span.SetAttributes(attribute.Key(request.GetEntrypoint()).String(request.GetEntrypoint()))
 
 	if docker.New().StopFunction(strings.ToLower(request.GetEntrypoint())) != nil {
 		h.Println("Unable to stop ", request.GetEntrypoint())
+		span.AddEvent("Unable to stop " + request.GetEntrypoint())
 		return response, nil
 	}
 	h.proxies.remove(request.GetEntrypoint())
+	span.AddEvent("Stopped " + request.GetEntrypoint())
 	return response, nil
 }
 
 func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
+
+	span := trace.SpanFromContext(ctx)
+
 	var details = new(deploy.DeployResponse)
 	for _, rsp := range h.proxies.details() {
-		details.Functions = append(details.Functions, &deploy.Function{
+		df := &deploy.Function{
 			Entrypoint:       rsp.Name,
 			ProxyServiceAddr: rsp.Proxy,
 			Url:              "http://localhost" + h.httpFnProxyPort + rsp.Url,
 			Status:           rsp.Status,
 			Async:            rsp.IsAsync,
 			IsMain:           rsp.IsMain,
-		})
+		}
+		span.SetAttributes(attribute.Key(df.Entrypoint).String(prettyJson(*df)))
+		details.Functions = append(details.Functions)
 	}
 	h.Println("Proxy details : ", h.proxies.details())
 	return details, nil
 }
 
 func (h *handler) Upload(stream deploy.Deploy_UploadServer) error {
-
 	return errors.New("no upload method")
-
 }
 
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
@@ -110,15 +123,14 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 
 	// get from request
 	sp := trace.SpanFromContext(c.Request.Context())
-	sp.SetAttributes(attribute.Key("entrypoint").String(fnName))
+	sp.SetAttributes(attribute.Key("Forward-Function-Call").String(fnName))
 	ctxR := trace.ContextWithSpan(c.Request.Context(), sp)
 
 	now := time.Now()
 	if proxy, fnServiceHost, atAgent, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
 		if isAsyncNats {
 			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, c.Request)
-			sp.SetAttributes(attribute.Key("function-ASYNC-NATS").String(atAgent))
-			sp.SetAttributes(attribute.Key("function-at-agent").String(atAgent))
+			sp.SetAttributes(attribute.Key("function-async-nats").String(fnName))
 			sp.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
 			sp.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
 			sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
@@ -131,12 +143,13 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 				stc, span = proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost, "")
 			}
 			statusCode = stc
-			span.SetAttributes(attribute.Key("function-at-agent").String(atAgent))
+			span.SetAttributes(attribute.Key("function-http").String(atAgent))
 			span.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
 			span.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
 			span.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
 		}
 	} else {
+		sp.SetAttributes(attribute.Key("No Proxy found").String(fnName))
 		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}
 }
@@ -147,6 +160,8 @@ func (h *handler) reset(c *gin.Context) {
 	h.Println("reset")
 }
 func (h *handler) DetailsHttp(c *gin.Context) {
+
+	span := trace.SpanFromContext(c)
 
 	var details []types.FunctionJsonRsp
 
@@ -159,11 +174,16 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 				IsAsync: pFn.isAsyncNats,
 				IsMain:  pFn.isMain,
 			})
+
+			span.SetAttributes(attribute.Key(fn.Name).String(prettyJson(pFn)))
+
 		} else {
 			h.Println(h.proxies.getFuncFwHost(fn.Name) + " unreachable")
+			span.SetAttributes(attribute.Key(fn.Name).String("unreachable"))
 		}
 	}
-	fmt.Println(details)
+	span.AddEvent(prettyJson(details))
+
 	c.JSON(200, details)
 }
 
@@ -190,34 +210,6 @@ func (h *handler) DeployHttp(c *gin.Context) {
 	c.JSON(200, r)
 }
 
-func (h *handler) MetricsPrometheus(c *gin.Context) {
-	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
-}
-
-func (h *handler) DeployHttpAsync(c *gin.Context) {
-	var req []types.FunctionJson
-	var r []types.FunctionJsonRsp
-	err := c.ShouldBindJSON(&req)
-	if err != nil {
-		fmt.Println(err.Error())
-		c.JSON(400, nil)
-		return
-	}
-	ctx, can := context.WithTimeout(c, 2*time.Second)
-	defer can()
-	for _, json := range req {
-		fn := types.JsonFunctionToRpc(json)
-		fn[0].Async = true
-		response, err := h.Deploy(ctx, &deploy.DeployRequest{Functions: fn})
-		if err != nil {
-			return
-		}
-		for _, function := range response.Functions {
-			r = append(r, types.RpcFunctionRspToJson(function))
-		}
-	}
-	c.JSON(200, r)
-}
 func checkHealth(addr string) bool {
 	resp, err := http.Get(addr + "/healthcheck")
 	if err != nil {
@@ -230,7 +222,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
 	h.httpFnProxyPort = http
 	h.proxies = newProxy()
-	h.Logger = log.New(os.Stdout, "[PROXY-HANDLER] ", log.Ltime)
+	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
 
 	gin.SetMode(gin.ReleaseMode)
 	h.g = gin.New()
@@ -241,7 +233,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 		ctx.Next()
 	})
 
-	h.g.Use(otelgin.Middleware("proxy-server"))
+	h.g.Use(otelgin.Middleware(ServiceName))
 
 	h.g.GET("/reset", h.reset)
 
@@ -252,24 +244,16 @@ func Start(ctx context.Context, grpcPort, http string) {
 	//    "filePath": "/Users/ishan/Desktop/multi/method1.go"
 	//  }
 	//]'
-	h.g.POST("/deploy/async", h.DeployHttpAsync)
-
 	h.g.POST("/deploy", h.DeployHttp)
 	// curl  http://localhost:9002/details
 	h.g.GET("/details", h.DetailsHttp)
 	// curl  http://localhost:9002/list
-	// curl  http://localhost:9002/metrics
-	h.g.GET("/metrics", h.MetricsPrometheus)
 
 	// curl -X POST http://localhost:9002/functions/method1 -H 'Content-Type: application/json' -d '{
 	//    "data": "http://host.docker.internal:9002/functions/method2"
 	//  }'
 	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
 	h.g.Any("/functions/:entrypoint/*action", h.ForwardToAgentHttp)
-
-	//h.g.GET("/stop/:entrypoint", h.StopHttp)
-	//h.g.POST("/file/:entrypoint", h.UploadHttp)
-	//h.g.GET("/log", h.LogHttp) // /log?entrypoint=
 
 	transport.Init(ctx, struct {
 		IsDeploy bool

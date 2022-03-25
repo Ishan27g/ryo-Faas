@@ -44,6 +44,7 @@ var startRyoFaas = cli.Command{
 	Action: func(c *cli.Context) error {
 		d := docker.New()
 		if !d.Start() {
+			d.Stop()
 			fmt.Println("Unable to start")
 			return nil
 		}

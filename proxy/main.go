@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"os"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/examples/plugins"
+	"github.com/Ishan27g/ryo-Faas/plugins"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/store"
 	"github.com/Ishan27g/ryo-Faas/transport"
@@ -17,15 +19,30 @@ import (
 var httpPort = flag.String("http", proxy.DefaultHttp, "http port")
 var grpcPort = flag.String("rpc", proxy.DefaultRpc, "rpc port")
 
+var jaegerUrl = os.Getenv("JAEGER")
+var zipKinUrl = os.Getenv("ZIPKIN")
+
+var appName = proxy.ServiceName
+var serviceName = proxy.ServiceName
+
 func main() {
 	flag.Parse()
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	defer cancel()
-	url := "http://localhost:14268/api/traces"
-	provider := plugins.InitJaeger(ctx, "ryo-Faas-proxy", "proxy-server", url)
+	var provider plugins.TraceProvider
+	if jaegerUrl == "" && zipKinUrl != "" {
+		provider = plugins.Init("zipkin", appName, serviceName)
+	}
+	if zipKinUrl == "" && jaegerUrl != "" {
+		provider = plugins.Init("jaeger", appName, serviceName)
+	}
+	if provider == nil {
+		fmt.Println("provider ENV not set")
+		return
+	}
 	defer provider.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	proxy.Start(ctx, *grpcPort, *httpPort)
 

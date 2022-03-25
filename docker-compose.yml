@@ -33,12 +33,6 @@ services:
       ports: #
         - "9999:9999"
         - "9998:9998"
-#      # stdin_open: true # docker run -i
-#      # tty: true        # docker run -t
-##      volumes:
-##        - ./:/app:rw
-#      depends_on:
-#        - agent
 
   nats:
       image: nats:alpine3.15
@@ -69,7 +63,19 @@ services:
           limits:
             cpus: '0.05'
             memory: 250M
-
+  zipkin:
+      container_name: rfa-zipkin
+      hostname: rfa-zipkin
+      image: openzipkin/zipkin:2.23.15
+      networks:
+        rfa_nw:
+      ports:
+        - "9411:9411"
+      deploy:
+        resources:
+          limits:
+            cpus: '0.1'
+            memory: 600M
 
 networks:
   rfa_nw:
