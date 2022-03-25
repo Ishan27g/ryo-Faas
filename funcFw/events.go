@@ -1,6 +1,8 @@
 package FuncFw
 
-import "github.com/Ishan27g/ryo-Faas/store"
+import (
+	"github.com/Ishan27g/ryo-Faas/store"
+)
 
 type StoreEventsI interface {
 	On(eventType string, cbs ...store.EventCb)
@@ -17,7 +19,7 @@ type storeEvents struct {
 	on    []eventCb
 }
 
-func (f funcFw) EventsFor(tableName string) StoreEventsI {
+func (f *funcFw) EventsFor(tableName string) StoreEventsI {
 	if f.storeEvents == nil {
 		f.storeEvents = make(map[string]StoreEventsI)
 	}
@@ -58,7 +60,6 @@ func (se *storeEvents) On(eventType string, cbs ...store.EventCb) {
 			ids:       nil,
 		})
 	}
-
 }
 func (se *storeEvents) OnIds(eventType string, cb store.EventCb, ids ...string) {
 	se.on = append(se.on, eventCb{

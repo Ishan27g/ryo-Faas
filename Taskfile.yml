@@ -26,6 +26,9 @@ tasks:
   nats:
     cmds:
       - docker compose run --service-ports --rm nats
+  jaeger:
+    cmds:
+      - docker compose run --service-ports --rm jaeger
 
   # run database
   database:

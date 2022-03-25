@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	database "github.com/Ishan27g/ryo-Faas/database/client"
@@ -48,6 +49,7 @@ type store struct {
 	table    string
 	new      func(table, id string, data map[string]interface{}) db.NatsDoc
 	dbClient database.Client
+	*log.Logger
 }
 
 func new(table string) DocStore {
@@ -65,7 +67,7 @@ func new(table string) DocStore {
 	if table == "" {
 		table = defaultTable
 	}
-	documents[table] = &store{table: table, new: db.NewDocument, dbClient: dbClient}
+	documents[table] = &store{table: table, new: db.NewDocument, dbClient: dbClient, Logger: log.New(os.Stdout, "[store]["+table+"]", log.LstdFlags)}
 
 	return documents[table]
 }

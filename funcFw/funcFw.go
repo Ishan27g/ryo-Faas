@@ -16,9 +16,10 @@ import (
 var (
 	databaseAddress              = "localhost:5000"
 	port                         = ""
-	jp                           = plugins.InitJaeger(context.Background(), "ryo-Faas-agent", "", "http://jaeger:14268/api/traces")
+	jaegerHost                   = os.Getenv("JAEGER")
+	jp                           = plugins.InitJaeger(context.Background(), "ryo-Faas-agent", "", "http://"+jaegerHost+":14268/api/traces")
 	httpSrv         *http.Server = nil
-	logger                       = log.New(os.Stdout, "func-fw", log.LstdFlags)
+	logger                       = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
 	healthCheckUrl               = "/healthcheck"
 	stopUrl                      = "/stop"
 	Export                       = funcFw{

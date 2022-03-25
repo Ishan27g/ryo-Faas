@@ -11,22 +11,34 @@ type Payment struct {
 	Amount float64 `json:"Amount"`
 
 	InvoiceData map[string]interface{} `json:"InvoiceData,omitempty"`
+	EmailSent   bool                   `json:"EmailSent"`
 }
 
-func (p Payment) Marshal() map[string]interface{} {
+func (p *Payment) Marshal() map[string]interface{} {
 	m := make(map[string]interface{})
 	pm := p
 	m["payment"] = pm
 	return m
 }
 
-func (p Payment) BuildInvoice() {
+func (p *Payment) BuildInvoice() {
 	p.InvoiceData = make(map[string]interface{})
 	p.InvoiceData = map[string]interface{}{
-		"anything": "ok",
+		"anything": p.Amount,
 	}
 }
 func FromDocument(doc store.Doc) Payment {
-	m := doc.Data.Value["Value"]
-	return m.(Payment)
+	m := doc.Data.Value["payment"].(map[string]interface{})
+	p := Payment{
+		Id:          m["Id"].(string),
+		From:        m["From"].(string),
+		To:          m["To"].(string),
+		Amount:      m["Amount"].(float64),
+		InvoiceData: make(map[string]interface{}),
+		EmailSent:   m["EmailSent"].(bool),
+	}
+	if m["InvoiceData"] != nil {
+		p.InvoiceData = m["InvoiceData"].(map[string]interface{})
+	}
+	return p
 }

@@ -31,33 +31,33 @@ type funcFw struct {
 	storeEvents   map[string]StoreEventsI
 }
 
-func (f funcFw) Http(entrypoint, url string, fn HttpFn) {
+func (f *funcFw) Http(entrypoint, url string, fn HttpFn) {
 	f.httpFns[entrypoint] = &HttpFunction{
 		Entrypoint: entrypoint,
 		UrlPath:    url,
 		HttpFn:     fn,
 	}
 }
-func (f funcFw) GetHttp() map[string]*HttpFunction {
+func (f *funcFw) GetHttp() map[string]*HttpFunction {
 	return f.httpFns
 }
-func (f funcFw) HttpAsync(entrypoint, url string, fn HttpFn) {
+func (f *funcFw) HttpAsync(entrypoint, url string, fn HttpFn) {
 	f.httpAsync[entrypoint] = &HttpAsync{
 		Entrypoint: entrypoint,
 		UrlPath:    url,
 		HttpFn:     fn,
 	}
 }
-func (f funcFw) GetHttpAsync() map[string]*HttpAsync {
+func (f *funcFw) GetHttpAsync() map[string]*HttpAsync {
 	return f.httpAsync
 }
-func (f funcFw) NatsAsync(entrypoint string, url string, fn HttpFn) {
+func (f *funcFw) NatsAsync(entrypoint string, url string, fn HttpFn) {
 	f.httpAsyncNats[entrypoint] = &HttpAsync{
 		Entrypoint: entrypoint,
 		UrlPath:    url,
 		HttpFn:     fn,
 	}
 }
-func (f funcFw) GetHttpAsyncNats() map[string]*HttpAsync {
+func (f *funcFw) GetHttpAsyncNats() map[string]*HttpAsync {
 	return f.httpAsyncNats
 }

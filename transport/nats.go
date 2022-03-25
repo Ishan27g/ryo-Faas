@@ -1,7 +1,6 @@
 package transport
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -23,6 +22,7 @@ var urls = os.Getenv("NATS")
 var showTime = false
 
 var subjects map[string]*subjectMeta
+var lock = sync.RWMutex{}
 
 type SubCb func()
 
@@ -31,20 +31,8 @@ type subjectMeta struct {
 	docId       string
 }
 
-func usage() {
-	log.Printf("Usage: nats-sub [-s server] [-creds file] [-nkey file] [-tlscert file] [-tlskey file] [-tlscacert file] [-t] <subject>\n")
-	flag.PrintDefaults()
-}
-
-func showUsageAndExit(exitcode int) {
-	usage()
-	os.Exit(exitcode)
-}
-func printMsg(m *nats.Msg, i int) {
-	log.Printf("[#%d] Received on [%s]: '%s'", i, m.Subject, string(m.Data))
-}
 func setupConnOptions(opts []nats.Option) []nats.Option {
-	totalWait := 10 * time.Second
+	totalWait := 5 * time.Second
 	reconnectDelay := time.Second
 
 	opts = append(opts, nats.ReconnectWait(reconnectDelay))
@@ -63,9 +51,9 @@ func setupConnOptions(opts []nats.Option) []nats.Option {
 func init() {
 
 	subjects = make(map[string]*subjectMeta)
-
+	lock = sync.RWMutex{}
 	// Connect Options.
-	opts := []nats.Option{nats.Name("NATS Sample Subscriber")}
+	opts := []nats.Option{nats.Name("-nats-")}
 	opts = setupConnOptions(opts)
 
 }
@@ -73,7 +61,6 @@ func init() {
 func sub(subj string, cb func(msg *nats.Msg)) {
 	// Connect to NATS
 	nc, err := nats.Connect(urls, opts...)
-	//nc, err := nats.Connect(nats.DefaultURL)
 	if err != nil {
 		log.Println(err)
 		return
@@ -95,32 +82,27 @@ func sub(subj string, cb func(msg *nats.Msg)) {
 	}
 }
 
-func NatsSubscribeDoc(subj string, docId string, cb func(msg *nats.Msg)) {
-
-	if subjects[subj] == nil {
-		subjects[subj] = &subjectMeta{subjectName: subj, docId: docId}
-	}
-	sub(subj+"."+docId, cb)
-}
-
 func NatsSubscribe(subj string, cb func(msg *nats.Msg)) {
+	lock.Lock()
 	if subjects[subj] == nil {
 		subjects[subj] = &subjectMeta{subjectName: subj, docId: ""}
 	}
+	lock.Unlock()
 	sub(subj, cb)
 }
 func NatsPublish(subj string, msg string, reply *string) bool {
 
 	nc, err := nats.Connect(urls, opts...)
-	//nats.Connect(nats.DefaultURL)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
 	defer nc.Close()
+	lock.Lock()
 	if subjects[subj] == nil {
 		subjects[subj] = &subjectMeta{subjectName: subj, docId: ""}
 	}
+	lock.Unlock()
 	if reply != nil && *reply != "" {
 		err = nc.PublishRequest(subj, *reply, []byte(msg))
 		if err != nil {
@@ -144,7 +126,7 @@ func NatsPublish(subj string, msg string, reply *string) bool {
 	if err := nc.LastError(); err != nil {
 		log.Fatal(err)
 	} else {
-		log.Printf("Published [%s] : '%s'\n", subj, msg)
+		// log.Printf("Published [%s] : '%s'\n", subj, msg)
 	}
 	return true
 }
@@ -153,7 +135,6 @@ type AsyncNats struct {
 	Callback   string
 	Entrypoint string
 	Req        []byte
-	// HttpFunction
 }
 
 func NatsPublishJson(subj string, msg AsyncNats, reply *string) bool {
@@ -191,15 +172,17 @@ func NatsPublishJson(subj string, msg AsyncNats, reply *string) bool {
 	if err := ec.LastError(); err != nil {
 		log.Fatal(err)
 	} else {
-		log.Printf("Published [%s] : '%s'\n", subj, msg)
+		// log.Printf("Published [%s] : '%s'\n", subj, msg)
 	}
 	return true
 }
 
 func NatsSubscribeJson(subj string, cb func(msg *AsyncNats)) {
+	lock.Lock()
 	if subjects[subj] == nil {
 		subjects[subj] = &subjectMeta{subjectName: subj, docId: ""}
 	}
+	lock.Unlock()
 	opts = append(opts, nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {
 		if s != nil {
 			log.Printf("Async error in %q/%q: %v", s.Subject, s.Queue, err)
@@ -235,7 +218,7 @@ func NatsSubscribeJson(subj string, cb func(msg *AsyncNats)) {
 		log.Fatal(err)
 	}
 
-	log.Printf("Listening on [%s]", subj)
+	// log.Printf("Listening on [%s]", subj)
 	if showTime {
 		log.SetFlags(log.LstdFlags)
 	}

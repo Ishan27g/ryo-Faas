@@ -11,11 +11,6 @@ import (
 
 type Option func(*shell)
 
-func WithFunctionName(name string) Option {
-	return func(s *shell) {
-		s.fnName = name
-	}
-}
 func WithCmd(c *run.RunInfo) Option {
 	return func(s *shell) {
 		s.c = c
@@ -31,7 +26,6 @@ func New(o ...Option) Shell {
 	for _, i2 := range o {
 		i2(s)
 	}
-	s.logs = []string{}
 	s.done = make(chan bool, 1)
 	return s
 }
@@ -66,8 +60,6 @@ func (s *shell) Run() bool {
 type kill func()
 type shell struct {
 	c         *run.RunInfo
-	fnName    string
-	logs      []string
 	logWriter io.WriteCloser
 	kill
 	done chan bool

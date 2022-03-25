@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Ishan27g/ryo-Faas/examples/database-events/controller"
-	"github.com/Ishan27g/ryo-Faas/examples/db-events/model"
+	payment "github.com/Ishan27g/ryo-Faas/examples/database-events/model"
 	"github.com/Ishan27g/ryo-Faas/store"
 )
 
@@ -14,6 +14,7 @@ func MakePayment(w http.ResponseWriter, r *http.Request) {
 
 	// create random payment
 	payment := controller.RandomPayment()
+	fmt.Println("Made payment:" + fmt.Sprintf("%v", payment) + "\n")
 
 	// add to database
 	_ = store.Get(TableName).Create(payment.Id, payment.Marshal())
@@ -28,8 +29,8 @@ func GetPayments(w http.ResponseWriter, r *http.Request) {
 	// retrieve from db
 	docs := store.Get(TableName).Get()
 	for _, doc := range docs {
-		v := doc.Data.Value
-		fmt.Println(v["Value"].(model.Payment))
+		p := payment.FromDocument(doc)
+		fmt.Println(p)
 	}
 	w.WriteHeader(http.StatusAccepted)
 	fmt.Fprint(w, "All payments:"+fmt.Sprintf("%v", docs))

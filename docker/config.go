@@ -29,7 +29,7 @@ const (
 	proxyImage        = dockerRemote + "rfa-proxy" + versionStr
 	deployBaseImage   = dockerRemote + "rfa-deploy-base" + versionStr
 	natsImage         = "nats"
-	natsVersion       = ":alpine"
+	natsVersion       = ":alpine3.15"
 	natsContainerName = "rfa-" + natsImage
 
 	networkName = "rfa_nw"

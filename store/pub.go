@@ -34,7 +34,7 @@ func (d *store) Create(id string, data map[string]interface{}) string {
 	doc := d.new(d.table, id, data)
 	docData, done := marshal(doc)
 	if !done {
-		fmt.Println("Cannot marshal")
+		d.Println("Cannot marshal")
 		return ""
 	}
 	ids, err := d.dbClient.New(ctx, &deploy.Documents{Document: []*deploy.Document{
@@ -45,11 +45,11 @@ func (d *store) Create(id string, data map[string]interface{}) string {
 		},
 	}})
 	if err != nil {
-		fmt.Println("store.New()", err.Error())
+		d.Println("store.New()", err.Error())
 		return ""
 	}
 	if ids.Id[0] != doc.Id() {
-		fmt.Println("who dun it")
+		d.Println("who dun it")
 	}
 
 	docs := d.Get(ids.Id[0])
@@ -80,10 +80,16 @@ func (d *store) Update(id string, data map[string]interface{}) bool {
 		},
 	}})
 	if err != nil {
-		fmt.Println("store.Update()", err.Error())
+		d.Println("store.Update()", err.Error())
 		return false
 	}
-	return publish(DocumentUPDATE+d.natsSub(id), document.DocumentString())
+	docs := d.Get(document.Id())
+
+	out, err := json.Marshal(docs[0])
+	if err != nil {
+		panic(err)
+	}
+	return publish(DocumentUPDATE+d.natsSub(id), string(out))
 
 }
 
@@ -92,10 +98,9 @@ func (d *store) Get(ids ...string) []Doc {
 	defer can()
 	documents, err := d.dbClient.Get(ctx, &deploy.Ids{Id: ids})
 	if err != nil {
-		fmt.Println("store.Get()", err.Error())
+		d.Println("store.Get()", err.Error())
 		return nil
 	}
-	fmt.Println(documents)
 	docs := ToDocs(documents, d.table)
 	for _, doc := range docs {
 		b, _ := json.Marshal(doc)
@@ -120,12 +125,16 @@ func ToDocs(documents *deploy.Documents, table string) []Doc {
 	var entities []Doc
 	for i, _ := range docs {
 		value := (*docs[i]).Document()["Data"].(map[string]interface{})
-		entities = append(entities, Doc{
+		doc := Doc{
 			Id:        (*docs[i]).Document()["Id"].(string),
 			CreatedAt: (*docs[i]).Document()["CreatedAt"].(string),
 			EditedAt:  (*docs[i]).Document()["EditedAt"].(string),
-			Data:      database.Data(struct{ Value map[string]interface{} }{Value: value["Value"].(map[string]interface{})}),
-		})
+			Data:      database.Data(struct{ Value map[string]interface{} }{Value: nil}),
+		}
+		if value["Value"] != nil {
+			doc.Data.Value = value["Value"].(map[string]interface{})
+		}
+		entities = append(entities, doc)
 	}
 	return entities
 }
@@ -133,10 +142,23 @@ func ToDocs(documents *deploy.Documents, table string) []Doc {
 func (d *store) Delete(ids ...string) bool {
 	ctx, can := context.WithTimeout(context.Background(), time.Second*6)
 	defer can()
-	_, err := d.dbClient.Delete(ctx, &deploy.Ids{Id: ids})
+
+	// retrieve from Db before deleting
+	documents, err := d.dbClient.Get(ctx, &deploy.Ids{Id: ids})
 	if err != nil {
-		fmt.Println("store.Delete()", err.Error())
+		d.Println("store.Get()", err.Error())
 		return false
+	}
+	docs := ToDocs(documents, d.table)
+
+	_, err = d.dbClient.Delete(ctx, &deploy.Ids{Id: ids})
+	if err != nil {
+		d.Println("store.Delete()", err.Error())
+		return false
+	}
+	for _, doc := range docs {
+		b, _ := json.Marshal(doc)
+		go publish(DocumentDELETE+d.natsSub(doc.Id), string(b))
 	}
 	return true
 }

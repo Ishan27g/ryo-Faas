@@ -31,10 +31,23 @@ func TestName(t *testing.T) {
 	if !dbShell.Run() {
 		t.Error("cannot start database")
 	}
-
+	var gets, updates, creates, deletes = 0, 0, 0, 0
 	docStore := Get("payments")
-	docStore.On("get", func(document Doc) {
-		fmt.Println("SUB:", document.Data.Value)
+	docStore.On(DocumentGET, func(document Doc) {
+		fmt.Println("sub-get:", document.Data.Value)
+		gets++
+	})
+	docStore.On(DocumentUPDATE, func(document Doc) {
+		fmt.Println("sub-update:", document.Data.Value)
+		updates++
+	})
+	docStore.On(DocumentCREATE, func(document Doc) {
+		fmt.Println("sub-create:", document.Data.Value)
+		creates++
+	})
+	docStore.On(DocumentDELETE, func(document Doc) {
+		fmt.Println("sub-delete:", document.Data.Value)
+		deletes++
 	})
 	<-time.After(1 * time.Second)
 	// data to add
@@ -52,13 +65,13 @@ func TestName(t *testing.T) {
 
 	fmt.Println(dataReturned)
 
-	//// dataReturned == data
-	//fmt.Println(dataReturned)
-	//
-	//// update some field
-	//data["amount"] = 43
-	//docStore.Update(id, data)
-	//
-	//// delete it
-	//docStore.Delete(id)
+	assert.True(t, docStore.Update(id, data))
+	assert.True(t, docStore.Delete(id))
+
+	<-time.After(3 * time.Second)
+	assert.GreaterOrEqual(t, 3, gets)
+	assert.GreaterOrEqual(t, 1, updates)
+	assert.GreaterOrEqual(t, 1, creates)
+	assert.GreaterOrEqual(t, 1, deletes)
+
 }

@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
@@ -47,8 +47,6 @@ func (c *client) All(ctx context.Context, in *deploy.Ids) (*deploy.Documents, er
 func Connect(addr string) Client {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	fmt.Println("Connecting to database...", addr)
-
 	grpc.WaitForReady(true)
 	grpcClient, err := grpc.DialContext(ctx, addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -58,8 +56,8 @@ func Connect(addr string) Client {
 		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
 	if err != nil {
+		log.Fatalln(err.Error())
 		return nil
 	}
-	fmt.Println("Connected to database...")
 	return &client{dc: deploy.NewDatabaseClient(grpcClient)}
 }
