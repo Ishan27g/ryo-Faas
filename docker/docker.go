@@ -2,11 +2,10 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
-	"path"
-	"runtime"
 	"sync"
 
 	"github.com/docker/docker/api/types"
@@ -17,7 +16,10 @@ import (
 )
 
 type Docker interface {
+	Setup() bool
+	CheckImages() bool
 	SetForcePull()
+	SetSilent()
 
 	StatusAll() bool
 	StatusAny() bool
@@ -32,12 +34,30 @@ type Docker interface {
 	StopFunction(serviceName string) error
 }
 
-func (d *docker) Start() bool {
-	if !d.ensureNetwork() {
-		d.Println("cannot create network")
-		return false
+func (d *docker) Setup() bool {
+	var wg sync.WaitGroup
+	var done = make(chan bool, 2)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		done <- d.ensureNetwork()
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		done <- d.ensureImages()
+	}()
+	wg.Wait()
+	close(done)
+	for b := range done {
+		if !b {
+			return false
+		}
 	}
-	if d.ensureImages() != nil {
+	return true
+}
+func (d *docker) Start() bool {
+	if !d.Setup() {
 		return false
 	}
 
@@ -140,8 +160,10 @@ func (d *docker) CheckFunction(serviceName string) bool {
 }
 
 func (d *docker) RunFunction(serviceName string) error {
-	_, filename, _, _ := runtime.Caller(0)
-	dir := path.Join(path.Dir(filename), "../")
+	dir := os.Getenv("RYA_FAAS")
+	if dir == "" {
+		return errors.New("cannot find ryo-faas directory")
+	}
 	err := os.Chdir(dir)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -150,7 +172,7 @@ func (d *docker) RunFunction(serviceName string) error {
 
 	name := serviceContainerName(serviceName)
 
-	err = imageBuild(d.Client, name)
+	err = d.imageBuild(d.Client, name)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -198,10 +220,13 @@ func (d *docker) SetForcePull() {
 	d.forcePull = true
 }
 
+func (d *docker) SetSilent() {
+	d.silent = true
+}
 func New() Docker {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil
 	}
-	return &docker{false, cli, log.New(os.Stdout, "docker", log.LstdFlags)}
+	return &docker{false, false, cli, log.New(os.Stdout, "docker", log.LstdFlags)}
 }

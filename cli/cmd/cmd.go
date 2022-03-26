@@ -74,15 +74,16 @@ var read = func(defFile string) (definition, bool) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
+	cwd := getDir() + "/"
+	//cwd, _ := os.Getwd()
+	//cwd = cwd + "/"
 
-	cwd, _ := os.Getwd()
-	cwd = cwd + "/"
-
-	err = os.Mkdir("deployments/tmp", os.ModePerm)
 	tmpDir := "deployments/tmp" + "/"
+	err = os.MkdirAll(cwd+tmpDir, os.ModePerm)
 	ImportPath = "github.com/Ishan27g/ryo-Faas/" + tmpDir
-	ModFile = func() string {
-		return "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/template/template.go"
+	ImportPath = "github.com/Ishan27g/ryo-Faas/" + tmpDir
+	templateFile = func() string {
+		return cwd + "template/template.go"
 	}
 	if !isMain {
 		valid, genFile := AstLocalCopy(cwd+tmpDir, df)
@@ -150,14 +151,15 @@ var deployCmd = cli.Command{
 		if c.Args().Len() == 0 {
 			return cli.Exit("filename not provided", 1)
 		}
+		// set dir env
+		getDir()
+
+		// process entire definition (all function per deploy) into a single container
+		df, isMain := read(c.Args().First())
 		proxy := getProxy()
 		if proxy == nil {
 			return cli.Exit("cannot connect to "+proxyAddress, 1)
 		}
-
-		// process entire definition (all function per deploy) into a single container
-		df, isMain := read(c.Args().First())
-
 		var fns []*deploy.Function
 		for _, s := range df.Deploy {
 			s.Name = strings.ToLower(s.Name)
@@ -170,9 +172,8 @@ var deployCmd = cli.Command{
 			}
 			fns = append(fns, df)
 		}
-		fmt.Println(fns[0])
 		// run definition as single container
-		fmt.Println("Running container for ", fns[0].Entrypoint)
+		fmt.Println("Starting container ...")
 		if docker.New().RunFunction(fns[0].Entrypoint) != nil {
 			log.Fatal("cannot run container" + fns[0].Entrypoint)
 		}
@@ -245,7 +246,7 @@ var proxyResetCmd = cli.Command{
 }
 
 func Init() *cli.App {
-	app := &cli.App{Commands: []*cli.Command{&deployCmd, &stopCmd, &detailsProxyCmd,
+	app := &cli.App{Commands: []*cli.Command{&initRfaFaasCmd, &envCmd, &deployCmd, &stopCmd, &detailsProxyCmd,
 		&proxyResetCmd, &startRyoFaas, &stopRyoFaas},
 		Flags: []cli.Flag{
 			&cli.StringFlag{

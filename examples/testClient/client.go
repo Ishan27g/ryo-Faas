@@ -15,11 +15,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// https://github.com/open-telemetry/opentelemetry-go-contrib/tree/main/instrumentation/net/http/otelhttp/example
 var url = "http://localhost:9999/functions/methodwithotel"
 
 // example of using opentelemetry metrics
-// assumes `methodwithotel` is deployed and available via proxy at `url`
+// assumes `MethodWithOtel` is deployed and available via proxy at `url`
 func main() {
 	requestWithOtel()
 }
@@ -38,7 +37,7 @@ func requestWithOtel() {
 	ctx2, span := tr.Start(ctx, "client-with-otel-header", trace.WithAttributes(semconv.MessagingDestinationKey.String(url)))
 
 	// add baggage to span
-	bag, err := baggage.Parse("Goku=Saiyan")
+	bag, err := baggage.Parse("username=Goku,id=Saiyan")
 	if err != nil {
 		panic(err.Error())
 	}

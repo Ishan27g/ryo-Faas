@@ -15,29 +15,28 @@ import (
 )
 
 var (
-	appName                               = "ryo-faas-func"
-	serviceName                           = ""
-	port                                  = ""
-	jaegerHost                            = os.Getenv("JAEGER")
-	zipkinHost                            = os.Getenv("ZIPKIN")
-	databaseAddress                       = "localhost:5000"
-	jp              plugins.TraceProvider = nil
-	httpSrv         *http.Server          = nil
-	logger                                = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
-	healthCheckUrl                        = "/healthcheck"
-	stopUrl                               = "/stop"
-	Export                                = funcFw{
+	appName                      = "ryo-faas-func"
+	serviceName                  = ""
+	port                         = ""
+	jaegerHost                   = os.Getenv("JAEGER")
+	zipkinHost                   = os.Getenv("ZIPKIN")
+	databaseAddress              = "localhost:5000"
+	httpSrv         *http.Server = nil
+	logger                       = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
+	healthCheckUrl               = "/healthcheck"
+	stopUrl                      = "/stop"
+	Export                       = funcFw{
 		httpFns:       make(map[string]*HttpFunction),
 		httpAsync:     make(map[string]*HttpAsync),
 		httpAsyncNats: make(map[string]*HttpAsync),
 		storeEvents:   nil,
 	}
+	provider plugins.TraceProvider
 )
 
 func Start(port string) {
 	serviceName, _ = os.Hostname()
 
-	var provider plugins.TraceProvider
 	if jaegerHost == "" && zipkinHost != "" {
 		provider = plugins.Init("zipkin", appName, serviceName)
 	}
@@ -48,7 +47,6 @@ func Start(port string) {
 		fmt.Println("provider ENV not set")
 		return
 	}
-	defer provider.Close()
 
 	// apply store event handlers
 	if Export.storeEvents != nil {
@@ -122,7 +120,7 @@ func runAsyncFn(httpAsync *HttpAsync, callback string, r *http.Request) {
 	}
 }
 func Stop() {
-	jp.Close()
+	provider.Close()
 	cx, can := context.WithTimeout(context.Background(), 2*time.Second)
 	defer can()
 	if err := httpSrv.Shutdown(cx); err != nil {

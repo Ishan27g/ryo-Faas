@@ -31,9 +31,13 @@ const (
 	natsImage         = "nats"
 	natsVersion       = ":alpine3.15"
 	natsContainerName = "rfa-" + natsImage
-	zipKinRep         = "openzipkin/"
-	zipkinImage       = "zipkin"
-	zipkinVersion     = ":2.23.15"
+
+	zipKinRep     = "openzipkin/"
+	zipkinImage   = "zipkin"
+	zipkinVersion = ":2.23.15"
+
+	jaegerImage   = "jaegertracing/all-in-one"
+	jaegerVersion = ":1.31"
 
 	networkName = "rfa_nw"
 	natsNwHost  = "nats://rfa-nats:4222"
@@ -50,21 +54,27 @@ const (
 	localTimeout  = 30 * time.Second
 	remoteTimeout = 100 * time.Second
 
-	defaultProvider = "ZIPKIN="
+	defaultProvider = "JAEGER="
 )
 
-var defaultEnv = []string{"DATABASE=" + databaseNwHost(), "NATS=" + natsNwHost, defaultProvider + zipkinContainerName()}
+var defaultEnv = []string{"DATABASE=" + databaseNwHost(), "NATS=" + natsNwHost, defaultProvider + defaultProviderHost()}
+
+func defaultProviderHost() string {
+	if defaultProvider == "ZIPKIN=" {
+		return zipkinContainerName()
+	}
+	if defaultProvider == "JAEGER=" {
+		return jaegerContainerName()
+	}
+	return ""
+}
+
+func jaegerContainerName() string {
+	return "host.docker.internal" // todo
+}
 
 var labels = map[string]string{
 	"rfa": "faas",
-}
-var agentPorts = map[nat.Port]struct{}{
-	"9000/tcp": {},
-	"6000/tcp": {},
-	"6001/tcp": {},
-	"6002/tcp": {},
-	"6003/tcp": {},
-	"6004/tcp": {},
 }
 
 var trimVersion = func(from string) string {
@@ -94,8 +104,13 @@ func asFilter(key, val string) filters.Args {
 
 type docker struct {
 	forcePull bool
+	silent    bool
 	*client.Client
 	*log.Logger
+}
+
+func (d *docker) CheckImages() bool {
+	return d.checkImages()
 }
 
 func (d *docker) ensureNetwork() bool {
@@ -108,7 +123,7 @@ func (d *docker) ensureNetwork() bool {
 		if strings.Contains(err.Error(), networkName+" already exists") {
 			return true
 		}
-		fmt.Println(err.Error())
+		fmt.Printf("\nUnable to create network %s: \n", networkName)
 		return false
 	}
 	return true
@@ -117,11 +132,10 @@ func (d *docker) stop(name string) error {
 	ctx := context.Background()
 	if err := d.ContainerStop(ctx, name, nil); err != nil {
 		if !strings.Contains(err.Error(), "No such container") {
-			log.Printf("Unable to stop container %s: %s", name, err)
+			fmt.Printf("\nUnable to stop container %s: %s\n", name, err)
 			return err
 		}
 	}
-
 	removeOptions := types.ContainerRemoveOptions{
 		RemoveVolumes: true,
 		Force:         true,
@@ -129,7 +143,7 @@ func (d *docker) stop(name string) error {
 
 	if err := d.ContainerRemove(ctx, name, removeOptions); err != nil {
 		if !strings.Contains(err.Error(), "No such container") {
-			log.Printf("Unable to remove container: %s", err)
+			fmt.Printf("\nUnable to remove container %s: \n", networkName)
 			return err
 		}
 	}
@@ -156,9 +170,6 @@ func (d *docker) checkAllRfa() []types.Container {
 	if err != nil {
 		panic(err)
 	}
-	//for _, t := range containers {
-	//	fmt.Println("CheckLabel - ", t)
-	//}
 	return containers
 }
 
@@ -179,7 +190,7 @@ func (d *docker) stopNats() error {
 	return d.stop(name)
 }
 
-func imageBuild(dockerClient *client.Client, serviceName string) error {
+func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 
@@ -198,18 +209,18 @@ func imageBuild(dockerClient *client.Client, serviceName string) error {
 		fmt.Println("build error")
 		return err
 	}
-
 	defer res.Body.Close()
-
-	err = print(res.Body)
-	if err != nil {
-		return err
+	if !d.silent {
+		err = d.print(res.Body)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func print(rd io.Reader) error {
+func (d *docker) print(rd io.Reader) error {
 	var lastLine string
 
 	type ErrorDetail struct {
@@ -245,7 +256,9 @@ func (d *docker) pull(ctx context.Context, refStr string) error {
 		return err
 	}
 	defer out.Close()
-	io.Copy(os.Stdout, out)
+	if !d.silent {
+		io.Copy(os.Stdout, out)
+	}
 	return nil
 }
 
@@ -260,13 +273,31 @@ func (d *docker) checkImage(imageName string) bool {
 		d.Println(err.Error())
 		return false
 	}
-	for _, summary := range list {
-		d.Println("checkImage - ", summary.ID)
-	}
+	//for _, summary := range list {
+	//	d.Println("checkImage - ", summary.ID)
+	//}
 	return len(list) == 1
 }
+func (d *docker) checkImages() bool {
+	if !d.checkImage(deployBaseImage) {
+		return false
+	}
+	if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
+		return false
+	}
+	if !d.checkImage(databaseImage) {
+		return false
+	}
+	if !d.checkImage(proxyImage) {
+		return false
+	}
+	if !d.checkImage(natsImage + natsVersion) {
+		return false
+	}
 
-func (d *docker) ensureImages() error {
+	return true
+}
+func (d *docker) ensureImages() bool {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(remoteTimeout))
 	defer cancel()
@@ -333,10 +364,11 @@ func (d *docker) ensureImages() error {
 
 	for err := range errs {
 		if err != nil {
-			return err
+			fmt.Println(err.Error())
+			return false
 		}
 	}
-	return nil
+	return true
 }
 
 func (d *docker) startZipkin() error {
@@ -483,7 +515,6 @@ func (d *docker) startProxy() error {
 		fmt.Println(err.Error())
 		return err
 	}
-
 	return nil
 }
 

@@ -3,8 +3,8 @@ FROM golang:alpine3.13 as build
 WORKDIR /app
 COPY . .
 
-RUN go mod tidy
-RUN go mod vendor
+#RUN go mod tidy
+#RUN go mod vendor
 
 FROM alpine:3.13
 COPY --from=build /app /app

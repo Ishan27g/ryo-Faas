@@ -136,7 +136,7 @@ type function struct {
 }
 
 var ImportPath = ""
-var ModFile = func() string {
+var templateFile = func() string {
 	return ""
 }
 
@@ -144,7 +144,7 @@ func rewriteDeployDotGo(toDir string, fns ...function) (string, error) {
 	var genFile string
 
 	set := token.NewFileSet()
-	node, err := parser.ParseFile(set, ModFile(), nil, parser.ParseComments)
+	node, err := parser.ParseFile(set, templateFile(), nil, parser.ParseComments)
 	if err != nil {
 		log.Fatal("Unable to open generate.go template ", err.Error())
 		return genFile, err
@@ -272,7 +272,7 @@ func rewriteDeployMainDotGo(toDir string, fns ...function) (string, error) {
 	var genFile string
 
 	set := token.NewFileSet()
-	node, err := parser.ParseFile(set, ModFile(), nil, parser.ParseComments)
+	node, err := parser.ParseFile(set, templateFile(), nil, parser.ParseComments)
 	if err != nil {
 		log.Fatal("Unable to open generate.go template ", err.Error())
 		return genFile, err

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/docker"
@@ -19,7 +20,6 @@ var stopRyoFaas = cli.Command{
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
 		d := docker.New()
-		d.Stop()
 		if !d.StatusAny() {
 			return nil
 		}
@@ -29,6 +29,7 @@ var stopRyoFaas = cli.Command{
 			fmt.Printf("%s\t\t%s\t%s\n", v.Url, v.Name, v.Status)
 			d.StopFunction(v.Name)
 		}
+		d.Stop()
 
 		fmt.Println("Stopped ryo-Faas")
 		return nil
@@ -42,6 +43,12 @@ var startRyoFaas = cli.Command{
 	HideHelp:        false,
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
+
+		_, err := os.Stat(getDir())
+		if err != nil && os.IsNotExist(err) {
+			fmt.Println("run init command")
+			return err
+		}
 		d := docker.New()
 		if !d.Start() {
 			d.Stop()
@@ -49,7 +56,7 @@ var startRyoFaas = cli.Command{
 			return nil
 		}
 		fmt.Println("Started ryo-Faas : Proxy running at http://localhost:9999")
-		<-time.After(500 * time.Millisecond)
+		<-time.After(100 * time.Millisecond)
 		d.StatusAll()
 		return nil
 	},

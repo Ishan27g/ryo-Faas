@@ -47,7 +47,7 @@ Will take a few minutes to download the following docker images
 - [database](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) running at `localhost:5000/5001`
 - [functionBase](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) attached to internal docker network
 
-- nats:alpine3.15	running at `localhost:4222/8222`
+- nats:alpine3.15 running at `localhost:4222/8222`
 - openzipkin/zipkin:2.23.15 running at `localhost:9411`
 
 ```shell
@@ -68,14 +68,17 @@ Will take a few minutes to download the following docker images
 ```shell
 ./proxyCli details
 ```
+
 __The function is available via the proxy at `http://localhost:9999/functions/helloworld`__
 
 ## Individual HTTP/ASYNC Functions
 
 Should follow the standard go http library for the handler
+
 ```go
 func SomeHandler(w http.ResponseWriter, r *http.Request){}
 ```
+
 > __Add `"async": true` to deploy as an `async` function__ ()
 
 ```json
@@ -100,49 +103,49 @@ Should export a single `Init()` method that registers the requires triggers, htt
 package notMain
 
 import (
-	"fmt"
-	"net/http"
-	"time"
+ "fmt"
+ "net/http"
+ "time"
 
-	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
-	"github.com/Ishan27g/ryo-Faas/store"
+ FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
+ "github.com/Ishan27g/ryo-Faas/store"
 )
 func HttpMethod(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusAccepted)
-	fmt.Fprint(w, "Accepted at method - HttpMethod ..."+"\n")
+ w.WriteHeader(http.StatusAccepted)
+ fmt.Fprint(w, "Accepted at method - HttpMethod ..."+"\n")
 }
 func HttpAsyncMethod(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusAccepted)
-	fmt.Fprint(w, "Accepted at method - HttpAsyncMethod..."+"\n")
+ w.WriteHeader(http.StatusAccepted)
+ fmt.Fprint(w, "Accepted at method - HttpAsyncMethod..."+"\n")
 }
 func documentTrigger(document store.Doc) {
-	fmt.Println(document.CreatedAt + " " + document.Id + " ---- at GenericCb()")
+ fmt.Println(document.CreatedAt + " " + document.Id + " ---- at GenericCb()")
 }
 func main() {
 
 // Http
 
-	// register a http method
-	FuncFw.Export.Http("HttpMethod", "/method1", HttpMethod)
+ // register a http method
+ FuncFw.Export.Http("HttpMethod", "/method1", HttpMethod)
 
 //Async
 
-	// register your http async method over Nats
-	FuncFw.Export.NatsAsync("HttpAsyncMethod-Nats", "/asyncNats", HttpAsyncMethod)
-	
-	// or register your http async method over Http
-	FuncFw.Export.Async("HttpAsyncMethod", "/async", HttpAsyncMethod)
+ // register your http async method over Nats
+ FuncFw.Export.NatsAsync("HttpAsyncMethod-Nats", "/asyncNats", HttpAsyncMethod)
+ 
+ // or register your http async method over Http
+ FuncFw.Export.Async("HttpAsyncMethod", "/async", HttpAsyncMethod)
 
 //DataStore events
 
-    	// register a function to be called when a new `payments` document is created
-	FuncFw.Export.EventsFor("payments").On(store.DocumentCREATE, documentTrigger)
-   	// register a function to be called when some existing `bills` document is updated
-	FuncFw.Export.EventsFor("bills").On(store.DocumentUPDATE, documentTrigger)
-    	// register a function to be called when a known `payments` document (by its ID) is retrieved
-	FuncFw.Export.EventsFor("payments").OnIds(store.DocumentGET, cb, "some-known-id")
-    	// register a function to be called when a known `bills` document (by its ID) is retrieved
-	FuncFw.Export.EventsFor("bills").OnIds(store.DocumentGET, cb, "some-known-id")
+     // register a function to be called when a new `payments` document is created
+ FuncFw.Export.EventsFor("payments").On(store.DocumentCREATE, documentTrigger)
+    // register a function to be called when some existing `bills` document is updated
+ FuncFw.Export.EventsFor("bills").On(store.DocumentUPDATE, documentTrigger)
+     // register a function to be called when a known `payments` document (by its ID) is retrieved
+ FuncFw.Export.EventsFor("payments").OnIds(store.DocumentGET, cb, "some-known-id")
+     // register a function to be called when a known `bills` document (by its ID) is retrieved
+ FuncFw.Export.EventsFor("bills").OnIds(store.DocumentGET, cb, "some-known-id")
 }
 ```
 
@@ -174,6 +177,5 @@ It simply registers the http-functions and then starts an HTTP server serving th
   - verifies the signature
     - of the exported `http-function`, or
     - of the exported `main-service`
-  - generates a `exported_{function}.go` file which registers the provided function with the `functionFramework` (https://github.com/Ishan27g/ryo-faas/blob/main/remote/agent/funcFrameworkWrapper/template.go) before starting an http-server. See [template.go]
+  - generates a `exported_{function}.go` file which registers the provided function with the `functionFramework` (<https://github.com/Ishan27g/ryo-faas/blob/main/remote/agent/funcFrameworkWrapper/template.go>) before starting an http-server. See [template.go]
 - The generated `service` is then built into a Docker image and run as its own container
-

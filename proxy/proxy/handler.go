@@ -59,9 +59,8 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 
 	response := new(deploy.DeployResponse)
 
+	hnFn := "http://" + "rfa-deploy-" + strings.ToLower(request.Functions[0].Entrypoint) + ":6000"
 	for _, function := range request.Functions {
-
-		hnFn := "http://" + "rfa-deploy-" + strings.ToLower(function.Entrypoint) + ":6000"
 		function.ProxyServiceAddr = hnFn // + function.Entrypoint
 		jsonFn := types.RpcFunctionRspToJson(function)
 		proxyUrl := h.proxies.add(jsonFn)
