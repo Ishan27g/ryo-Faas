@@ -42,9 +42,10 @@ const (
 	networkName = "rfa_nw"
 	natsNwHost  = "nats://rfa-nats:4222"
 
-	databaseHostRpcPort = "5000"
-	proxyRpcHostPort    = "9998"
-	proxyHttpHostPort   = "9999"
+	databaseHostRpcPort   = "5000"
+	proxyRpcHostPort      = "9998"
+	proxyHttpHostPort     = "9999"
+	deployedFnNetworkPort = "6000"
 
 	natsHostPort1 = "4222"
 	natsHostPort2 = "8222"
@@ -103,8 +104,9 @@ func asFilter(key, val string) filters.Args {
 }
 
 type docker struct {
-	forcePull bool
-	silent    bool
+	forcePull    bool
+	silent       bool
+	isProxyLocal bool
 	*client.Client
 	*log.Logger
 }

@@ -35,6 +35,7 @@ var stopRyoFaas = cli.Command{
 		return nil
 	},
 }
+var runProxy bool
 var startRyoFaas = cli.Command{
 	Name:            "startFaas",
 	Aliases:         []string{"sta"},
@@ -42,14 +43,20 @@ var startRyoFaas = cli.Command{
 	ArgsUsage:       "server-cli startFaas",
 	HideHelp:        false,
 	HideHelpCommand: false,
+	Flags: []cli.Flag{&cli.BoolFlag{
+		Name:        "proxy",
+		Value:       false,
+		Usage:       "with proxy?",
+		Destination: &runProxy,
+	}},
 	Action: func(c *cli.Context) error {
-
 		_, err := os.Stat(getDir())
 		if err != nil && os.IsNotExist(err) {
 			fmt.Println("run init command")
 			return err
 		}
 		d := docker.New()
+		d.SetLocalProxy()
 		if !d.Start() {
 			d.Stop()
 			fmt.Println("Unable to start")

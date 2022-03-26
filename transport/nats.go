@@ -135,14 +135,17 @@ type AsyncNats struct {
 	Callback   string
 	Entrypoint string
 	Req        []byte
+	nats.Header
 }
 
 func NatsPublishJson(subj string, msg AsyncNats, reply *string) bool {
+
 	nc, err := nats.Connect(urls, opts...)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
+
 	defer nc.Close()
 	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
 	if err != nil {
@@ -211,6 +214,7 @@ func NatsSubscribeJson(subj string, cb func(msg *AsyncNats)) {
 		log.Fatal(err)
 	}
 
+	log.Printf("Listening on [%s]", subj)
 	// Wait for a message to come in
 	wg.Wait()
 
@@ -218,7 +222,6 @@ func NatsSubscribeJson(subj string, cb func(msg *AsyncNats)) {
 		log.Fatal(err)
 	}
 
-	log.Printf("Listening on [%s]", subj)
 	if showTime {
 		log.SetFlags(log.LstdFlags)
 	}

@@ -24,9 +24,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const MetricTracerFwToAgent = "proxy-function-call"
-const UrlLookup = "proxy-lookup"
-const HttpProxy = "http-proxy"
+const TracerFwToAgent = "proxy-function-call"
 const ServiceName = "rfa-proxy"
 
 const DefaultRpc = ":9998"
@@ -58,8 +56,16 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	}
 
 	response := new(deploy.DeployResponse)
-
-	hnFn := "http://" + "rfa-deploy-" + strings.ToLower(request.Functions[0].Entrypoint) + ":6000"
+	var buildHostName = func(entrypoint string) string {
+		hostname, _ := os.Hostname()
+		if strings.Contains(hostname, "Ishan") {
+			// if running locally
+			return "localhost"
+		}
+		// if in docker network
+		return "rfa-deploy-" + strings.ToLower(request.Functions[0].Entrypoint)
+	}
+	hnFn := "http://" + buildHostName(request.Functions[0].Entrypoint) + ":6000"
 	for _, function := range request.Functions {
 		function.ProxyServiceAddr = hnFn // + function.Entrypoint
 		jsonFn := types.RpcFunctionRspToJson(function)
@@ -122,24 +128,31 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 
 	// get from request
 	sp := trace.SpanFromContext(c.Request.Context())
+	var ctxR context.Context
+	if !sp.IsRecording() {
+		ctxR, sp = otel.Tracer(TracerFwToAgent).Start(c.Request.Context(), TracerFwToAgent+"-"+fnName)
+	} else {
+		ctxR = trace.ContextWithSpan(c.Request.Context(), sp)
+	}
 	sp.SetAttributes(attribute.Key("Forward-Function-Call").String(fnName))
-	ctxR := trace.ContextWithSpan(c.Request.Context(), sp)
+
+	newReq := newFwRequestWithCtx(ctxR, c.Request)
 
 	now := time.Now()
 	if proxy, fnServiceHost, atAgent, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
 		if isAsyncNats {
-			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, c.Request)
+			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, newReq)
 			sp.SetAttributes(attribute.Key("function-async-nats").String(fnName))
 			sp.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
 			sp.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
-			sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
+			sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(http.StatusAccepted))))
 		} else {
 			var stc int
 			var span trace.Span
 			if isMain {
-				stc, span = proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost, strings.ToLower(fnName))
+				stc, span = proxy.ServeHTTP(ctxR, c.Writer, newReq, fnServiceHost, strings.ToLower(fnName))
 			} else {
-				stc, span = proxy.ServeHTTP(ctxR, c.Writer, c.Request, fnServiceHost, "")
+				stc, span = proxy.ServeHTTP(ctxR, c.Writer, newReq, fnServiceHost, "")
 			}
 			statusCode = stc
 			span.SetAttributes(attribute.Key("function-http").String(atAgent))

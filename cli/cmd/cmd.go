@@ -130,12 +130,14 @@ func printResonse(response *deploy.DeployResponse) {
 func sendHttp(url, agentAddr string) []byte {
 	resp, err := http.Get("http://" + proxyHttpAddr + url + agentAddr)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err.Error())
+		return nil
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err.Error())
+		return nil
 	}
 	return body
 }
@@ -151,15 +153,17 @@ var deployCmd = cli.Command{
 		if c.Args().Len() == 0 {
 			return cli.Exit("filename not provided", 1)
 		}
-		// set dir env
-		getDir()
-
-		// process entire definition (all function per deploy) into a single container
 		df, isMain := read(c.Args().First())
 		proxy := getProxy()
 		if proxy == nil {
 			return cli.Exit("cannot connect to "+proxyAddress, 1)
 		}
+
+		// set dir env
+		getDir()
+
+		// process entire definition (all function per deploy) into a single container
+
 		var fns []*deploy.Function
 		for _, s := range df.Deploy {
 			s.Name = strings.ToLower(s.Name)
@@ -174,7 +178,11 @@ var deployCmd = cli.Command{
 		}
 		// run definition as single container
 		fmt.Println("Starting container ...")
-		if docker.New().RunFunction(fns[0].Entrypoint) != nil {
+
+		d := docker.New()
+		d.SetLocalProxy()
+
+		if d.RunFunction(fns[0].Entrypoint) != nil {
 			log.Fatal("cannot run container" + fns[0].Entrypoint)
 		}
 		// add container proxy

@@ -18,8 +18,10 @@ import (
 type Docker interface {
 	Setup() bool
 	CheckImages() bool
+
 	SetForcePull()
 	SetSilent()
+	SetLocalProxy()
 
 	StatusAll() bool
 	StatusAny() bool
@@ -73,11 +75,13 @@ func (d *docker) Start() bool {
 		defer wg.Done()
 		errs <- d.startDatabase()
 	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		errs <- d.startProxy()
-	}()
+	if !d.isProxyLocal {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- d.startProxy()
+		}()
+	}
 
 	wg.Add(1)
 	go func() {
@@ -186,10 +190,25 @@ func (d *docker) RunFunction(serviceName string) error {
 		EndpointsConfig: map[string]*network.EndpointSettings{},
 	}
 	ports := map[nat.Port]struct{}{
-		"6000/tcp": {},
+		deployedFnNetworkPort + "/tcp": {},
 	}
 
 	config = &container.Config{Image: name, Hostname: name, ExposedPorts: ports, Env: defaultEnv, Labels: labels}
+
+	// if proxy is running outside docker, expose fn-container port to host
+	if d.isProxyLocal {
+		// bind container port to host port
+		hostBinding := nat.PortBinding{
+			HostIP:   "0.0.0.0",
+			HostPort: deployedFnNetworkPort,
+		}
+		containerPort, err := nat.NewPort("tcp", deployedFnNetworkPort)
+		if err != nil {
+			d.Println("Unable to get the port", err.Error())
+			return err
+		}
+		hostConfig.PortBindings = nat.PortMap{containerPort: []nat.PortBinding{hostBinding}}
+	}
 
 	// attach container to network
 	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}
@@ -215,7 +234,9 @@ func (d *docker) RunFunction(serviceName string) error {
 func databaseNwHost() string {
 	return trimVersion(databaseImage) + ":" + databaseHostRpcPort
 }
-
+func (d *docker) SetLocalProxy() {
+	d.isProxyLocal = true
+}
 func (d *docker) SetForcePull() {
 	d.forcePull = true
 }
@@ -228,5 +249,5 @@ func New() Docker {
 	if err != nil {
 		return nil
 	}
-	return &docker{false, false, cli, log.New(os.Stdout, "docker", log.LstdFlags)}
+	return &docker{false, false, false, cli, log.New(os.Stdout, "docker", log.LstdFlags)}
 }

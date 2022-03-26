@@ -104,40 +104,20 @@ func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 
 type Pxy struct{}
 
-func (p *Pxy) ServeHTTP(ctx context.Context, rw http.ResponseWriter, req *http.Request, host string, trimServiceName string) (int, trace.Span) {
-	// tr := otel.Tracer(MetricTracerFwToAgent)
-
-	// otel.GetTracerProvider().Tracer(MetricTracerFwToAgent)
-
-	// ctx, span := tr.Start(ctx, HttpProxy)
-	// defer span.End()
+func (p *Pxy) ServeHTTP(ctx context.Context, rw http.ResponseWriter, outReq *http.Request, host string, trimServiceName string) (int, trace.Span) {
 
 	transport := otelhttp.NewTransport(http.DefaultTransport)
 	//outReq := &http.Request{}
-	outReq, _ := http.NewRequestWithContext(ctx, req.Method, req.RequestURI, req.Body)
 	//*outReq = *req
-	for key, value := range req.Header {
-		for _, v := range value {
-			outReq.Header.Add(key, v)
-		}
-	}
-	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		if prior, ok := outReq.Header["X-Forwarded-For"]; ok {
-			clientIP = strings.Join(prior, ", ") + ", " + clientIP
-		}
-		outReq.Header.Set("X-Forwarded-For", clientIP)
-	}
+	// outReq := newRequestWithCtx(ctx, req)
 	endpoint := ""
-	fmt.Println("trimServiceName", trimServiceName)
 	if trimServiceName != "" {
-		fmt.Println(Functions + "/" + trimServiceName)
-		fmt.Println("strings.TrimPrefix(outReq.URL.RequestURI(), Functions+\"/\"+trimServiceName)", strings.TrimPrefix(outReq.URL.RequestURI(), Functions+"/"+trimServiceName))
 		endpoint = strings.TrimPrefix(outReq.URL.RequestURI(), Functions+"/"+trimServiceName)
 	} else {
 		endpoint = strings.TrimPrefix(outReq.URL.RequestURI(), Functions)
 	}
 
-	fmt.Println("Sending to ", host+endpoint)
+	fmt.Println("Fordaring to ", host+endpoint)
 	var err error
 	outReq.URL, err = url.Parse(host + endpoint)
 
@@ -163,4 +143,21 @@ func (p *Pxy) ServeHTTP(ctx context.Context, rw http.ResponseWriter, req *http.R
 	io.Copy(rw, res.Body)
 	res.Body.Close()
 	return res.StatusCode, span
+}
+
+func newFwRequestWithCtx(ctx context.Context, req *http.Request) *http.Request {
+	outReq, _ := http.NewRequestWithContext(ctx, req.Method, req.RequestURI, req.Body)
+
+	for key, value := range req.Header {
+		for _, v := range value {
+			outReq.Header.Add(key, v)
+		}
+	}
+	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		if prior, ok := outReq.Header["X-Forwarded-For"]; ok {
+			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+		}
+		outReq.Header.Set("X-Forwarded-For", clientIP)
+	}
+	return outReq
 }

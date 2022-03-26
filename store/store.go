@@ -61,7 +61,7 @@ func new(table string) DocStore {
 
 	var dbClient database.Client
 	if dbClient = database.Connect(databaseAddress); dbClient == nil {
-		fmt.Println("cannot connect to database")
+		fmt.Println("cannot connect to database ", databaseAddress)
 		return nil
 	}
 	if table == "" {
