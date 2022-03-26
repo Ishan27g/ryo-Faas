@@ -25,31 +25,10 @@ func (hn HttpAsyncNats) SubscribeAsync(fn HttpFn) {
 
 		req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(msg.Req)))
 
-		var traceID trace.TraceID
-		traceID, err = trace.TraceIDFromHex(msg.Header.Get("traceid"))
-		if err != nil {
-			fmt.Println("error: ", err)
-		}
-		var spanID trace.SpanID
-		spanID, err = trace.SpanIDFromHex(msg.Header.Get("spanid"))
-		if err != nil {
-			fmt.Println("error: ", err)
-		}
-		var spanContextConfig trace.SpanContextConfig
-		spanContextConfig.TraceID = traceID
-		spanContextConfig.SpanID = spanID
-		spanContextConfig.TraceFlags = 01
-		spanContextConfig.Remote = false
-		spanContext := trace.NewSpanContext(spanContextConfig)
+		err, requestContext := buildTraceCtx(msg, err)
 
-		fmt.Println("IS VALID? ", spanContext.IsValid())
-		requestContext := context.Background()
-		requestContext = trace.ContextWithSpanContext(requestContext, spanContext)
-
-		var span trace.Span
-		_, span = otel.Tracer("function-async-receiver").Start(requestContext, "proxy-function-call"+"-"+hn.entrypoint)
+		_, span := otel.Tracer("function-async-receiver").Start(requestContext, "proxy-function-call"+"-"+hn.entrypoint)
 		defer span.End()
-		span.AddEvent("processing....") //
 
 		//span := trace.SpanFromContext()
 		span.SetAttributes(attribute.Key("nats-subscribe").String(hn.entrypoint))
@@ -61,6 +40,30 @@ func (hn HttpAsyncNats) SubscribeAsync(fn HttpFn) {
 			log.Println(err.Error())
 		}
 	})
+}
+
+func buildTraceCtx(msg *transport.AsyncNats, err error) (error, context.Context) {
+	var traceID trace.TraceID
+	traceID, err = trace.TraceIDFromHex(msg.Header.Get("traceid"))
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+	var spanID trace.SpanID
+	spanID, err = trace.SpanIDFromHex(msg.Header.Get("spanid"))
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+	// https://stackoverflow.com/questions/70378025/how-to-create-opentelemetry-span-from-a-string-traceid
+	var spanContextConfig trace.SpanContextConfig
+	spanContextConfig.TraceID = traceID
+	spanContextConfig.SpanID = spanID
+	spanContextConfig.TraceFlags = 01
+	spanContextConfig.Remote = false
+
+	spanContext := trace.NewSpanContext(spanContextConfig)
+	requestContext := context.Background()
+	requestContext = trace.ContextWithSpanContext(requestContext, spanContext)
+	return err, requestContext
 }
 func (hn HttpAsyncNats) getSubj() string {
 	return transport.HttpAsync + "." + strings.ToLower(hn.entrypoint)
