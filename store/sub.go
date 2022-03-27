@@ -14,8 +14,7 @@ func (d *store) onNatsMsg(msg *nats.Msg, do EventCb) {
 	subJ := strings.Split(msg.Subject, ".") // todo strings.Trim(subj.DataId)
 	var document Doc
 	err := json.Unmarshal(msg.Data, &document)
-	if err == nil {
-	} else {
+	if err != nil {
 		// if not be able to convert nats msg , go to db
 		fmt.Println("json.Unmarshal", err.Error())
 		if doc := d.Get(subJ[2]); doc == nil {
@@ -31,14 +30,9 @@ func (d *store) onNatsMsg(msg *nats.Msg, do EventCb) {
 func (d *store) on(subject string, do EventCb, ids ...string) {
 	switch len(ids) {
 	case 0:
-		//ctx, can := context.WithTimeout(context.Background(), time.Second*6)
-		//defer can()
-		// all, _ := d.dbClient.All(ctx, &deploy.Ids{Id: nil}) // ids unused
-		//for _, doc := range all.Document { // todo
 		transport.NatsSubscribe(subject+"."+"*", func(msg *nats.Msg) {
 			d.onNatsMsg(msg, do)
 		})
-		//}
 	default:
 		for _, id := range ids {
 			transport.NatsSubscribe(subject+"."+id, func(msg *nats.Msg) {

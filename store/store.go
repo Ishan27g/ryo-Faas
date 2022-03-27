@@ -42,14 +42,7 @@ type DocStore interface {
 
 	// subscribe
 
-	// OnCreate(do EventCb)
-	// OnUpdate(do EventCb, ids ...string) // subscribe to all ids if nil
-	// OnDelete(do EventCb, ids ...string) // subscribe to all ids if nil
-	// OnGet(do EventCb, ids ...string)    // subscribe to all ids if nil
-
 	On(eventType string, do EventCb, ids ...string) (ok bool) // subscribe to all ids if nil
-
-	//	On(subjId string, do EventCb)
 }
 
 type store struct {

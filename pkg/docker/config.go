@@ -309,6 +309,17 @@ func (d *docker) ensureImages() bool {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		if !d.checkImage(deployBaseImage) {
+			if err := d.pull(ctx, deployBaseImage); err != nil {
+				d.Println("error-pull", deployBaseImage, err.Error())
+				errs <- err
+			}
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
 			if err := d.pull(ctx, zipKinRep+zipkinImage+zipkinVersion); err != nil {
 				d.Println("error-pull", zipKinRep+zipkinImage+zipkinVersion, err.Error())
@@ -345,17 +356,6 @@ func (d *docker) ensureImages() bool {
 		if !d.checkImage(natsImage + natsVersion) {
 			if err := d.pull(ctx, natsImage+natsVersion); err != nil {
 				d.Println("error-pull", natsImage+natsVersion, err.Error())
-				errs <- err
-			}
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if !d.checkImage(deployBaseImage) {
-			if err := d.pull(ctx, deployBaseImage); err != nil {
-				d.Println("error-pull", deployBaseImage, err.Error())
 				errs <- err
 			}
 		}
