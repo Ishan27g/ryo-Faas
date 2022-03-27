@@ -10,10 +10,9 @@ import (
 )
 
 var (
-	defaultTable       = "data"
-	databaseAddressEnv = "DATABASE"
-	databaseAddress    = "localhost:5000"          // os.Getenv("Database")
-	documents          = make(map[string]DocStore) // per table
+	defaultTable    = "data"
+	databaseAddress = os.Getenv("DATABASE")
+	documents       = make(map[string]DocStore) // per table
 )
 
 const (
@@ -22,6 +21,14 @@ const (
 	DocumentGET    string = "get"
 	DocumentDELETE string = "delete"
 )
+
+func init() {
+	if dbClient := database.Connect(databaseAddress); dbClient == nil {
+		fmt.Println("cannot connect to database -", databaseAddress)
+		return
+	}
+	fmt.Println("Connected to database -", databaseAddress)
+}
 
 type EventCb func(document Doc)
 type Doc db.Entity
@@ -54,9 +61,8 @@ type store struct {
 
 func new(table string) DocStore {
 
-	d := os.Getenv(databaseAddressEnv)
-	if d != "" {
-		databaseAddress = d
+	if databaseAddress == "" {
+		databaseAddress = "localhost:5000"
 	}
 
 	var dbClient database.Client

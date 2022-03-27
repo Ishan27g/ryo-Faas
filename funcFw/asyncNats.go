@@ -98,6 +98,7 @@ func (hn HttpAsyncNats) HandleAsyncNats(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	fmt.Println("publishing json", ha.getSubj())
+	span.SetAttributes(attribute.Key("nats-publish at").String(time.Now().String()))
 	if transport.NatsPublishJson(ha.getSubj(), transport.AsyncNats{
 		Callback:   ha.callback,
 		Entrypoint: ha.entrypoint,
@@ -105,7 +106,6 @@ func (hn HttpAsyncNats) HandleAsyncNats(w http.ResponseWriter, r *http.Request) 
 		Header:     msg.Header,
 	}, nil) {
 		span.SetAttributes(attribute.Key("nats-publish").String(ha.entrypoint))
-		span.SetAttributes(attribute.Key("nats-publish at").String(time.Now().String()))
 		w.WriteHeader(http.StatusAccepted)
 		w.Write([]byte("Ok"))
 		return

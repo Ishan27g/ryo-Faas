@@ -13,7 +13,8 @@ func main() {
 	// notMain.Init()
 
 	FuncFw.Export.Http("AddRole", "/add", acl.AddRole)
-	FuncFw.Export.Http("CheckPermission", "/gwt", acl.CheckPermission)
+	FuncFw.Export.Http("AddChildPermissions", "/update", acl.AddChildPermission)
+	FuncFw.Export.Http("CheckPermission", "/get", acl.CheckPermission)
 
 	FuncFw.Start("9999")
 

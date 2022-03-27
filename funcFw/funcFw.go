@@ -20,7 +20,7 @@ var (
 	port                         = ""
 	jaegerHost                   = os.Getenv("JAEGER")
 	zipkinHost                   = os.Getenv("ZIPKIN")
-	databaseAddress              = "localhost:5000"
+	databaseAddress              = os.Getenv("DATABASE")
 	httpSrv         *http.Server = nil
 	logger                       = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
 	healthCheckUrl               = "/healthcheck"

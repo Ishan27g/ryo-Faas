@@ -7,7 +7,6 @@ type Role interface {
 
 	CanAccess(permission Permission) bool
 
-	getId() string
 	getPermissions() []Permission
 	getChildren() []Role
 
@@ -31,12 +30,13 @@ func UnMarshal(m map[string]interface{}) Role {
 				r.Permissions[name] = &Permission{Name: name}
 			}
 		}
-		if rl["Children"] != nil {
-			p := rl["Children"].([]interface{})
-			for _, child := range p {
-				r.AddChild(UnMarshal(child.(map[string]interface{})))
-			}
-		}
+		// not needed
+		//if rl["Children"] != nil {
+		//	p := rl["Children"].([]interface{})
+		//	for _, child := range p {
+		//		r.AddChild(UnMarshal(child.(map[string]interface{})))
+		//	}
+		//}
 	}
 	return r
 }
@@ -57,10 +57,6 @@ func (r *role) CanAccess(permission Permission) bool {
 	return r.Permissions[permission.Name] != nil
 }
 
-func (r *role) getId() string {
-	return r.Id
-}
-
 func (r *role) getPermissions() []Permission {
 	var p []Permission
 	for _, permission := range r.Permissions {
@@ -68,7 +64,6 @@ func (r *role) getPermissions() []Permission {
 	}
 	return p
 }
-
 func (r *role) getChildren() []Role {
 	return r.Children
 }

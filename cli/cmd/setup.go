@@ -56,7 +56,7 @@ var startRyoFaas = cli.Command{
 			return err
 		}
 		d := docker.New()
-		d.SetLocalProxy()
+		// d.SetLocalProxy()
 		if !d.Start() {
 			d.Stop()
 			fmt.Println("Unable to start")

@@ -1,138 +1,100 @@
 [
 	{
-		"CreatedAt": "2022-03-27 05:23:53.994576 +1100 AEDT m=+8.314281334",
-		"Data": {
-			"Value": {
-				"role": {
-					"Children": [
-						{
-							"Children": null,
-							"Id": "guest",
-							"Permissions": {
-								"read-something": {
-									"Name": "read-something"
-								}
-							}
-						}
-					],
-					"Id": "admin",
-					"Permissions": {
-						"ok": {
-							"Name": "ok"
-						},
-						"okay": {
-							"Name": "okay"
-						},
-						"read-something": {
-							"Name": "read-something"
-						}
-					}
-				}
-			}
-		},
-		"EditedAt": "2022-03-27 05:23:53.994606 +1100 AEDT m=+8.314312042",
-		"Id": "admin"
-	},
-	{
-		"CreatedAt": "2022-03-27 05:24:28.804298 +1100 AEDT m=+43.123974376",
-		"Data": {
-			"Value": {
-				"role": {
-					"Children": [
-						{
-							"Children": null,
-							"Id": "guest",
-							"Permissions": {
-								"read-something": {
-									"Name": "read-something"
-								}
-							}
-						}
-					],
-					"Id": "admin",
-					"Permissions": {
-						"ok": {
-							"Name": "ok"
-						},
-						"okay": {
-							"Name": "okay"
-						},
-						"read-something": {
-							"Name": "read-something"
-						}
-					}
-				}
-			}
-		},
-		"EditedAt": "2022-03-27 05:24:28.804313 +1100 AEDT m=+43.123988709",
-		"Id": "admin"
-	},
-	{
-		"CreatedAt": "2022-03-27 05:25:30.761976 +1100 AEDT m=+105.081599834",
-		"Data": {
-			"Value": {
-				"role": {
-					"Children": [
-						{
-							"Children": null,
-							"Id": "guest",
-							"Permissions": {
-								"read-something": {
-									"Name": "read-something"
-								}
-							}
-						}
-					],
-					"Id": "admin",
-					"Permissions": {
-						"ok": {
-							"Name": "ok"
-						},
-						"okay": {
-							"Name": "okay"
-						},
-						"read-something": {
-							"Name": "read-something"
-						}
-					}
-				}
-			}
-		},
-		"EditedAt": "2022-03-27 05:25:30.761988 +1100 AEDT m=+105.081611709",
-		"Id": "admin"
-	},
-	{
 		"Id": "admin",
-		"CreatedAt": "2022-03-27 05:26:17.255986 +1100 AEDT m=+151.575569959",
-		"EditedAt": "2022-03-27 05:26:17.255996 +1100 AEDT m=+151.575579709",
+		"CreatedAt": "2022-03-27 16:14:50.912905 +1100 AEDT m=+5.515546293",
+		"EditedAt": "2022-03-27 16:14:51.022504 +1100 AEDT m=+5.625145001",
 		"Data": {
 			"Value": {
 				"role": {
-					"Children": [
-						{
-							"Children": null,
-							"Id": "guest",
-							"Permissions": {
-								"read-something": {
-									"Name": "read-something"
-								}
-							}
-						}
-					],
+					"Children": null,
 					"Id": "admin",
 					"Permissions": {
-						"ok": {
-							"Name": "ok"
+						"delete": {
+							"Name": "delete"
 						},
-						"okay": {
-							"Name": "okay"
+						"read-resources": {
+							"Name": "read-resources"
 						},
-						"read-something": {
-							"Name": "read-something"
+						"write-1": {
+							"Name": "write-1"
+						},
+						"write-2": {
+							"Name": "write-2"
+						},
+						"write-3": {
+							"Name": "write-3"
 						}
 					}
 				}
 			}
 		}
+	},
+	{
+		"CreatedAt": "2022-03-27 16:14:50.959912 +1100 AEDT m=+5.562552959",
+		"Data": {
+			"Value": {
+				"role": {
+					"Children": [
+						{
+							"Children": null,
+							"Id": "guest",
+							"Permissions": {
+								"read-resources": {
+									"Name": "read-resources"
+								}
+							}
+						}
+					],
+					"Id": "user-1",
+					"Permissions": {
+						"read-resources": {
+							"Name": "read-resources"
+						},
+						"write-1": {
+							"Name": "write-1"
+						},
+						"write-3": {
+							"Name": "write-3"
+						}
+					}
+				}
+			}
+		},
+		"EditedAt": "2022-03-27 16:14:50.959923 +1100 AEDT m=+5.562564209",
+		"Id": "user-1"
+	},
+	{
+		"CreatedAt": "2022-03-27 16:14:50.988813 +1100 AEDT m=+5.591453626",
+		"Data": {
+			"Value": {
+				"role": {
+					"Children": [
+						{
+							"Children": null,
+							"Id": "guest",
+							"Permissions": {
+								"read-resources": {
+									"Name": "read-resources"
+								}
+							}
+						}
+					],
+					"Id": "user-2",
+					"Permissions": {
+						"read-resources": {
+							"Name": "read-resources"
+						},
+						"write-2": {
+							"Name": "write-2"
+						},
+						"write-3": {
+							"Name": "write-3"
+						}
+					}
+				}
+			}
+		},
+		"EditedAt": "2022-03-27 16:14:50.98882 +1100 AEDT m=+5.591460709",
+		"Id": "user-2"
 	}
 ]
