@@ -11,7 +11,6 @@ import (
 	deploy "github.com/Ishan27g/ryo-Faas/proto"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
-	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
 )
 
@@ -25,8 +24,8 @@ type listener struct {
 		port   string
 	}
 	http struct {
-		engine *gin.Engine
-		port   string
+		handler http.Handler
+		port    string
 	}
 	*log.Logger
 }
@@ -35,7 +34,7 @@ type RpcServer struct {
 	Server   interface{}
 }
 
-func Init(ctx context.Context, server RpcServer, rpcPort string, engine *gin.Engine, httpPort string) Listener {
+func Init(ctx context.Context, server RpcServer, rpcPort string, handler http.Handler, httpPort string) Listener {
 	return &listener{
 		ctx: ctx,
 		grpc: struct {
@@ -46,11 +45,11 @@ func Init(ctx context.Context, server RpcServer, rpcPort string, engine *gin.Eng
 			port:   rpcPort,
 		},
 		http: struct {
-			engine *gin.Engine
-			port   string
+			handler http.Handler
+			port    string
 		}{
-			engine: engine,
-			port:   httpPort,
+			handler: handler,
+			port:    httpPort,
 		},
 		Logger: log.New(os.Stdout, "[SERVER]", log.Ltime),
 	}
@@ -87,7 +86,7 @@ func (l *listener) startHttp() {
 
 	httpSrv := &http.Server{
 		Addr:    l.http.port,
-		Handler: l.http.engine,
+		Handler: l.http.handler,
 	}
 	go func() {
 		l.Println("HTTP started on " + httpSrv.Addr)

@@ -85,20 +85,11 @@ var read = func(defFile string) (definition, bool) {
 	templateFile = func() string {
 		return cwd + "template/template.go"
 	}
-	if !isMain {
-		valid, genFile := AstLocalCopy(cwd+tmpDir, df)
-		if !valid {
-			log.Fatal("Invalid definition ")
-		}
-		fmt.Println("Generated file", genFile)
-	} else {
-		valid, genFile := AstLocalCopyMain(cwd+tmpDir, df)
-		if !valid {
-			log.Fatal("Invalid definition ")
-		}
-		fmt.Println("Generated file", genFile)
+	valid, genFile := GenerateFile(isMain, cwd+tmpDir, df)
+	if !valid {
+		log.Fatal("Invalid definition ")
 	}
-
+	fmt.Println("Generated file", genFile)
 	for _, fn := range d.Deploy {
 		dir, fName := filepath.Split(fn.FilePath)
 		pn := filepath.Base(dir)

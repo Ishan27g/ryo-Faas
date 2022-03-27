@@ -11,6 +11,7 @@ import (
 
 	database "github.com/Ishan27g/ryo-Faas/database/client"
 	"github.com/Ishan27g/ryo-Faas/plugins"
+	"github.com/Ishan27g/ryo-Faas/transport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -88,13 +89,10 @@ func Start(port string) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
+	// start server
 	httpSrv = &http.Server{Addr: ":" + port}
-	logger.Println("HTTP listening on " + httpSrv.Addr)
-	go func() {
-		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Println("HTTP-Error", err.Error())
-		}
-	}()
+	transport.Init(context.Background(), transport.RpcServer{}, "", httpSrv.Handler, httpSrv.Addr).
+		Start()
 }
 
 func wrapAsync(httpAsync *HttpAsync) HttpFn {
