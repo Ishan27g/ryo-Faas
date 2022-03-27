@@ -10,8 +10,8 @@ import (
 	"time"
 
 	database "github.com/Ishan27g/ryo-Faas/database/client"
-	"github.com/Ishan27g/ryo-Faas/plugins"
-	"github.com/Ishan27g/ryo-Faas/transport"
+	"github.com/Ishan27g/ryo-Faas/pkg/plugins"
+	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 

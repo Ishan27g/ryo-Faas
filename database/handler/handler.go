@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	database "github.com/Ishan27g/ryo-Faas/database/db"
-	deploy "github.com/Ishan27g/ryo-Faas/proto"
+	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )

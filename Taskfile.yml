@@ -25,13 +25,13 @@ tasks:
       - go test --v ./...
   nats:
     cmds:
-      - docker compose run --service-ports --rm nats
+      - cd .dockerfiles && docker compose run --service-ports --rm nats
   jaeger:
     cmds:
-      - docker compose run --service-ports --rm jaeger
+      - cd .dockerfiles && docker compose run --service-ports --rm jaeger
   zipkin:
     cmds:
-      - docker compose run --service-ports --rm zipkin
+      - cd .dockerfiles && docker compose run --service-ports --rm zipkin
 
   # run database
   database:
@@ -67,13 +67,13 @@ tasks:
   # call via go to run in parallel
   imgProxy:
     cmds:
-      - docker build -f proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
+      - docker build -f .dockerfiles/proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
   imgDb:
     cmds:
-      - docker build -f db.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}} .
+      - docker build -f .dockerfiles/db.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}} .
   imgDeployBase:
     cmds:
-      - docker build -f deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
+      - docker build -f .dockerfiles/deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
 
   pushImages:
       cmds:
@@ -83,6 +83,6 @@ tasks:
 
   metaGolangTask:
       cmds:
-        - go run taskFile.go -buildImages
-        - go run taskFile.go -pushImages
+        - go run .dockerfiles/taskFile.go -buildImages
+        - go run .dockerfiles/taskFile.go -pushImages
 

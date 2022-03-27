@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/DavidGamba/dgtools/run"
-	"github.com/Ishan27g/ryo-Faas/shell"
+	"github.com/Ishan27g/ryo-Faas/pkg/shell"
 	"github.com/stretchr/testify/assert"
 )
 

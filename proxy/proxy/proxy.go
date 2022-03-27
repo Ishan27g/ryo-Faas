@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Ishan27g/ryo-Faas/types"
+	"github.com/Ishan27g/ryo-Faas/pkg/types"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

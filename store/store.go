@@ -73,7 +73,8 @@ func new(table string) DocStore {
 	if table == "" {
 		table = defaultTable
 	}
-	documents[table] = &store{table: table, new: db.NewDocument, dbClient: dbClient, Logger: log.New(os.Stdout, "[store]["+table+"]", log.LstdFlags)}
+	documents[table] = &store{table: table, new: db.NewDocument, dbClient: dbClient,
+		Logger: log.New(os.Stdout, "[store]["+table+"]", log.LstdFlags)}
 
 	return documents[table]
 }
@@ -83,62 +84,4 @@ func Get(table string) DocStore {
 		return new(table)
 	}
 	return documents[table]
-}
-
-func ok() {
-	// get handler for `payments` document
-	docStore := Get("payments")
-
-	// data to add
-	data := map[string]interface{}{
-		"from":   "bob",
-		"to":     "alice",
-		"amount": 42,
-	}
-
-	// subscribe event functions for this document
-	// go func() {
-	// 	go func() {
-	// 		docStore.OnCreate(func(document NatsDoc) {
-	// 			fmt.Println("New payment ")
-	// 			document.Print()
-	// 		})
-	// 	}()
-	// 	go func() {
-	// 		docStore.OnGet(func(document NatsDoc) {
-	// 			fmt.Println("Retrived payment ")
-	// 			document.Print()
-	// 		})
-	// 	}()
-	// 	go func() {
-	// 		docStore.OnUpdate(func(document NatsDoc) {
-	// 			fmt.Println("Updated payment ")
-	// 			document.Print()
-	// 		})
-	// 	}()
-	// 	go func() {
-	// 		docStore.OnDelete(func(document NatsDoc) {
-	// 			fmt.Println("Deleted payment ")
-	// 			document.Print()
-	// 		})
-	// 	}()
-
-	// }()
-
-	// add a new `payment` to the db
-	id := docStore.Create("", data)
-
-	// get it from the db
-	dataReturned := docStore.Get(id)
-
-	// dataReturned == data
-	fmt.Println(dataReturned)
-
-	// update some field
-	data["amount"] = 43
-	docStore.Update(id, data)
-
-	// delete it
-	docStore.Delete(id)
-
 }

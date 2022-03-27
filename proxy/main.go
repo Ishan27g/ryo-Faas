@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/plugins"
+	"github.com/Ishan27g/ryo-Faas/pkg/plugins"
+	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/store"
-	"github.com/Ishan27g/ryo-Faas/transport"
 )
 
 // var host = "localhost"

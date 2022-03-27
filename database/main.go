@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/database/handler"
-	"github.com/Ishan27g/ryo-Faas/transport"
+	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 )
 
 var DefaultGrpc = ":5000"

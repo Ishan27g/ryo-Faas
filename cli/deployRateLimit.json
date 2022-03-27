@@ -1,9 +1,0 @@
-{
-  "deploy": [
-    {
-      "packageDir": "/Users/ishan/Desktop/multi/rateLimit",
-      "name" : "RateLimit",
-      "filePath": "/Users/ishan/Desktop/multi/rateLimit/entrypoint.go"
-    }
-  ]
-}

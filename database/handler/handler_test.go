@@ -14,10 +14,10 @@ import (
 
 	client "github.com/Ishan27g/ryo-Faas/database/client"
 	database "github.com/Ishan27g/ryo-Faas/database/db"
-	deploy "github.com/Ishan27g/ryo-Faas/proto"
+	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
 	"github.com/Ishan27g/ryo-Faas/store"
 
-	"github.com/Ishan27g/ryo-Faas/transport"
+	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )

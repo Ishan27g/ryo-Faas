@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/transport"
+	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -121,10 +121,5 @@ func NewAsyncNats(entrypoint, callback string) HttpAsyncNats {
 		req:        new(http.Request),
 		callback:   callback,
 		entrypoint: entrypoint,
-		//HttpFunction: HttpFunction{
-		//	Entrypoint: entrypoint,
-		//	UrlPath:    "",
-		//	HttpFn:     httpFn,
-		//},
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	deploy "github.com/Ishan27g/ryo-Faas/proto"
+	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

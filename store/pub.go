@@ -7,8 +7,8 @@ import (
 	"time"
 
 	database "github.com/Ishan27g/ryo-Faas/database/db"
-	deploy "github.com/Ishan27g/ryo-Faas/proto"
-	"github.com/Ishan27g/ryo-Faas/transport"
+	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
+	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 )
 
 var publish = func(subjId, data string) bool {

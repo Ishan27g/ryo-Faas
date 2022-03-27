@@ -19,7 +19,6 @@ type HttpAsyncNats struct {
 	callback   string
 	entrypoint string
 	req        *http.Request
-	// HttpFunction
 }
 
 type HttpAsync HttpFunction

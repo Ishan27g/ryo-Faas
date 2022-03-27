@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Ishan27g/ryo-Faas/transport"
+	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/nats-io/nats.go"
 )
 

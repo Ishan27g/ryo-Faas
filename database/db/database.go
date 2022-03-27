@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
-	"github.com/Ishan27g/ryo-Faas/types"
+	"github.com/Ishan27g/ryo-Faas/pkg/types"
 	"github.com/hashicorp/go-hclog"
 	db "github.com/sonyarouje/simdb"
 )
