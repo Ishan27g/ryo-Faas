@@ -23,14 +23,13 @@ func main() {
 
 	flag.Parse()
 
+	var db = handler.GetHandler()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	var handler = handler.GetHandler()
-	transport.Init(ctx, struct {
-		IsDeploy bool
-		Server   interface{}
-	}{IsDeploy: false, Server: &handler.Rpc}, *grpcPort, handler.Gin, *httpPort).Start()
+	config := []transport.Config{transport.WithRpcPort(*grpcPort), transport.WithDatabaseServer(&db.Rpc),
+		transport.WithHttpPort(*httpPort), transport.WithHandler(db.Gin)}
+	transport.Init(ctx, config...).Start()
 
 	<-time.After(5 * time.Second)
 	// todo only to check connectivity

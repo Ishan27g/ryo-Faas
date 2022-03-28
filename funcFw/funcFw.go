@@ -91,7 +91,8 @@ func Start(port string) {
 
 	// start server
 	httpSrv = &http.Server{Addr: ":" + port}
-	transport.Init(context.Background(), transport.RpcServer{}, "", httpSrv.Handler, httpSrv.Addr).
+
+	transport.Init(context.Background(), transport.WithHandler(httpSrv.Handler), transport.WithHttpPort(httpSrv.Addr)).
 		Start()
 }
 

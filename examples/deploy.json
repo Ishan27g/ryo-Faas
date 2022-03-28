@@ -14,12 +14,6 @@
       "packageDir": "/Users/ishan/Desktop/multi/methodOtel",
       "name" : "MethodWithOtel",
       "filePath": "/Users/ishan/Desktop/multi/methodOtel/methodOtel.go"
-    },
-    {
-      "async": true,
-      "packageDir": "/Users/ishan/Desktop/multi/async",
-      "name" : "MethodAsync",
-      "filePath": "/Users/ishan/Desktop/multi/async/main.go"
     }
   ]
 }

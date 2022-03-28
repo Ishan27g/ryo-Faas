@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -19,11 +20,12 @@ type Listener interface {
 }
 type listener struct {
 	ctx  context.Context
-	grpc struct {
-		server RpcServer
-		port   string
+	grpc *struct {
+		deployServer   deploy.DeployServer
+		databaseServer deploy.DatabaseServer
+		port           string
 	}
-	http struct {
+	http *struct {
 		handler http.Handler
 		port    string
 	}
@@ -33,26 +35,64 @@ type RpcServer struct {
 	IsDeploy bool
 	Server   interface{}
 }
+type Config func(*listener)
 
-func Init(ctx context.Context, server RpcServer, rpcPort string, handler http.Handler, httpPort string) Listener {
-	return &listener{
-		ctx: ctx,
-		grpc: struct {
-			server RpcServer
-			port   string
-		}{
-			server: server,
-			port:   rpcPort,
-		},
-		http: struct {
-			handler http.Handler
-			port    string
-		}{
-			handler: handler,
-			port:    httpPort,
-		},
-		Logger: log.New(os.Stdout, "[SERVER]", log.Ltime),
+func WithHandler(handler http.Handler) Config {
+	return func(l *listener) {
+		l.http.handler = handler
+		fmt.Println("applied handler", handler)
 	}
+}
+func WithHttpPort(port string) Config {
+	return func(l *listener) {
+		l.http.port = port
+	}
+}
+func WithRpcPort(port string) Config {
+	return func(l *listener) {
+		l.grpc.port = port
+	}
+}
+func WithDeployServer(d deploy.DeployServer) Config {
+	return func(l *listener) {
+		l.grpc.deployServer = d
+	}
+}
+func WithDatabaseServer(d deploy.DatabaseServer) Config {
+	return func(l *listener) {
+		l.grpc.databaseServer = d
+	}
+}
+func Init(ctx context.Context, conf ...Config) Listener {
+	l := &listener{}
+	l.grpc = &struct {
+		deployServer   deploy.DeployServer
+		databaseServer deploy.DatabaseServer
+		port           string
+	}{deployServer: nil, databaseServer: nil, port: ""}
+	l.http = &struct {
+		handler http.Handler
+		port    string
+	}{handler: nil, port: ""}
+	for _, config := range conf {
+		config(l)
+	}
+	//fmt.Println(l.http)
+	if l.http.port == "" && l.grpc.port == "" {
+		fmt.Println("both nil")
+		return nil
+	}
+	//if l.http.port != "" && l.http.handler == nil {
+	//	fmt.Println("bad http")
+	//	return nil
+	//}
+	if l.grpc.port != "" && l.grpc.deployServer == nil && l.grpc.databaseServer == nil {
+		fmt.Println("bad grpc")
+		return nil
+	}
+	l.ctx = ctx
+	l.Logger = log.New(os.Stdout, "[SERVER]", log.Ltime)
+	return l
 }
 
 func (l *listener) startGrpc() {
@@ -61,10 +101,10 @@ func (l *listener) startGrpc() {
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 		grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
 	)
-	if l.grpc.server.IsDeploy {
-		deploy.RegisterDeployServer(grpcServer, l.grpc.server.Server.(deploy.DeployServer))
-	} else {
-		deploy.RegisterDatabaseServer(grpcServer, l.grpc.server.Server.(deploy.DatabaseServer))
+	if l.grpc.databaseServer != nil {
+		deploy.RegisterDatabaseServer(grpcServer, l.grpc.databaseServer)
+	} else if l.grpc.deployServer != nil {
+		deploy.RegisterDeployServer(grpcServer, l.grpc.deployServer)
 	}
 	grpcAddr, err := net.Listen("tcp", l.grpc.port)
 	if err != nil {

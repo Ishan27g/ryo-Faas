@@ -104,10 +104,6 @@ func (d *dbStore) Update(doc NatsDoc) {
 	entity.EditedAt = time.Now().String()
 	entity.CreatedAt = existing.CreatedAt
 
-	// for k, v := range existing.Data.Value {
-	// 	entity.Data.Value[k] = v
-	// }
-
 	err := d.getDriver(doc.Table()).Update(entity)
 	if err != nil {
 		d.Logger.Error("driver.Update", "id", entity.Id, "err", err.Error())
@@ -139,7 +135,6 @@ func (d *dbStore) get(id string) Entity {
 	} else {
 		fmt.Println("Table not found for ", id)
 	}
-	fmt.Println("Found", entity)
 	return entity
 }
 
@@ -164,9 +159,9 @@ func (d *dbStore) All() []*Entity {
 func (d *dbStore) After(fromTime string) []*Entity {
 	d.Lock()
 	defer d.Unlock()
-	from := parse(fromTime)
-
 	var documents []*Entity
+
+	from := parse(fromTime)
 	for id, at := range d.documents.All() {
 		createdAt := format(at.(time.Time))
 		if createdAt.Before(from) {

@@ -24,11 +24,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const TracerFwToAgent = "proxy-function-call"
-const ServiceName = "rfa-proxy"
+const (
+	TracerFwToAgent = "proxy-function-call"
+	ServiceName     = "rfa-proxy"
 
-const DefaultRpc = ":9998"
-const DefaultHttp = ":9999"
+	DefaultRpc           = ":9998"
+	DefaultHttp          = ":9999"
+	DeployedFunctionPort = ":6000"
+)
 
 type handler struct {
 	g               *gin.Engine
@@ -38,9 +41,6 @@ type handler struct {
 	*log.Logger
 }
 
-func getTracer() trace.Tracer {
-	return otel.GetTracerProvider().Tracer(ServiceName)
-}
 func prettyJson(js interface{}) string {
 	data, err := json.MarshalIndent(js, "", " ")
 	if err != nil {
@@ -58,16 +58,15 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	response := new(deploy.DeployResponse)
 	var buildHostName = func(entrypoint string) string {
 		hostname, _ := os.Hostname()
-		if strings.Contains(hostname, "Ishan") {
-			// if running locally
-			return "localhost"
+		if strings.Contains(hostname, "Ishan") { // if running locally
+			return "http://" + "localhost"
 		}
 		// if in docker network
-		return "rfa-deploy-" + strings.ToLower(request.Functions[0].Entrypoint)
+		return "http://" + "rfa-deploy-" + strings.ToLower(request.Functions[0].Entrypoint)
 	}
-	hnFn := "http://" + buildHostName(request.Functions[0].Entrypoint) + ":6000"
+	hnFn := buildHostName(request.Functions[0].Entrypoint) + DeployedFunctionPort
 	for _, function := range request.Functions {
-		function.ProxyServiceAddr = hnFn // + function.Entrypoint
+		function.ProxyServiceAddr = hnFn
 		jsonFn := types.RpcFunctionRspToJson(function)
 		proxyUrl := h.proxies.add(jsonFn)
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
@@ -97,13 +96,12 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	return response, nil
 }
 
-func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
+func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployResponse, error) {
 
 	span := trace.SpanFromContext(ctx)
 	var details = new(deploy.DeployResponse)
 	for _, rsp := range h.proxies.details() {
 		df := &deploy.Function{
-			//			hnFn := "http://" + buildHostName(request.Functions[0].Entrypoint) + ":6000"
 			Entrypoint:       rsp.Name,
 			ProxyServiceAddr: rsp.Proxy,
 			Url:              "http://localhost" + h.httpFnProxyPort + rsp.Url,
@@ -118,7 +116,7 @@ func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.Dep
 	return details, nil
 }
 
-func (h *handler) Upload(stream deploy.Deploy_UploadServer) error {
+func (h *handler) Upload(deploy.Deploy_UploadServer) error {
 	return errors.New("no upload method")
 }
 
@@ -127,8 +125,8 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 
 	var statusCode = http.StatusBadGateway
 
-	// get from request
 	sp := trace.SpanFromContext(c.Request.Context())
+
 	var ctxR context.Context
 	if !sp.IsRecording() {
 		ctxR, sp = otel.Tracer(TracerFwToAgent).Start(c.Request.Context(), TracerFwToAgent+"-"+fnName)
@@ -138,33 +136,35 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	sp.SetAttributes(attribute.Key("Forward-Function-Call").String(fnName))
 
 	newReq := newFwRequestWithCtx(ctxR, c.Request)
-
 	now := time.Now()
-	if proxy, fnServiceHost, atAgent, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
+	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
 		if isAsyncNats {
 			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, newReq)
-			sp.SetAttributes(attribute.Key("function-async-nats").String(fnName))
-			sp.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
-			sp.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
-			sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(http.StatusAccepted))))
+			statusCode = http.StatusOK
+			sp = updateSpan(sp, "async-nats", statusCode, now, fnName)
 		} else {
 			var stc int
 			var span trace.Span
 			if isMain {
-				stc, span = proxy.ServeHTTP(ctxR, c.Writer, newReq, fnServiceHost, strings.ToLower(fnName))
+				stc, span = proxy.ServeHTTP(c.Writer, newReq, fnServiceHost, strings.ToLower(fnName))
 			} else {
-				stc, span = proxy.ServeHTTP(ctxR, c.Writer, newReq, fnServiceHost, "")
+				stc, span = proxy.ServeHTTP(c.Writer, newReq, fnServiceHost, "")
 			}
 			statusCode = stc
-			span.SetAttributes(attribute.Key("function-http").String(atAgent))
-			span.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
-			span.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
-			span.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
+			span = updateSpan(span, "http", statusCode, now, fnName)
 		}
 	} else {
 		sp.SetAttributes(attribute.Key("No Proxy found").String(fnName))
 		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}
+}
+
+func updateSpan(sp trace.Span, deploymentType string, statusCode int, now time.Time, fnName string) trace.Span {
+	sp.SetAttributes(attribute.Key("deployment").String(deploymentType))
+	sp.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
+	sp.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
+	sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
+	return sp
 }
 
 func (h *handler) reset(c *gin.Context) {
@@ -200,29 +200,6 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 	c.JSON(200, details)
 }
 
-func (h *handler) DeployHttp(c *gin.Context) {
-	var req []types.FunctionJson
-	var r []types.FunctionJsonRsp
-	err := c.ShouldBindJSON(&req)
-	if err != nil {
-		fmt.Println(err.Error())
-		c.JSON(400, nil)
-		return
-	}
-	ctx, can := context.WithTimeout(c, 2*time.Second)
-	defer can()
-	for _, json := range req {
-		response, err := h.Deploy(ctx, &deploy.DeployRequest{Functions: types.JsonFunctionToRpc(json)})
-		if err != nil {
-			return
-		}
-		for _, function := range response.Functions {
-			r = append(r, types.RpcFunctionRspToJson(function))
-		}
-	}
-	c.JSON(200, r)
-}
-
 func checkHealth(addr string) bool {
 	resp, err := http.Get(addr + "/healthcheck")
 	if err != nil {
@@ -239,6 +216,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 
 	gin.SetMode(gin.ReleaseMode)
 	h.g = gin.New()
+
 	h.g.Use(gin.Recovery())
 
 	h.g.Use(func(ctx *gin.Context) {
@@ -249,28 +227,12 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.Use(otelgin.Middleware(ServiceName))
 
 	h.g.GET("/reset", h.reset)
-
-	// proxy curl -X POST http://localhost:9002/deploy -H 'Content-Type: application/json' -d '[
-	//  {
-	//    "packageDir": "/Users/ishan/Desktop/multi/method1",
-	//    "name" : "Method1",
-	//    "filePath": "/Users/ishan/Desktop/multi/method1.go"
-	//  }
-	//]'
-	h.g.POST("/deploy", h.DeployHttp)
-	// curl  http://localhost:9002/details
 	h.g.GET("/details", h.DetailsHttp)
-	// curl  http://localhost:9002/list
 
-	// curl -X POST http://localhost:9002/functions/method1 -H 'Content-Type: application/json' -d '{
-	//    "data": "http://host.docker.internal:9002/functions/method2"
-	//  }'
 	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
 	h.g.Any("/functions/:entrypoint/*action", h.ForwardToAgentHttp)
 
-	transport.Init(ctx, struct {
-		IsDeploy bool
-		Server   interface{}
-	}{IsDeploy: true, Server: h}, grpcPort, h.g, http).Start()
-
+	config := []transport.Config{transport.WithRpcPort(grpcPort), transport.WithDeployServer(h),
+		transport.WithHttpPort(http), transport.WithHandler(h.g)}
+	transport.Init(ctx, config...).Start()
 }

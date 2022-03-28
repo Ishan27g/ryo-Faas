@@ -207,7 +207,14 @@ var detailsProxyCmd = cli.Command{
 			return cli.Exit("cannot get details", 1)
 		}
 		for _, f := range rsp.Functions {
-			fmt.Println(f)
+			fmt.Printf("%s %20s ", f.Url, f.Entrypoint)
+			if f.IsMain {
+				fmt.Printf("[Main]")
+			}
+			if f.Async {
+				fmt.Printf("[Async]")
+			}
+			fmt.Printf("\n")
 		}
 		return nil
 	},

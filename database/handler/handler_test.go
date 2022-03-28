@@ -43,10 +43,9 @@ func Test_Grpc(t *testing.T) {
 	defer cancel()
 
 	var handler = GetHandler()
-	transport.Init(ctx, struct {
-		IsDeploy bool
-		Server   interface{}
-	}{IsDeploy: false, Server: &handler.Rpc}, ":5001", nil, "").Start()
+
+	config := []transport.Config{transport.WithRpcPort(":5001"), transport.WithDatabaseServer(&handler.Rpc)}
+	transport.Init(ctx, config...).Start()
 
 	<-time.After(5 * time.Second)
 

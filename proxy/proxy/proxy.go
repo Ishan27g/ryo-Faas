@@ -22,9 +22,8 @@ type definition struct {
 	proxyFrom string // /functions/fnName
 	proxyTo   string // fn.url -> hostname:service-port/entryPoint
 
-	agentAddr string // rpc or http
-	isAsync   bool
-	isMain    bool
+	isAsync bool
+	isMain  bool
 }
 type proxy struct {
 	*proxyDefinitions
@@ -47,7 +46,6 @@ func (p *proxyDefinitions) details() []types.FunctionJsonRsp {
 			Name:    d.fnName,
 			Url:     d.proxyFrom,
 			Proxy:   d.proxyTo,
-			AtAgent: d.agentAddr,
 			IsAsync: d.isAsync,
 			IsMain:  d.isMain,
 		})
@@ -76,13 +74,13 @@ func (p *proxyDefinitions) getFuncFwHost(fnName string) string {
 	}
 	return p.functions[fnName].proxyTo
 }
-func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string, bool, bool) {
+func (p *proxyDefinitions) get(fnName string) (*Pxy, string, bool, bool) {
 	fnName = strings.ToLower(fnName)
 	if p.functions[fnName] == nil {
 		fmt.Println("not found in proxyDefinitions", fnName)
-		return nil, "", "", false, false
+		return nil, "", false, false
 	}
-	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr, p.functions[fnName].isAsync, p.functions[fnName].isMain
+	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].isAsync, p.functions[fnName].isMain
 }
 func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 	fmt.Println("Adding PROXY ", fn)
@@ -90,7 +88,6 @@ func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 		fnName:    fn.Name,
 		proxyFrom: Functions + "/" + strings.ToLower(fn.Name),
 		proxyTo:   fn.Proxy,
-		agentAddr: fn.AtAgent,
 		isAsync:   fn.IsAsync,
 		isMain:    fn.IsMain,
 	}
@@ -101,12 +98,9 @@ func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
 
 type Pxy struct{}
 
-func (p *Pxy) ServeHTTP(ctx context.Context, rw http.ResponseWriter, outReq *http.Request, host string, trimServiceName string) (int, trace.Span) {
+func (p *Pxy) ServeHTTP(rw http.ResponseWriter, outReq *http.Request, host string, trimServiceName string) (int, trace.Span) {
 
 	transport := otelhttp.NewTransport(http.DefaultTransport)
-	//outReq := &http.Request{}
-	//*outReq = *req
-	// outReq := newRequestWithCtx(ctx, req)
 	endpoint := ""
 	if trimServiceName != "" {
 		endpoint = strings.TrimPrefix(outReq.URL.RequestURI(), Functions+"/"+trimServiceName)

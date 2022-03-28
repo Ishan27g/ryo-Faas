@@ -18,7 +18,7 @@ type NatsDoc interface {
 func FromJson(table string, doc map[string]interface{}, id ...string) NatsDoc {
 	var document NatsDoc
 	if doc["Id"] == nil && len(id) == 0 {
-		var m map[string]interface{} = make(map[string]interface{})
+		var m = make(map[string]interface{})
 		m["Id"] = doc
 		for _, data := range m {
 			document = NewDocument(table, "", data.(map[string]interface{}))
@@ -50,8 +50,6 @@ func (d *natsDoc) Print() {
 	fmt.Println(d.Id(), fmt.Sprintf("%v", d.data))
 }
 func (d *natsDoc) Document() map[string]interface{} {
-	//m := make(map[string]interface{})
-	//m[d.id] = d.data
 	return d.data
 }
 

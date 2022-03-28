@@ -108,8 +108,11 @@ func mockCallBackServer(ctx context.Context) {
 }
 func mockIncomingRequest(t *testing.T, cb func(w http.ResponseWriter, r *http.Request)) {
 
+	// any non 0 trace and span Ids
+	spanCtx := createSpanContext([16]byte{1}, [8]byte{1})
+
 	ww := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "", nil)
+	req, _ := http.NewRequestWithContext(spanCtx, "POST", "", nil)
 	req.Header.Set("X-Callback-Url", callBackAddress)
 	cb(ww, req)
 	assert.Equal(t, http.StatusAccepted, ww.Result().StatusCode)
