@@ -22,13 +22,15 @@ import (
 var proxyAddress string // rpc address of proxy (default :9001)
 var proxyHttpAddr = "localhost" + proxy.DefaultHttp
 
+var bypass bool
+var isAsync = false
+var isMain = false
+
 type definition struct {
 	Deploy []struct {
-		Name        string `json:"name"`
-		FilePath    string `json:"filePath"`
-		PackageDir  string `json:"packageDir"`
-		Async       bool   `json:"Async"`
-		MainProcess bool   `json:"mainProcess"`
+		Name       string `json:"name"`
+		FilePath   string `json:"filePath"`
+		PackageDir string `json:"packageDir"`
 	} `json:"deploy"`
 }
 
@@ -53,17 +55,12 @@ var read = func(defFile string) (definition, bool) {
 		log.Fatal(err.Error())
 	}
 	var df []*deploy.Function
-	var isMain = false
 	for _, fn := range d.Deploy {
 		df = append(df, &deploy.Function{
 			Entrypoint: fn.Name,
 			FilePath:   fn.FilePath,
 			Dir:        fn.PackageDir,
-			Async:      fn.Async,
 		})
-		if fn.MainProcess {
-			isMain = true
-		}
 	}
 
 	cwd := getDir() + "/"
@@ -72,11 +69,13 @@ var read = func(defFile string) (definition, bool) {
 		fmt.Println(err.Error())
 	}
 
-	err = os.MkdirAll(cwd+tmpDir, os.ModePerm)
-	valid, genFile := GenerateFile(isMain, cwd+tmpDir, df)
+	os.MkdirAll(cwd+tmpDir, os.ModePerm)
+
+	valid, genFile := generateFile(cwd+tmpDir, df)
 	if !valid {
 		log.Fatal("Invalid definition ")
 	}
+
 	fmt.Println("Generated file", genFile)
 	for _, fn := range d.Deploy {
 		dir, fName := filepath.Split(fn.FilePath)
@@ -88,24 +87,16 @@ var read = func(defFile string) (definition, bool) {
 		fn.FilePath = cwd + tmpDir + pn + "/" + fName
 		fns.Deploy = append(fns.Deploy, fn)
 	}
+
 	return fns, isMain
 }
 
-func printJson(js interface{}) {
-	data, err := json.MarshalIndent(js, "", " ")
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-	fmt.Println(string(data))
-}
 func printResonse(response *deploy.DeployResponse) {
-	//printJson(response)
 	for _, fn := range response.Functions {
 		fmt.Printf("%s %s [%s]\n", fn.Entrypoint, fn.Url, fn.Status)
 	}
 }
 
-// localhost:9000
 func sendHttp(url, agentAddr string) []byte {
 	resp, err := http.Get("http://" + proxyHttpAddr + url + agentAddr)
 	if err != nil {
@@ -121,12 +112,23 @@ func sendHttp(url, agentAddr string) []byte {
 	return body
 }
 
-var bypass bool
 var deployCmd = cli.Command{
 
 	Name:    "deploy",
 	Aliases: []string{"d"},
 	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:        "async",
+			Value:       false,
+			Usage:       "deploy async function",
+			Destination: &isAsync,
+		},
+		&cli.BoolFlag{
+			Name:        "main",
+			Value:       false,
+			Usage:       "deploy Init method",
+			Destination: &isMain,
+		},
 		&cli.BoolFlag{
 			Name:        "bypass",
 			Value:       false,
@@ -143,8 +145,6 @@ var deployCmd = cli.Command{
 			return cli.Exit("filename not provided", 1)
 		}
 
-		fmt.Println(bypass)
-
 		df, isMain := read(c.Args().First())
 
 		// process entire definition (all function per deploy) into a single container
@@ -155,7 +155,7 @@ var deployCmd = cli.Command{
 				Entrypoint: s.Name,
 				FilePath:   s.FilePath,
 				Dir:        s.PackageDir,
-				Async:      s.Async,
+				Async:      isAsync,
 				IsMain:     isMain,
 			}
 			fns = append(fns, df)
@@ -198,7 +198,11 @@ var detailsProxyCmd = cli.Command{
 	HideHelp:        false,
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
-		rsp, err := getProxy().Details(context.Background(), &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: ""}})
+		proxy := getProxy()
+		if proxy == nil {
+			return cli.Exit("cannot connect to "+proxyAddress, 1)
+		}
+		rsp, err := proxy.Details(context.Background(), &deploy.Empty{Rsp: &deploy.Empty_Entrypoint{Entrypoint: ""}})
 		if err != nil {
 			return cli.Exit("cannot get details", 1)
 		}

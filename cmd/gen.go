@@ -27,7 +27,7 @@ var pkgPath = "/pkg"
 var templateFile = getDir() + pkgPath + "/" + "template/template.go"
 
 const tmpDir = "deployments/tmp" + "/"
-const ImportPath = "github.com/Ishan27g/ryo-Faas/" + tmpDir
+const importPath = "github.com/Ishan27g/ryo-Faas/" + tmpDir
 
 type function struct {
 	pkgName    string
@@ -35,10 +35,10 @@ type function struct {
 	isAsync    bool
 }
 
-func GenerateFile(isMain bool, toDir string, fns []*deploy.Function) (bool, string) {
+func generateFile(toDir string, fns []*deploy.Function) (bool, string) {
 	var deployments []function
 	for _, fn := range fns {
-		if !validate(isMain, fn.GetFilePath(), fn.GetEntrypoint()) {
+		if !validate(fn.GetFilePath(), fn.GetEntrypoint()) {
 			fmt.Println("invalid")
 			return false, ""
 		}
@@ -49,7 +49,7 @@ func GenerateFile(isMain bool, toDir string, fns []*deploy.Function) (bool, stri
 		})
 	}
 	// generate a single file per deployment
-	genFile, err := generate(isMain, toDir, deployments...)
+	genFile, err := generate(toDir, deployments...)
 	if err != nil {
 		fmt.Println(err.Error())
 		return false, ""
@@ -58,7 +58,7 @@ func GenerateFile(isMain bool, toDir string, fns []*deploy.Function) (bool, stri
 }
 
 // todo check entrypoint only
-func validate(isMain bool, fileName, entrypoint string) bool {
+func validate(fileName, entrypoint string) bool {
 	fmt.Println("Validating - ", fileName, entrypoint)
 
 	set := token.NewFileSet()
@@ -101,7 +101,7 @@ func validate(isMain bool, fileName, entrypoint string) bool {
 	return valid
 }
 
-func generate(isMain bool, toDir string, fns ...function) (string, error) {
+func generate(toDir string, fns ...function) (string, error) {
 	var genFile string
 
 	set := token.NewFileSet()
@@ -110,11 +110,11 @@ func generate(isMain bool, toDir string, fns ...function) (string, error) {
 		log.Fatal("Unable to open generate.go template ", err.Error())
 		return genFile, err
 	}
-	dir := ImportPath
+	dir := importPath
 
 	for _, fn := range fns {
 		var fnFwCall = httpFn
-		if fn.isAsync {
+		if isAsync {
 			fnFwCall = httpNatsAsyncFn
 		}
 		packageAlias := strings.ReplaceAll(fn.pkgName, "-", "")

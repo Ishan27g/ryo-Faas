@@ -1,6 +1,10 @@
 package types
 
-import deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
+import (
+	"fmt"
+
+	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
+)
 
 type FunctionJson struct {
 	Name     string `json:"name,omitempty"`
@@ -14,8 +18,8 @@ type FunctionJsonRsp struct {
 
 	Proxy   string `json:"proxy,omitempty"`
 	AtAgent string `json:"atAgent,omitempty"`
-	IsAsync bool   `json:"IsAsync"`
-	IsMain  bool   `json:"IsMain"`
+	IsAsync bool   `json:"IsAsync,omitempty"`
+	IsMain  bool   `json:"IsMain,omitempty"`
 }
 
 func JsonFunctionToRpc(jFn FunctionJson) []*deploy.Function {
@@ -29,13 +33,14 @@ func JsonFunctionToRpc(jFn FunctionJson) []*deploy.Function {
 }
 
 func RpcFunctionRspToJson(rFn *deploy.Function) FunctionJsonRsp {
+	fmt.Println(rFn.IsMain, rFn.AtAgent)
 	return FunctionJsonRsp{
-		Name:    rFn.Entrypoint,
+		Name:    rFn.GetEntrypoint(),
 		Url:     rFn.GetUrl(),
 		Status:  rFn.GetStatus(),
-		Proxy:   rFn.ProxyServiceAddr,
-		AtAgent: rFn.AtAgent,
+		Proxy:   rFn.GetProxyServiceAddr(),
+		AtAgent: rFn.GetAtAgent(),
 		IsAsync: rFn.GetAsync(),
-		IsMain:  rFn.IsMain,
+		IsMain:  rFn.GetIsMain(),
 	}
 }

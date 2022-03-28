@@ -77,6 +77,7 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 
 	}
 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
+	h.Println("Current details are ", prettyJson(h.proxies.details()))
 	return response, nil
 }
 
@@ -99,10 +100,10 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.DeployResponse, error) {
 
 	span := trace.SpanFromContext(ctx)
-
 	var details = new(deploy.DeployResponse)
 	for _, rsp := range h.proxies.details() {
 		df := &deploy.Function{
+			//			hnFn := "http://" + buildHostName(request.Functions[0].Entrypoint) + ":6000"
 			Entrypoint:       rsp.Name,
 			ProxyServiceAddr: rsp.Proxy,
 			Url:              "http://localhost" + h.httpFnProxyPort + rsp.Url,
@@ -111,9 +112,9 @@ func (h *handler) Details(ctx context.Context, empty *deploy.Empty) (*deploy.Dep
 			IsMain:           rsp.IsMain,
 		}
 		span.SetAttributes(attribute.Key(df.Entrypoint).String(prettyJson(*df)))
-		details.Functions = append(details.Functions)
+		details.Functions = append(details.Functions, df)
 	}
-	h.Println("Proxy details : ", h.proxies.details())
+	h.Println("Proxy details returning -> ", h.proxies.details())
 	return details, nil
 }
 
@@ -183,7 +184,7 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 			details = append(details, types.FunctionJsonRsp{
 				Name:    pFn.fnName,
 				Proxy:   pFn.proxyTo,
-				IsAsync: pFn.isAsyncNats,
+				IsAsync: pFn.isAsync,
 				IsMain:  pFn.isMain,
 			})
 

@@ -22,9 +22,9 @@ type definition struct {
 	proxyFrom string // /functions/fnName
 	proxyTo   string // fn.url -> hostname:service-port/entryPoint
 
-	agentAddr   string // rpc or http
-	isAsyncNats bool
-	isMain      bool
+	agentAddr string // rpc or http
+	isAsync   bool
+	isMain    bool
 }
 type proxy struct {
 	*proxyDefinitions
@@ -32,11 +32,6 @@ type proxy struct {
 
 type proxyDefinitions struct {
 	functions map[string]*definition
-}
-
-type proxyFunction struct {
-	fnName    string
-	remoteUrl string
 }
 
 func newProxy() proxy {
@@ -53,7 +48,8 @@ func (p *proxyDefinitions) details() []types.FunctionJsonRsp {
 			Url:     d.proxyFrom,
 			Proxy:   d.proxyTo,
 			AtAgent: d.agentAddr,
-			IsAsync: d.isAsyncNats,
+			IsAsync: d.isAsync,
+			IsMain:  d.isMain,
 		})
 	}
 	return str
@@ -86,19 +82,20 @@ func (p *proxyDefinitions) get(fnName string) (*Pxy, string, string, bool, bool)
 		fmt.Println("not found in proxyDefinitions", fnName)
 		return nil, "", "", false, false
 	}
-	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr, p.functions[fnName].isAsyncNats, p.functions[fnName].isMain
+	return new(Pxy), p.functions[fnName].proxyTo, p.functions[fnName].agentAddr, p.functions[fnName].isAsync, p.functions[fnName].isMain
 }
 func (p *proxyDefinitions) add(fn types.FunctionJsonRsp) string {
+	fmt.Println("Adding PROXY ", fn)
 	d := &definition{
-		fnName:      fn.Name,
-		proxyFrom:   Functions + "/" + strings.ToLower(fn.Name),
-		proxyTo:     fn.Proxy,
-		agentAddr:   fn.AtAgent,
-		isAsyncNats: fn.IsAsync,
-		isMain:      fn.IsMain,
+		fnName:    fn.Name,
+		proxyFrom: Functions + "/" + strings.ToLower(fn.Name),
+		proxyTo:   fn.Proxy,
+		agentAddr: fn.AtAgent,
+		isAsync:   fn.IsAsync,
+		isMain:    fn.IsMain,
 	}
 	p.functions[strings.ToLower(fn.Name)] = d
-	fmt.Println("ADDED PROXY ", d)
+	fmt.Println("ADDED PROXY ", p.functions[strings.ToLower(fn.Name)])
 	return d.proxyFrom
 }
 

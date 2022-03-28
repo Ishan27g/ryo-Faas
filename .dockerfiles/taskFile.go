@@ -47,6 +47,7 @@ func timeIt(since time.Time) {
 }
 
 // run from root
+// go run .dockerfiles/taskFile.go --buildImages
 func main() {
 	defer timeIt(time.Now())
 	flag.Parse()
