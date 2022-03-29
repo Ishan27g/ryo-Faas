@@ -262,13 +262,10 @@ var proxyResetCmd = cli.Command{
 func Init() *cli.App {
 	app := &cli.App{Commands: []*cli.Command{&initRfaFaasCmd, &envCmd, &deployCmd, &stopCmd, &detailsProxyCmd,
 		&proxyResetCmd, &startRyoFaas, &stopRyoFaas},
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "proxy",
-				Aliases:     []string{"p"},
-				DefaultText: "RPC port of the proxy server, default ",
-				Destination: &proxyAddress,
-			},
-		}}
+		HideHelp:             true,
+		HideHelpCommand:      true,
+		HideVersion:          true,
+		EnableBashCompletion: true,
+	}
 	return app
 }

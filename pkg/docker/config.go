@@ -111,6 +111,10 @@ type docker struct {
 	*log.Logger
 }
 
+func (d *docker) PruneImages() bool {
+	return d.pruneImages()
+}
+
 func (d *docker) CheckImages() bool {
 	return d.checkImages()
 }
@@ -127,6 +131,24 @@ func (d *docker) ensureNetwork() bool {
 		}
 		fmt.Printf("\nUnable to create network %s: \n", networkName)
 		return false
+	}
+	return true
+}
+func (d *docker) pruneImages() bool {
+	ctx := context.Background()
+	list, err := d.ImageList(ctx, types.ImageListOptions{
+		All: true,
+	})
+	if err != nil {
+		return false
+	}
+	for _, summary := range list {
+		if summary.Labels["label"] == "rfa" {
+			d.ImageRemove(ctx, summary.ID, types.ImageRemoveOptions{
+				Force:         true,
+				PruneChildren: true,
+			})
+		}
 	}
 	return true
 }
@@ -202,9 +224,12 @@ func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) err
 	}
 
 	opts := types.ImageBuildOptions{
-		Dockerfile: "deploy.dockerfile",
-		Tags:       []string{serviceName},
-		Remove:     true,
+		Dockerfile:     "deploy.dockerfile",
+		Tags:           []string{serviceName},
+		Labels:         map[string]string{"label": "rfa"},
+		Remove:         true,
+		ForceRemove:    true,
+		SuppressOutput: d.silent,
 	}
 	res, err := dockerClient.ImageBuild(ctx, tar, opts)
 	if err != nil {

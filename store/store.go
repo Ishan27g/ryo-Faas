@@ -23,11 +23,11 @@ const (
 )
 
 func init() {
-	if dbClient := database.Connect(databaseAddress); dbClient == nil {
-		fmt.Println("cannot connect to database -", databaseAddress)
-		return
-	}
-	fmt.Println("Connected to database -", databaseAddress)
+	//if dbClient := database.Connect(databaseAddress); dbClient == nil {
+	//	fmt.Println("cannot connect to database -", databaseAddress)
+	//	return
+	//}
+	//fmt.Println("Connected to database -", databaseAddress)
 }
 
 type EventCb func(document Doc)

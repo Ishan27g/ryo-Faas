@@ -19,6 +19,8 @@ type Docker interface {
 	Setup() bool
 	CheckImages() bool
 
+	PruneImages() bool
+
 	SetForcePull()
 	SetSilent()
 	SetLocalProxy()

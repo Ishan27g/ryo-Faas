@@ -1,11 +1,15 @@
-package notMain
+package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/store"
 )
 
-func Init() {
+func main() {
 
 	FuncFw.Export.Http("MakePayment", "/pay", MakePayment)
 	FuncFw.Export.Http("GetPayment", "/get", GetPayments)
@@ -21,10 +25,10 @@ func Init() {
 	//FuncFw.Export.EventsFor(TableName).OnIds(store.DocumentUPDATE, PaymentsUpdated,
 	//	"some-known-id", "another-known-id")
 	//
-	//FuncFw.Start("9999")
-	//
-	//stop := make(chan os.Signal, 1)
-	//signal.Notify(stop, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	//<-stop
-	//FuncFw.Stop()
+	FuncFw.Start("9997")
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	<-stop
+	FuncFw.Stop()
 }

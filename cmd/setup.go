@@ -30,6 +30,7 @@ var stopRyoFaas = cli.Command{
 			d.StopFunction(v.Name)
 		}
 		d.Stop()
+		d.PruneImages()
 
 		fmt.Println("Stopped ryo-Faas")
 		return nil
@@ -62,3 +63,14 @@ var startRyoFaas = cli.Command{
 		return nil
 	},
 }
+
+//var removeImagesRyoFaas = cli.Command{
+//	Name:            "prune",
+//	HideHelp:        false,
+//	HideHelpCommand: false,
+//	Action: func(c *cli.Context) error {
+//		d := docker.New()
+//		d.PruneImages()
+//		return nil
+//	},
+//}
