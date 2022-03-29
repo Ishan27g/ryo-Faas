@@ -34,7 +34,7 @@ const (
 )
 
 // https://stackoverflow.com/questions/70378025/how-to-create-opentelemetry-span-from-a-string-traceid
-func createSpanContext(traceID trace.TraceID, spanID trace.SpanID) context.Context {
+func CreateSpanContext(traceID trace.TraceID, spanID trace.SpanID) context.Context {
 	var spanContextConfig trace.SpanContextConfig
 	spanContextConfig.TraceID = traceID
 	spanContextConfig.SpanID = spanID
@@ -43,7 +43,7 @@ func createSpanContext(traceID trace.TraceID, spanID trace.SpanID) context.Conte
 	return trace.ContextWithSpanContext(context.Background(), trace.NewSpanContext(spanContextConfig))
 }
 
-var ExtractSpan = func(header nats.Header) context.Context {
+func ExtractSpan(header nats.Header) context.Context {
 
 	traceID, err := trace.TraceIDFromHex(header.Get(TID))
 	if err != nil {
@@ -55,10 +55,10 @@ var ExtractSpan = func(header nats.Header) context.Context {
 		fmt.Println("no span Id in header: ", err)
 		// fmt.Println("expected otel middleware to inject span into original request")
 	}
-	return createSpanContext(traceID, spanID)
+	return CreateSpanContext(traceID, spanID)
 }
 
-var ExtractHeader = func(span trace.Span) (header nats.Header) {
+func ExtractHeader(span trace.Span) (header nats.Header) {
 	header = make(nats.Header)
 	getTraceID := span.SpanContext().TraceID().String()
 	header.Set(TID, getTraceID)

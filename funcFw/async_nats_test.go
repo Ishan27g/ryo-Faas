@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/Ishan27g/ryo-Faas/store"
 	"github.com/gin-gonic/gin"
@@ -80,7 +81,7 @@ var (
 	mockCbServerUrl  = "/any"
 	callBackAddress  = "http://localhost" + mockCbServerPort + mockCbServerUrl
 
-	serverCallbackHit = false
+	serverCallbackHit = 0
 )
 
 func mockCallBackServer(ctx context.Context) {
@@ -88,7 +89,7 @@ func mockCallBackServer(ctx context.Context) {
 	r := gin.New()
 
 	r.Any(mockCbServerUrl, func(c *gin.Context) {
-		serverCallbackHit = true
+		serverCallbackHit++
 		fmt.Println("serverCallbackHit", c.Request.URL.RequestURI(), " from ", c.Request.RemoteAddr)
 		c.JSON(http.StatusOK, nil)
 	})
@@ -109,7 +110,7 @@ func mockCallBackServer(ctx context.Context) {
 func mockIncomingRequest(t *testing.T, cb func(w http.ResponseWriter, r *http.Request)) {
 
 	// any non 0 trace and span Ids
-	spanCtx := createSpanContext([16]byte{1}, [8]byte{1})
+	spanCtx := tracing.CreateSpanContext([16]byte{1}, [8]byte{1})
 
 	ww := httptest.NewRecorder()
 	req, _ := http.NewRequestWithContext(spanCtx, "POST", "", nil)
@@ -119,6 +120,7 @@ func mockIncomingRequest(t *testing.T, cb func(w http.ResponseWriter, r *http.Re
 }
 func TestNatsHttpFunction(t *testing.T) {
 	os.Setenv("NATS", "nats://localhost:4222")
+	provider = tracing.Init("jaeger", appName, serviceName)
 
 	var method2 = func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
@@ -140,9 +142,12 @@ func TestNatsHttpFunction(t *testing.T) {
 	for _, na := range Export.GetHttpAsyncNats() {
 		an := NewAsyncNats(na.Entrypoint, "")
 		mockIncomingRequest(t, an.HandleAsyncNats)
+		<-time.After(1 * time.Second)
+		fmt.Println("sending again")
+		mockIncomingRequest(t, an.HandleAsyncNats)
 	}
 
 	<-time.After(3 * time.Second)
-	assert.Equal(t, true, serverCallbackHit)
+	assert.Equal(t, 2, serverCallbackHit)
 
 }

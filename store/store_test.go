@@ -62,16 +62,16 @@ func TestName(t *testing.T) {
 	assert.NotEqual(t, "", id)
 	// get it from the db
 	dataReturned := docStore.Get(id)
-
-	fmt.Println(dataReturned)
-
+	assert.NotEmpty(t, dataReturned)
+	assert.True(t, docStore.Update(id, data))
 	assert.True(t, docStore.Update(id, data))
 	assert.True(t, docStore.Delete(id))
 
-	<-time.After(3 * time.Second)
-	assert.GreaterOrEqual(t, 3, gets)
-	assert.GreaterOrEqual(t, 1, updates)
-	assert.GreaterOrEqual(t, 1, creates)
-	assert.GreaterOrEqual(t, 1, deletes)
+	<-time.After(1 * time.Second)
+
+	assert.Equal(t, 1, creates)
+	assert.Equal(t, 4, gets) // 1 for each get,update,delete
+	assert.Equal(t, 2, updates)
+	assert.Equal(t, 1, deletes)
 
 }

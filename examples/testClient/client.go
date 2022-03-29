@@ -29,7 +29,7 @@ func requestWithOtel() {
 	defer cancel()
 
 	// connect to jaeger
-	jp := tracing.Init("zipkin", "otel-client", "test-Client")
+	jp := tracing.Init("jaeger", "otel-client", "test-Client")
 	defer jp.Close()
 
 	// new span

@@ -15,17 +15,18 @@ import (
 )
 
 var (
-	appName                      = "ryo-faas-func"
-	serviceName                  = ""
-	port                         = ""
-	jaegerHost                   = os.Getenv("JAEGER")
-	zipkinHost                   = os.Getenv("ZIPKIN")
-	databaseAddress              = os.Getenv("DATABASE")
-	httpSrv         *http.Server = nil
-	logger                       = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
-	healthCheckUrl               = "/healthcheck"
-	stopUrl                      = "/stop"
-	Export                       = funcFw{
+	appName                         = "ryo-faas-func"
+	serviceName                     = ""
+	port                            = ""
+	jaegerHost                      = os.Getenv("JAEGER")
+	zipkinHost                      = os.Getenv("ZIPKIN")
+	databaseAddress                 = os.Getenv("DATABASE")
+	httpSrv         *http.Server    = nil
+	logger                          = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
+	healthCheckUrl                  = "/healthcheck"
+	stopUrl                         = "/stop"
+	ctx             context.Context = nil
+	Export                          = funcFw{
 		httpFns:       make(map[string]*HttpFunction),
 		httpAsync:     make(map[string]*HttpAsync),
 		httpAsyncNats: make(map[string]*HttpAsync),
@@ -35,6 +36,7 @@ var (
 )
 
 func Start(port string) {
+	ctx = context.Background()
 	serviceName, _ = os.Hostname()
 
 	if jaegerHost == "" && zipkinHost != "" {
