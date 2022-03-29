@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/database/handler"
+	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 )
 
@@ -18,11 +19,27 @@ var DefaultHttp = ":5001"
 // Optional flags to change config
 var grpcPort = flag.String("grpc", DefaultGrpc, "--grpc "+DefaultGrpc)
 var httpPort = flag.String("htpp", DefaultHttp, "--http "+DefaultHttp)
+var jaegerUrl = os.Getenv("JAEGER")
+var zipKinUrl = os.Getenv("ZIPKIN")
+
+var appName = "rfa-database"
+var serviceName = ""
 
 func main() {
 
 	flag.Parse()
 
+	var provider tracing.TraceProvider
+	if jaegerUrl == "" && zipKinUrl != "" {
+		provider = tracing.Init("zipkin", appName, serviceName)
+	}
+	if zipKinUrl == "" && jaegerUrl != "" {
+		provider = tracing.Init("jaeger", appName, serviceName)
+	}
+	if provider == nil {
+		provider = tracing.Init("jaeger", appName, serviceName)
+	}
+	defer provider.Close()
 	var db = handler.GetHandler()
 
 	ctx, cancel := context.WithCancel(context.Background())

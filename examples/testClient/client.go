@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/pkg/plugins"
+	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
@@ -29,7 +29,7 @@ func requestWithOtel() {
 	defer cancel()
 
 	// connect to jaeger
-	jp := plugins.Init("zipkin", "otel-client", "test-Client")
+	jp := tracing.Init("zipkin", "otel-client", "test-Client")
 	defer jp.Close()
 
 	// new span

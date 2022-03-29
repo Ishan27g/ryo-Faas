@@ -14,7 +14,7 @@ server that is configured to process Open Telemetry spans.
 //	"net/http"
 //	"time"
 //
-//	"github.com/Ishan27g/ryo-Faas/plugins"
+//	"github.com/Ishan27g/ryo-Faas/tracing"
 //	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 //	"go.opentelemetry.io/otel/attribute"
 //	"go.opentelemetry.io/otel/baggage"
@@ -37,7 +37,7 @@ server that is configured to process Open Telemetry spans.
 //	defer cancel()
 //
 //	// connect to jaeger
-//	jp := plugins.Init("zipkin", "otel-client", "test-Client")
+//	jp := tracing.Init("zipkin", "otel-client", "test-Client")
 //	defer jp.Close()
 //
 //	// new span

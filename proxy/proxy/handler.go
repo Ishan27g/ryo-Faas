@@ -15,6 +15,7 @@ import (
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
+	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/Ishan27g/ryo-Faas/pkg/types"
 	"github.com/gin-gonic/gin"
@@ -51,9 +52,6 @@ func prettyJson(js interface{}) string {
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 
 	span := trace.SpanFromContext(ctx)
-	for _, function := range request.Functions {
-		span.SetAttributes(attribute.Key("entrypoint").String(function.GetEntrypoint()))
-	}
 
 	response := new(deploy.DeployResponse)
 	var buildHostName = func(entrypoint string) string {
@@ -72,12 +70,21 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
 
-		span.SetAttributes(attribute.Key(function.Entrypoint).String(prettyJson(function)))
-
+		addFunctionAttributes(&span, function)
 	}
+
 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
-	h.Println("Current details are ", prettyJson(h.proxies.details()))
+
+	span.AddEvent(prettyJson(response))
 	return response, nil
+}
+
+func addFunctionAttributes(span *trace.Span, function *deploy.Function) {
+	(*span).SetAttributes(attribute.Key(tracing.Entrypoint).String(function.Entrypoint))
+	(*span).SetAttributes(attribute.Key(tracing.Url).String(function.Url))
+	(*span).SetAttributes(attribute.Key(tracing.Status).String(function.Status))
+	(*span).SetAttributes(attribute.Key(tracing.IsMain).Bool(function.IsMain))
+	(*span).SetAttributes(attribute.Key(tracing.IsAsync).Bool(function.Async))
 }
 
 func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
@@ -109,8 +116,10 @@ func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployR
 			Async:            rsp.IsAsync,
 			IsMain:           rsp.IsMain,
 		}
-		span.SetAttributes(attribute.Key(df.Entrypoint).String(prettyJson(*df)))
+
 		details.Functions = append(details.Functions, df)
+
+		addFunctionAttributes(&span, df)
 	}
 	h.Println("Proxy details returning -> ", h.proxies.details())
 	return details, nil

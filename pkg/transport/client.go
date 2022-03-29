@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// AgentWrapper expose an agent with plugins
+// AgentWrapper expose an agent with tracing
 type AgentWrapper interface {
 	Deploy(ctx context.Context, in *deploy.DeployRequest, opts ...grpc.CallOption) (*deploy.DeployResponse, error)
 	Stop(ctx context.Context, in *deploy.Empty, opts ...grpc.CallOption) (*deploy.DeployResponse, error)

@@ -147,7 +147,7 @@ func (d *docker) Check() map[string]string {
 	status[natsContainerName] = d.check(asFilter("name", natsContainerName))
 	status[databaseContainerName()] = d.check(asFilter("name", databaseContainerName()))
 	status[proxyContainerName()] = d.check(asFilter("name", proxyContainerName()))
-	status[zipkinContainerName()] = d.check(asFilter("name", zipkinContainerName()))
+	// status[zipkinContainerName()] = d.check(asFilter("name", zipkinContainerName()))
 	return status
 }
 func (d *docker) CheckLabel() bool {
