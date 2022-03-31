@@ -19,7 +19,6 @@ var urls = os.Getenv("NATS")
 
 // "nats://localhost:4222"
 //var urls = "nats://raf-nats:4222"
-var showTime = false
 
 var subjects map[string]*subjectMeta
 var lock = sync.RWMutex{}
@@ -53,21 +52,19 @@ func init() {
 	subjects = make(map[string]*subjectMeta)
 	lock = sync.RWMutex{}
 	// Connect Options.
+	log.SetFlags(log.LstdFlags)
 	opts := []nats.Option{nats.Name("-nats-")}
 	opts = setupConnOptions(opts)
 
 }
 
 func sub(subj string, cb func(msg *nats.Msg)) {
-	// Connect to NATS
 	nc, err := nats.Connect(urls, opts...)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	i := 0
 	nc.Subscribe(subj, func(msg *nats.Msg) {
-		i += 1
 		cb(msg)
 	})
 	nc.Flush()
@@ -75,11 +72,8 @@ func sub(subj string, cb func(msg *nats.Msg)) {
 	if err := nc.LastError(); err != nil {
 		log.Fatal(err)
 	}
-
 	log.Printf("Listening on [%s]", subj)
-	if showTime {
-		log.SetFlags(log.LstdFlags)
-	}
+
 }
 
 func NatsSubscribe(subj string, cb func(msg *nats.Msg)) {
@@ -153,7 +147,6 @@ func NatsPublishJson(subj string, msg AsyncNats, reply *string) bool {
 		return false
 	}
 	defer ec.Close()
-	// Publish the message
 	if reply != nil && *reply != "" {
 		err = ec.PublishRequest(subj, *reply, &msg)
 		if err != nil {
@@ -215,15 +208,9 @@ func NatsSubscribeJson(subj string, cb func(msg *AsyncNats)) {
 	}
 
 	log.Printf("Listening on [%s]", subj)
-	// Wait for a message to come in
 	wg.Wait()
 
 	if err := ec.LastError(); err != nil {
 		log.Fatal(err)
 	}
-
-	if showTime {
-		log.SetFlags(log.LstdFlags)
-	}
-
 }

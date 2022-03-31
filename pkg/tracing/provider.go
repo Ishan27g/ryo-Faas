@@ -14,19 +14,21 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type TraceProvider interface {
-	Get() *tracesdk.TracerProvider
+	Get() trace.Tracer
 	Close()
 }
 
 type provider struct {
+	app, service string
 	*tracesdk.TracerProvider
 }
 
-func (j *provider) Get() *tracesdk.TracerProvider {
-	return j.TracerProvider
+func (j *provider) Get() trace.Tracer {
+	return j.TracerProvider.Tracer(j.service)
 }
 
 func (j *provider) Close() {
@@ -63,7 +65,7 @@ func Init(exporter, app, service string) TraceProvider {
 		}
 		return initProvider(app, service, exp)
 	}
-	return &provider{nil}
+	return &provider{app, service, nil}
 }
 
 func initProvider(app, service string, exporter tracesdk.SpanExporter) TraceProvider {
@@ -81,7 +83,5 @@ func initProvider(app, service string, exporter tracesdk.SpanExporter) TraceProv
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{}, propagation.Baggage{}))
 
-	return &provider{
-		tp,
-	}
+	return &provider{app, service, tp}
 }

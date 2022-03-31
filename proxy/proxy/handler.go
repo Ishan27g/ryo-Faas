@@ -39,6 +39,9 @@ type handler struct {
 	httpFnProxyPort string
 
 	proxies proxy
+
+	tracing.MetricManager
+
 	*log.Logger
 }
 
@@ -66,9 +69,12 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	for _, function := range request.Functions {
 		function.ProxyServiceAddr = hnFn
 		jsonFn := types.RpcFunctionRspToJson(function)
+
 		proxyUrl := h.proxies.add(jsonFn)
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
+
+		h.MetricManager.Register(function)
 
 		addFunctionAttributes(&span, function)
 	}
@@ -128,10 +134,12 @@ func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployR
 func (h *handler) Upload(deploy.Deploy_UploadServer) error {
 	return errors.New("no upload method")
 }
+func (h *handler) returnMetric(err error, result chan<- bool) {
 
+}
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
-
+	var proxyError error = nil
 	var statusCode = http.StatusBadGateway
 
 	sp := trace.SpanFromContext(c.Request.Context())
@@ -146,7 +154,15 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 
 	newReq := newFwRequestWithCtx(ctxR, c.Request)
 	now := time.Now()
+
+	result := h.MetricManager.Invoked(fnName)
+	defer func() {
+		defer close(result)
+		result <- proxyError == nil
+	}()
+
 	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
+		proxyError = nil
 		if isAsyncNats {
 			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, newReq)
 			statusCode = http.StatusOK
@@ -163,6 +179,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 			span = updateSpan(span, "http", statusCode, now, fnName)
 		}
 	} else {
+		proxyError = errors.New(fnName + " not found")
 		sp.SetAttributes(attribute.Key("No Proxy found").String(fnName))
 		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}
@@ -181,6 +198,14 @@ func (h *handler) reset(c *gin.Context) {
 	c.Status(http.StatusAccepted)
 	h.Println("reset")
 }
+func (h *handler) metrics(c *gin.Context) {
+	span := trace.SpanFromContext(c)
+	m := h.MetricManager.GetAll()
+	fmt.Println(m)
+	span.AddEvent(prettyJson(m))
+	c.JSON(http.StatusOK, m)
+}
+
 func (h *handler) DetailsHttp(c *gin.Context) {
 
 	span := trace.SpanFromContext(c)
@@ -221,6 +246,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
 	h.httpFnProxyPort = http
 	h.proxies = newProxy()
+	h.MetricManager = tracing.Manager()
 	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -236,6 +262,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.Use(otelgin.Middleware(ServiceName))
 
 	h.g.GET("/reset", h.reset)
+	h.g.GET("/metrics", h.metrics)
 	h.g.GET("/details", h.DetailsHttp)
 
 	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)

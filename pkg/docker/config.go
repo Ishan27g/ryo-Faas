@@ -284,9 +284,9 @@ func (d *docker) pull(ctx context.Context, refStr string) error {
 		return err
 	}
 	defer out.Close()
-	if !d.silent {
-		io.Copy(os.Stdout, out)
-	}
+	//if !d.silent {
+	io.Copy(os.Stdout, out)
+	//}
 	return nil
 }
 
@@ -310,9 +310,9 @@ func (d *docker) checkImages() bool {
 	if !d.checkImage(deployBaseImage) {
 		return false
 	}
-	if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
-		return false
-	}
+	//if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
+	//	return false
+	//}
 	if !d.checkImage(databaseImage) {
 		return false
 	}

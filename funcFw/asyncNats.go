@@ -67,10 +67,10 @@ func (hn HttpAsyncNats) SubscribeAsync(fn HttpFn) {
 	go transport.NatsSubscribeJson(hn.getSubj(), func(msg *transport.AsyncNats) {
 		// register next subscription
 		go hn.SubscribeAsync(fn)
-		
+
 		req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(msg.Req)))
 
-		tracer := provider.Get().Tracer("function-async-receiver")
+		tracer := provider.Get()
 		_, span := tracer.Start(tracing.ExtractSpan(msg.Header), "proxy-function-call"+"-"+hn.entrypoint)
 		defer span.End()
 		span.SetAttributes(attribute.Key(tracing.Sub).String(hn.entrypoint))

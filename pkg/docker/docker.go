@@ -67,11 +67,11 @@ func (d *docker) Start() bool {
 
 	var errs = make(chan error, 4)
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		errs <- d.startZipkin()
-	}()
+	//wg.Add(1)
+	//go func() {
+	//	defer wg.Done()
+	//	errs <- d.startZipkin()
+	//}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

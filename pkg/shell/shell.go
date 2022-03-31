@@ -49,7 +49,6 @@ func (s *shell) Run() bool {
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-		fmt.Println("doneee")
 		s.kill()
 	}(s, ctx)
 	<-time.After(2 * time.Second)
@@ -68,7 +67,6 @@ type shell struct {
 
 func (s *shell) WaitTillDone() {
 	<-s.done
-	fmt.Println("done")
 	return
 }
 

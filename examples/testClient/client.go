@@ -32,8 +32,8 @@ func requestWithOtel() {
 	jp := tracing.Init("jaeger", "otel-client", "test-Client")
 	defer jp.Close()
 
-	// new span
-	tr := jp.Get().Tracer("otel-client")
+	// start new span
+	tr := jp.Get()
 	ctx2, span := tr.Start(ctx, "client-with-otel-header", trace.WithAttributes(semconv.MessagingDestinationKey.String(url)))
 
 	// add baggage to span
