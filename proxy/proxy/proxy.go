@@ -12,6 +12,7 @@ import (
 	"github.com/Ishan27g/ryo-Faas/pkg/types"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -108,11 +109,12 @@ func (p *Pxy) ServeHTTP(rw http.ResponseWriter, outReq *http.Request, host strin
 		endpoint = strings.TrimPrefix(outReq.URL.RequestURI(), Functions)
 	}
 
-	fmt.Println("Fordaring to ", host+endpoint)
+	fmt.Println("Forwarding to ", host+endpoint)
 	var err error
 	outReq.URL, err = url.Parse(host + endpoint)
 
 	span := trace.SpanFromContext(outReq.Context())
+	span.SetAttributes(semconv.HTTPTargetKey.String(outReq.URL.String()))
 
 	span.SetAttributes(attribute.Key("proxyFrom").String(endpoint))
 	span.SetAttributes(attribute.Key("proxyTo").String(outReq.URL.String()))

@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var prune = false
 var stopRyoFaas = cli.Command{
 	Name:            "stopFaas",
 	Usage:           "stop ryo-Faas",
@@ -18,20 +19,26 @@ var stopRyoFaas = cli.Command{
 	ArgsUsage:       "server-cmd stopFaas",
 	HideHelp:        false,
 	HideHelpCommand: false,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:        "prune",
+			Value:       false,
+			Usage:       "prune function image",
+			Destination: &prune,
+		},
+	},
 	Action: func(c *cli.Context) error {
 		d := docker.New()
 		if !d.StatusAny() {
 			return nil
 		}
 		var rsp []types.FunctionJsonRsp
-		json.Unmarshal(sendHttp("/details", ""), &rsp)
+		json.Unmarshal(sendHttp("/details"), &rsp)
 		for _, v := range rsp {
-			fmt.Printf("%s\t\t%s\t%s\n", v.Url, v.Name, v.Status)
-			d.StopFunction(v.Name)
+			fmt.Printf("%s\t%s\t%s\n", v.Url, v.Name, v.Status)
+			d.StopFunction(v.Name, prune)
 		}
 		d.Stop()
-		d.PruneImages()
-
 		fmt.Println("Stopped ryo-Faas")
 		return nil
 	},
@@ -64,13 +71,16 @@ var startRyoFaas = cli.Command{
 	},
 }
 
-//var removeImagesRyoFaas = cli.Command{
-//	Name:            "prune",
-//	HideHelp:        false,
-//	HideHelpCommand: false,
-//	Action: func(c *cli.Context) error {
-//		d := docker.New()
-//		d.PruneImages()
-//		return nil
-//	},
-//}
+var pruneRyoFaas = cli.Command{
+	Name:            "prune",
+	Aliases:         []string{"p"},
+	Usage:           "remove all images",
+	HideHelp:        false,
+	HideHelpCommand: false,
+	Action: func(c *cli.Context) error {
+		d := docker.New()
+		d.Stop()
+		d.PruneImages()
+		return nil
+	},
+}

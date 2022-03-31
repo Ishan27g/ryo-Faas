@@ -1,7 +1,6 @@
 {
   "deploy": [
     {
-      "packageDir": "/Users/ishan/Desktop/multi/methodOtel",
       "name" : "MethodWithOtel",
       "filePath": "/Users/ishan/Desktop/multi/methodOtel/methodOtel.go"
     }

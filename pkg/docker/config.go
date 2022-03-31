@@ -152,6 +152,24 @@ func (d *docker) pruneImages() bool {
 	}
 	return true
 }
+func (d *docker) pruneFunctionImages(name string) bool {
+	ctx := context.Background()
+	list, err := d.ImageList(ctx, types.ImageListOptions{
+		All: true,
+	})
+	if err != nil {
+		return false
+	}
+	for _, summary := range list {
+		if summary.Labels["rfa"] == name {
+			d.ImageRemove(ctx, summary.ID, types.ImageRemoveOptions{
+				Force:         true,
+				PruneChildren: true,
+			})
+		}
+	}
+	return true
+}
 func (d *docker) stop(name string) error {
 	ctx := context.Background()
 	if err := d.ContainerStop(ctx, name, nil); err != nil {
@@ -226,7 +244,7 @@ func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) err
 	opts := types.ImageBuildOptions{
 		Dockerfile:     "deploy.dockerfile",
 		Tags:           []string{serviceName},
-		Labels:         map[string]string{"label": "rfa"},
+		Labels:         map[string]string{"label": "rfa", "rfa": serviceName},
 		Remove:         true,
 		ForceRemove:    true,
 		SuppressOutput: d.silent,

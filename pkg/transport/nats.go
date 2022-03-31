@@ -17,9 +17,6 @@ const (
 var opts []nats.Option
 var urls = os.Getenv("NATS")
 
-// "nats://localhost:4222"
-//var urls = "nats://raf-nats:4222"
-
 var subjects map[string]*subjectMeta
 var lock = sync.RWMutex{}
 

@@ -1,7 +1,6 @@
 {
   "deploy": [
     {
-      "packageDir": "/Users/ishan/Desktop/multi/async",
       "name" : "MethodAsync",
       "filePath": "/Users/ishan/Desktop/multi/async/main.go"
     }

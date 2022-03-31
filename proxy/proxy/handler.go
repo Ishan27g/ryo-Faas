@@ -22,12 +22,12 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
 const (
-	TracerFwToAgent = "proxy-function-call"
-	ServiceName     = "rfa-proxy"
+	ServiceName = "rfa-proxy"
 
 	DefaultRpc           = ":9998"
 	DefaultHttp          = ":9999"
@@ -99,7 +99,7 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.Key(request.GetEntrypoint()).String(request.GetEntrypoint()))
 
-	if docker.New().StopFunction(strings.ToLower(request.GetEntrypoint())) != nil {
+	if docker.New().StopFunction(strings.ToLower(request.GetEntrypoint()), true) != nil {
 		h.Println("Unable to stop ", request.GetEntrypoint())
 		span.AddEvent("Unable to stop " + request.GetEntrypoint())
 		return response, nil
@@ -131,12 +131,6 @@ func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployR
 	return details, nil
 }
 
-func (h *handler) Upload(deploy.Deploy_UploadServer) error {
-	return errors.New("no upload method")
-}
-func (h *handler) returnMetric(err error, result chan<- bool) {
-
-}
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
 	var proxyError error = nil
@@ -146,11 +140,11 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 
 	var ctxR context.Context
 	if !sp.IsRecording() {
-		ctxR, sp = otel.Tracer(TracerFwToAgent).Start(c.Request.Context(), TracerFwToAgent+"-"+fnName)
+		ctxR, sp = otel.Tracer(ServiceName).Start(c.Request.Context(), "forward"+"-"+fnName)
 	} else {
 		ctxR = trace.ContextWithSpan(c.Request.Context(), sp)
 	}
-	sp.SetAttributes(attribute.Key("Forward-Function-Call").String(fnName))
+	sp.SetName(fnName)
 
 	newReq := newFwRequestWithCtx(ctxR, c.Request)
 	now := time.Now()
@@ -163,6 +157,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 
 	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
 		proxyError = nil
+		sp.SetAttributes(attribute.Key(semconv.HTTPHostKey).String(fnServiceHost))
 		if isAsyncNats {
 			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, newReq)
 			statusCode = http.StatusOK

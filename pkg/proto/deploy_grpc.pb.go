@@ -4,7 +4,6 @@ package deploy
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -251,7 +250,6 @@ type DeployClient interface {
 	Deploy(ctx context.Context, in *DeployRequest, opts ...grpc.CallOption) (*DeployResponse, error)
 	Stop(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error)
 	Details(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeployResponse, error)
-	Upload(ctx context.Context, opts ...grpc.CallOption) (Deploy_UploadClient, error)
 }
 
 type deployClient struct {
@@ -289,40 +287,6 @@ func (c *deployClient) Details(ctx context.Context, in *Empty, opts ...grpc.Call
 	return out, nil
 }
 
-func (c *deployClient) Upload(ctx context.Context, opts ...grpc.CallOption) (Deploy_UploadClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Deploy_ServiceDesc.Streams[0], "/deploy.Deploy/upload", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &deployUploadClient{stream}
-	return x, nil
-}
-
-type Deploy_UploadClient interface {
-	Send(*File) error
-	CloseAndRecv() (*Empty, error)
-	grpc.ClientStream
-}
-
-type deployUploadClient struct {
-	grpc.ClientStream
-}
-
-func (x *deployUploadClient) Send(m *File) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *deployUploadClient) CloseAndRecv() (*Empty, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(Empty)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // DeployServer is the server API for Deploy service.
 // All implementations must embed UnimplementedDeployServer
 // for forward compatibility
@@ -330,7 +294,6 @@ type DeployServer interface {
 	Deploy(context.Context, *DeployRequest) (*DeployResponse, error)
 	Stop(context.Context, *Empty) (*DeployResponse, error)
 	Details(context.Context, *Empty) (*DeployResponse, error)
-	Upload(Deploy_UploadServer) error
 }
 
 // UnimplementedDeployServer must be embedded to have forward compatible implementations.
@@ -345,9 +308,6 @@ func (UnimplementedDeployServer) Stop(context.Context, *Empty) (*DeployResponse,
 }
 func (UnimplementedDeployServer) Details(context.Context, *Empty) (*DeployResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Details not implemented")
-}
-func (UnimplementedDeployServer) Upload(Deploy_UploadServer) error {
-	return status.Errorf(codes.Unimplemented, "method Upload not implemented")
 }
 func (UnimplementedDeployServer) mustEmbedUnimplementedDeployServer() {}
 
@@ -416,32 +376,6 @@ func _Deploy_Details_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Deploy_Upload_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(DeployServer).Upload(&deployUploadServer{stream})
-}
-
-type Deploy_UploadServer interface {
-	SendAndClose(*Empty) error
-	Recv() (*File, error)
-	grpc.ServerStream
-}
-
-type deployUploadServer struct {
-	grpc.ServerStream
-}
-
-func (x *deployUploadServer) SendAndClose(m *Empty) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *deployUploadServer) Recv() (*File, error) {
-	m := new(File)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // Deploy_ServiceDesc is the grpc.ServiceDesc for Deploy service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -462,12 +396,6 @@ var Deploy_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Deploy_Details_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "upload",
-			Handler:       _Deploy_Upload_Handler,
-			ClientStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "deploy.proto",
 }

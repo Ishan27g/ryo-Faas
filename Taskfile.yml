@@ -65,9 +65,9 @@ tasks:
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
 
-  runLocal:
-    cmds:
-      - open -a terminal .dockerfiles/database.sh
-      - open -a terminal .dockerfiles/nats.sh
-      - open -a terminal .dockerfiles/jaeger.sh
-      - open -a terminal .dockerfiles/proxy.sh
+#  runLocal:
+#    cmds:
+#      - open -a terminal .dockerfiles/database.sh
+#      - open -a terminal .dockerfiles/nats.sh
+#      - open -a terminal .dockerfiles/jaeger.sh
+#      - open -a terminal .dockerfiles/proxy.sh

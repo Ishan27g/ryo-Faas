@@ -146,7 +146,7 @@ var initRfaFaasCmd = cli.Command{
 var envCmd = cli.Command{
 	Name:            "env",
 	Aliases:         []string{"e"},
-	Usage:           "get env for rfa-Faas",
+	Usage:           "print dir/ used by rfa-Faas",
 	ArgsUsage:       "proxyCli env",
 	HideHelp:        false,
 	HideHelpCommand: false,

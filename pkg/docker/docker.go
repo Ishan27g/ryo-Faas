@@ -35,7 +35,7 @@ type Docker interface {
 
 	RunFunction(serviceName string) error
 	CheckFunction(serviceName string) bool
-	StopFunction(serviceName string) error
+	StopFunction(serviceName string, prune bool) error
 }
 
 func (d *docker) Setup() bool {
@@ -117,9 +117,13 @@ func (d *docker) Stop() bool {
 	return true
 }
 
-func (d *docker) StopFunction(serviceName string) error {
+func (d *docker) StopFunction(serviceName string, prune bool) error {
+	var err error
 	name := serviceContainerName(serviceName)
-	return d.stop(name)
+	if err = d.stop(name); err == nil && prune {
+		d.pruneFunctionImages(name)
+	}
+	return err
 }
 
 func (d *docker) StatusAll() bool {

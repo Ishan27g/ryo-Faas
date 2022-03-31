@@ -48,7 +48,6 @@ func Connect(addr string) Client {
 	defer cancel()
 	grpc.WaitForReady(true)
 	grpcClient, err := grpc.DialContext(ctx, addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

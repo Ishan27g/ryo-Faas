@@ -34,7 +34,6 @@ service Deploy {
   rpc deploy(DeployRequest) returns (DeployResponse);
   rpc stop(Empty) returns (DeployResponse);
   rpc details(Empty) returns(DeployResponse);
-  rpc upload(stream File) returns (Empty) {}
 }
 
 message File {
@@ -56,19 +55,14 @@ message Function {
   string filePath = 2;
   // path to package-dir
   string dir = 3;
-  string zip = 4;
-
-  // address of agent that manages function
-  string atAgent = 5;
-
   // address of service running on agent
-  string proxyServiceAddr = 6;
+  string proxyServiceAddr = 4;
   // function endpoint
-  string url = 7;
-  string status = 8;
+  string url = 5;
+  string status = 6;
 
-  bool async = 9;
-  bool isMain = 10;
+  bool async = 7;
+  bool isMain = 8;
 
 }
 
