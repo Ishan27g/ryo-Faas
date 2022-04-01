@@ -30,13 +30,6 @@ func UnMarshal(m map[string]interface{}) Role {
 				r.Permissions[name] = &Permission{Name: name}
 			}
 		}
-		// not needed
-		//if rl["Children"] != nil {
-		//	p := rl["Children"].([]interface{})
-		//	for _, child := range p {
-		//		r.AddChild(UnMarshal(child.(map[string]interface{})))
-		//	}
-		//}
 	}
 	return r
 }

@@ -1,0 +1,1 @@
+A simple example for deploying an entire service (http functions, async functions (todo in example) & document store triggers

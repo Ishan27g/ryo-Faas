@@ -49,6 +49,5 @@ func main() {
 	transport.NatsPublish("hello", "ok", nil)
 	store.Get("any")
 
-	// handler.AgentConnectionType = transport.RPC
 	<-make(chan bool)
 }

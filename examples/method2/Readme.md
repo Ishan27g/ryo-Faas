@@ -1,0 +1,1 @@
+A handler that is triggered by a deployed service [method1](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/method1)

@@ -86,7 +86,7 @@ var deployCmd = cli.Command{
 				fmt.Println(err.Error())
 				return err
 			}
-			printResonse(deployResponse)
+			printResponse(deployResponse)
 		}
 		os.RemoveAll("deployment/tmp/")
 		return nil
@@ -142,7 +142,7 @@ var stopCmd = cli.Command{
 			if err != nil {
 				fmt.Println(err.Error())
 			}
-			printResonse(response)
+			printResponse(response)
 		}
 		return nil
 	},
