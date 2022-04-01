@@ -11,13 +11,13 @@ Functions as a service and json datastore.
 
 >[Example](#Example)
 > 
->[Async](#Individual HTTP/ASYNC Functions)
+>[Async](#Individual-HTTP/ASYNC-Functions)
 > 
->[Document Triggers](#DataStore Event Triggers)
+>[Document Triggers](#DataStore-Event-Triggers)
 > 
 > [Install](#Install)
 >
-> [How it works](#How it works)
+> [How it works](#How-it-works)
 
 ## Example
 1.Define a golang function - `hello/helloWorld.go`
