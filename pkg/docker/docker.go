@@ -19,6 +19,8 @@ type Docker interface {
 	Setup() bool
 	CheckImages() bool
 
+	PruneImages() bool
+
 	SetForcePull()
 	SetSilent()
 	SetLocalProxy()
@@ -33,7 +35,7 @@ type Docker interface {
 
 	RunFunction(serviceName string) error
 	CheckFunction(serviceName string) bool
-	StopFunction(serviceName string) error
+	StopFunction(serviceName string, prune bool) error
 }
 
 func (d *docker) Setup() bool {
@@ -65,11 +67,11 @@ func (d *docker) Start() bool {
 
 	var errs = make(chan error, 4)
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		errs <- d.startZipkin()
-	}()
+	//wg.Add(1)
+	//go func() {
+	//	defer wg.Done()
+	//	errs <- d.startZipkin()
+	//}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -115,9 +117,13 @@ func (d *docker) Stop() bool {
 	return true
 }
 
-func (d *docker) StopFunction(serviceName string) error {
+func (d *docker) StopFunction(serviceName string, prune bool) error {
+	var err error
 	name := serviceContainerName(serviceName)
-	return d.stop(name)
+	if err = d.stop(name); err == nil && prune {
+		d.pruneFunctionImages(name)
+	}
+	return err
 }
 
 func (d *docker) StatusAll() bool {
@@ -147,7 +153,7 @@ func (d *docker) Check() map[string]string {
 	status[natsContainerName] = d.check(asFilter("name", natsContainerName))
 	status[databaseContainerName()] = d.check(asFilter("name", databaseContainerName()))
 	status[proxyContainerName()] = d.check(asFilter("name", proxyContainerName()))
-	status[zipkinContainerName()] = d.check(asFilter("name", zipkinContainerName()))
+	// status[zipkinContainerName()] = d.check(asFilter("name", zipkinContainerName()))
 	return status
 }
 func (d *docker) CheckLabel() bool {

@@ -32,25 +32,26 @@ const (
 	natsVersion       = ":alpine3.15"
 	natsContainerName = "rfa-" + natsImage
 
-	zipKinRep     = "openzipkin/"
-	zipkinImage   = "zipkin"
-	zipkinVersion = ":2.23.15"
+	zipKinRep      = "openzipkin/"
+	zipkinImage    = "zipkin"
+	zipkinVersion  = ":2.23.15"
+	zipkinHostPort = "9411"
 
-	jaegerImage   = "jaegertracing/all-in-one"
-	jaegerVersion = ":1.31"
+	jaegerImage    = "jaegertracing/all-in-one"
+	jaegerVersion  = ":1.31"
+	jaegerHostPort = "16686"
 
 	networkName = "rfa_nw"
 	natsNwHost  = "nats://rfa-nats:4222"
 
 	databaseHostRpcPort   = "5000"
+	databaseHostHttpPort  = "5001"
 	proxyRpcHostPort      = "9998"
 	proxyHttpHostPort     = "9999"
 	deployedFnNetworkPort = "6000"
 
 	natsHostPort1 = "4222"
 	natsHostPort2 = "8222"
-
-	zipkinHostPort = "9411"
 
 	localTimeout  = 30 * time.Second
 	remoteTimeout = 100 * time.Second
@@ -93,7 +94,6 @@ func proxyContainerName() string {
 func serviceContainerName(serviceName string) string {
 	return "rfa-deploy-" + serviceName
 }
-
 func zipkinContainerName() string {
 	return "rfa-" + zipkinImage
 }
@@ -109,6 +109,10 @@ type docker struct {
 	isProxyLocal bool
 	*client.Client
 	*log.Logger
+}
+
+func (d *docker) PruneImages() bool {
+	return d.pruneImages()
 }
 
 func (d *docker) CheckImages() bool {
@@ -127,6 +131,42 @@ func (d *docker) ensureNetwork() bool {
 		}
 		fmt.Printf("\nUnable to create network %s: \n", networkName)
 		return false
+	}
+	return true
+}
+func (d *docker) pruneImages() bool {
+	ctx := context.Background()
+	list, err := d.ImageList(ctx, types.ImageListOptions{
+		All: true,
+	})
+	if err != nil {
+		return false
+	}
+	for _, summary := range list {
+		if summary.Labels["label"] == "rfa" {
+			d.ImageRemove(ctx, summary.ID, types.ImageRemoveOptions{
+				Force:         true,
+				PruneChildren: true,
+			})
+		}
+	}
+	return true
+}
+func (d *docker) pruneFunctionImages(name string) bool {
+	ctx := context.Background()
+	list, err := d.ImageList(ctx, types.ImageListOptions{
+		All: true,
+	})
+	if err != nil {
+		return false
+	}
+	for _, summary := range list {
+		if summary.Labels["rfa"] == name {
+			d.ImageRemove(ctx, summary.ID, types.ImageRemoveOptions{
+				Force:         true,
+				PruneChildren: true,
+			})
+		}
 	}
 	return true
 }
@@ -202,9 +242,12 @@ func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) err
 	}
 
 	opts := types.ImageBuildOptions{
-		Dockerfile: "deploy.dockerfile",
-		Tags:       []string{serviceName},
-		Remove:     true,
+		Dockerfile:     "deploy.dockerfile",
+		Tags:           []string{serviceName},
+		Labels:         map[string]string{"label": "rfa", "rfa": serviceName},
+		Remove:         true,
+		ForceRemove:    true,
+		SuppressOutput: d.silent,
 	}
 	res, err := dockerClient.ImageBuild(ctx, tar, opts)
 	if err != nil {
@@ -253,14 +296,15 @@ func (d *docker) print(rd io.Reader) error {
 }
 
 func (d *docker) pull(ctx context.Context, refStr string) error {
+	fmt.Println("Pulling image", refStr)
 	out, err := d.ImagePull(ctx, refStr, types.ImagePullOptions{})
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	if !d.silent {
-		io.Copy(os.Stdout, out)
-	}
+	//if !d.silent {
+	io.Copy(os.Stdout, out)
+	//}
 	return nil
 }
 
@@ -284,9 +328,9 @@ func (d *docker) checkImages() bool {
 	if !d.checkImage(deployBaseImage) {
 		return false
 	}
-	if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
-		return false
-	}
+	//if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
+	//	return false
+	//}
 	if !d.checkImage(databaseImage) {
 		return false
 	}
@@ -304,7 +348,7 @@ func (d *docker) ensureImages() bool {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(remoteTimeout))
 	defer cancel()
 
-	var errs = make(chan error, 5)
+	var errs = make(chan error, 4)
 
 	wg.Add(1)
 	go func() {
@@ -317,16 +361,16 @@ func (d *docker) ensureImages() bool {
 		}
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
-			if err := d.pull(ctx, zipKinRep+zipkinImage+zipkinVersion); err != nil {
-				d.Println("error-pull", zipKinRep+zipkinImage+zipkinVersion, err.Error())
-				errs <- err
-			}
-		}
-	}()
+	//wg.Add(1)
+	//go func() {
+	//	defer wg.Done()
+	//	if !d.checkImage(zipKinRep + zipkinImage + zipkinVersion) {
+	//		if err := d.pull(ctx, zipKinRep+zipkinImage+zipkinVersion); err != nil {
+	//			d.Println("error-pull", zipKinRep+zipkinImage+zipkinVersion, err.Error())
+	//			errs <- err
+	//		}
+	//	}
+	//}()
 
 	wg.Add(1)
 	go func() {
@@ -475,8 +519,8 @@ func (d *docker) startProxy() error {
 		EndpointsConfig: map[string]*network.EndpointSettings{},
 	}
 	config = &container.Config{Image: proxyImage, Hostname: name, ExposedPorts: map[nat.Port]struct{}{
-		"9999/tcp": {},
-		"9998/tcp": {},
+		proxyHttpHostPort + "/tcp": {},
+		proxyRpcHostPort + "/tcp":  {},
 	}, Env: defaultEnv, Labels: labels}
 
 	// bind container port to host port
@@ -528,19 +572,32 @@ func (d *docker) startDatabase() error {
 	var networkingConfig = &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{},
 	}
-	config = &container.Config{Image: databaseImage, Hostname: trimVersion(databaseImage), Env: defaultEnv, Labels: labels}
+	config = &container.Config{Image: databaseImage, Hostname: trimVersion(databaseImage), Env: defaultEnv, Labels: labels, ExposedPorts: map[nat.Port]struct{}{
+		databaseHostRpcPort + "/tcp":  {},
+		databaseHostHttpPort + "/tcp": {},
+	}}
 
 	// bind container port to host port
-	hostBinding := nat.PortBinding{
+	hostBinding1 := nat.PortBinding{
 		HostIP:   "0.0.0.0",
 		HostPort: databaseHostRpcPort,
 	}
-	containerPort, err := nat.NewPort("tcp", databaseHostRpcPort)
+	hostBinding2 := nat.PortBinding{
+		HostIP:   "0.0.0.0",
+		HostPort: databaseHostHttpPort,
+	}
+	containerPort1, err := nat.NewPort("tcp", databaseHostRpcPort)
 	if err != nil {
 		d.Println("Unable to get the port", err.Error())
 		return err
 	}
-	hostConfig.PortBindings = nat.PortMap{containerPort: []nat.PortBinding{hostBinding}}
+	containerPort2, err := nat.NewPort("tcp", databaseHostHttpPort)
+	if err != nil {
+		d.Println("Unable to get the port", err.Error())
+		return err
+	}
+	hostConfig.PortBindings = nat.PortMap{containerPort1: []nat.PortBinding{hostBinding1},
+		containerPort2: []nat.PortBinding{hostBinding2}}
 
 	// attach container to network
 	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}

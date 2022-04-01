@@ -15,18 +15,19 @@ import (
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
+	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/Ishan27g/ryo-Faas/pkg/types"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
 const (
-	TracerFwToAgent = "proxy-function-call"
-	ServiceName     = "rfa-proxy"
+	ServiceName = "rfa-proxy"
 
 	DefaultRpc           = ":9998"
 	DefaultHttp          = ":9999"
@@ -38,6 +39,9 @@ type handler struct {
 	httpFnProxyPort string
 
 	proxies proxy
+
+	tracing.MetricManager
+
 	*log.Logger
 }
 
@@ -51,9 +55,6 @@ func prettyJson(js interface{}) string {
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 
 	span := trace.SpanFromContext(ctx)
-	for _, function := range request.Functions {
-		span.SetAttributes(attribute.Key("entrypoint").String(function.GetEntrypoint()))
-	}
 
 	response := new(deploy.DeployResponse)
 	var buildHostName = func(entrypoint string) string {
@@ -68,16 +69,28 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	for _, function := range request.Functions {
 		function.ProxyServiceAddr = hnFn
 		jsonFn := types.RpcFunctionRspToJson(function)
+
 		proxyUrl := h.proxies.add(jsonFn)
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
 
-		span.SetAttributes(attribute.Key(function.Entrypoint).String(prettyJson(function)))
+		h.MetricManager.Register(function)
 
+		addFunctionAttributes(&span, function)
 	}
+
 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
-	h.Println("Current details are ", prettyJson(h.proxies.details()))
+
+	span.AddEvent(prettyJson(response))
 	return response, nil
+}
+
+func addFunctionAttributes(span *trace.Span, function *deploy.Function) {
+	(*span).SetAttributes(attribute.Key(tracing.Entrypoint).String(function.Entrypoint))
+	(*span).SetAttributes(attribute.Key(tracing.Url).String(function.Url))
+	(*span).SetAttributes(attribute.Key(tracing.Status).String(function.Status))
+	(*span).SetAttributes(attribute.Key(tracing.IsMain).Bool(function.IsMain))
+	(*span).SetAttributes(attribute.Key(tracing.IsAsync).Bool(function.Async))
 }
 
 func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
@@ -86,7 +99,7 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.Key(request.GetEntrypoint()).String(request.GetEntrypoint()))
 
-	if docker.New().StopFunction(strings.ToLower(request.GetEntrypoint())) != nil {
+	if docker.New().StopFunction(strings.ToLower(request.GetEntrypoint()), true) != nil {
 		h.Println("Unable to stop ", request.GetEntrypoint())
 		span.AddEvent("Unable to stop " + request.GetEntrypoint())
 		return response, nil
@@ -109,35 +122,42 @@ func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployR
 			Async:            rsp.IsAsync,
 			IsMain:           rsp.IsMain,
 		}
-		span.SetAttributes(attribute.Key(df.Entrypoint).String(prettyJson(*df)))
+
 		details.Functions = append(details.Functions, df)
+
+		addFunctionAttributes(&span, df)
 	}
 	h.Println("Proxy details returning -> ", h.proxies.details())
 	return details, nil
 }
 
-func (h *handler) Upload(deploy.Deploy_UploadServer) error {
-	return errors.New("no upload method")
-}
-
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
-
+	var proxyError error = nil
 	var statusCode = http.StatusBadGateway
 
 	sp := trace.SpanFromContext(c.Request.Context())
 
 	var ctxR context.Context
 	if !sp.IsRecording() {
-		ctxR, sp = otel.Tracer(TracerFwToAgent).Start(c.Request.Context(), TracerFwToAgent+"-"+fnName)
+		ctxR, sp = otel.Tracer(ServiceName).Start(c.Request.Context(), "forward"+"-"+fnName)
 	} else {
 		ctxR = trace.ContextWithSpan(c.Request.Context(), sp)
 	}
-	sp.SetAttributes(attribute.Key("Forward-Function-Call").String(fnName))
+	sp.SetName(fnName)
 
 	newReq := newFwRequestWithCtx(ctxR, c.Request)
 	now := time.Now()
+
+	result := h.MetricManager.Invoked(fnName)
+	defer func() {
+		defer close(result)
+		result <- proxyError == nil
+	}()
+
 	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
+		proxyError = nil
+		sp.SetAttributes(attribute.Key(semconv.HTTPHostKey).String(fnServiceHost))
 		if isAsyncNats {
 			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, newReq)
 			statusCode = http.StatusOK
@@ -154,6 +174,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 			span = updateSpan(span, "http", statusCode, now, fnName)
 		}
 	} else {
+		proxyError = errors.New(fnName + " not found")
 		sp.SetAttributes(attribute.Key("No Proxy found").String(fnName))
 		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}
@@ -172,6 +193,14 @@ func (h *handler) reset(c *gin.Context) {
 	c.Status(http.StatusAccepted)
 	h.Println("reset")
 }
+func (h *handler) metrics(c *gin.Context) {
+	span := trace.SpanFromContext(c)
+	m := h.MetricManager.GetAll()
+	fmt.Println(m)
+	span.AddEvent(prettyJson(m))
+	c.JSON(http.StatusOK, m)
+}
+
 func (h *handler) DetailsHttp(c *gin.Context) {
 
 	span := trace.SpanFromContext(c)
@@ -212,6 +241,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
 	h.httpFnProxyPort = http
 	h.proxies = newProxy()
+	h.MetricManager = tracing.Manager()
 	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -227,6 +257,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.Use(otelgin.Middleware(ServiceName))
 
 	h.g.GET("/reset", h.reset)
+	h.g.GET("/metrics", h.metrics)
 	h.g.GET("/details", h.DetailsHttp)
 
 	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)

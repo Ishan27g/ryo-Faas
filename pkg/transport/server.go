@@ -40,7 +40,6 @@ type Config func(*listener)
 func WithHandler(handler http.Handler) Config {
 	return func(l *listener) {
 		l.http.handler = handler
-		fmt.Println("applied handler", handler)
 	}
 }
 func WithHttpPort(port string) Config {
@@ -77,15 +76,10 @@ func Init(ctx context.Context, conf ...Config) Listener {
 	for _, config := range conf {
 		config(l)
 	}
-	//fmt.Println(l.http)
 	if l.http.port == "" && l.grpc.port == "" {
-		fmt.Println("both nil")
+		fmt.Println("both ports are nil")
 		return nil
 	}
-	//if l.http.port != "" && l.http.handler == nil {
-	//	fmt.Println("bad http")
-	//	return nil
-	//}
 	if l.grpc.port != "" && l.grpc.deployServer == nil && l.grpc.databaseServer == nil {
 		fmt.Println("bad grpc")
 		return nil

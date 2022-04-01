@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -20,8 +19,11 @@ const DIR_KEY = "RYA_FAAS"
 
 var repositoryUrl = "https://github.com/Ishan27g/registry.git"
 
-var local = flag.Bool("create in cwd", true, "")
-var copy = flag.Bool("clone or copy", true, "")
+//var local = flag.Bool("create in cwd", true, "")
+//var copy = flag.Bool("clone or copy", true, "")
+
+var local = true
+var copy = true
 var dirName = "/ryo-Faas" // todo .
 var gitDir = "/gitDir"
 var directory = ""
@@ -30,8 +32,8 @@ func getDir() string {
 	if directory != "" {
 		return directory
 	}
-	flag.Parse()
-	if !*local {
+	// flag.Parse()
+	if !local {
 		dir, err := homedir.Dir()
 		if err != nil {
 			fmt.Println(err.Error())
@@ -54,7 +56,7 @@ func cloneRepo() bool {
 	}
 	var path = getDir() + gitDir
 	os.RemoveAll(path + "/")
-	if !*copy {
+	if !copy {
 		_, err := git.PlainClone(path, false, &git.CloneOptions{
 			URL: repositoryUrl,
 			//Progress:   os.Stdout,
@@ -144,7 +146,7 @@ var initRfaFaasCmd = cli.Command{
 var envCmd = cli.Command{
 	Name:            "env",
 	Aliases:         []string{"e"},
-	Usage:           "get env for rfa-Faas",
+	Usage:           "print dir/ used by rfa-Faas",
 	ArgsUsage:       "proxyCli env",
 	HideHelp:        false,
 	HideHelpCommand: false,

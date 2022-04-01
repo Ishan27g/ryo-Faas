@@ -1,8 +1,6 @@
 {
   "deploy": [
     {
-      "mainProcess" : true,
-      "packageDir": "/Users/ishan/Desktop/multi/database-events",
       "name" : "Database-events",
       "filePath": "/Users/ishan/Desktop/multi/database-events/main.go"
     }

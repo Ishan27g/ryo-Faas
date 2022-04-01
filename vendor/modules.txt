@@ -53,9 +53,6 @@ github.com/ProtonMail/go-crypto/openpgp/s2k
 # github.com/acomagu/bufpipe v1.0.3
 ## explicit; go 1.12
 github.com/acomagu/bufpipe
-# github.com/andybalholm/brotli v1.0.1
-## explicit; go 1.12
-github.com/andybalholm/brotli
 # github.com/brianvoe/gofakeit/v6 v6.15.0
 ## explicit; go 1.17
 github.com/brianvoe/gofakeit/v6
@@ -122,14 +119,6 @@ github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-units v0.4.0
 ## explicit
 github.com/docker/go-units
-# github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5
-## explicit; go 1.9
-github.com/dsnet/compress
-github.com/dsnet/compress/bzip2
-github.com/dsnet/compress/bzip2/internal/sais
-github.com/dsnet/compress/internal
-github.com/dsnet/compress/internal/errors
-github.com/dsnet/compress/internal/prefix
 # github.com/emirpasic/gods v1.12.0
 ## explicit
 github.com/emirpasic/gods/containers
@@ -254,9 +243,6 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/golang/snappy v0.0.4
-## explicit
-github.com/golang/snappy
 # github.com/google/uuid v1.2.0
 ## explicit
 github.com/google/uuid
@@ -275,20 +261,6 @@ github.com/json-iterator/go
 # github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
 ## explicit
 github.com/kevinburke/ssh_config
-# github.com/klauspost/compress v1.14.4
-## explicit; go 1.15
-github.com/klauspost/compress
-github.com/klauspost/compress/flate
-github.com/klauspost/compress/fse
-github.com/klauspost/compress/gzip
-github.com/klauspost/compress/huff0
-github.com/klauspost/compress/internal/snapref
-github.com/klauspost/compress/zip
-github.com/klauspost/compress/zstd
-github.com/klauspost/compress/zstd/internal/xxhash
-# github.com/klauspost/pgzip v1.2.5
-## explicit
-github.com/klauspost/pgzip
 # github.com/leodido/go-urn v1.2.0
 ## explicit; go 1.13
 github.com/leodido/go-urn
@@ -298,9 +270,6 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.12
 ## explicit; go 1.12
 github.com/mattn/go-isatty
-# github.com/mholt/archiver/v3 v3.5.1
-## explicit; go 1.13
-github.com/mholt/archiver/v3
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
@@ -329,9 +298,6 @@ github.com/nats-io/nkeys
 # github.com/nats-io/nuid v1.0.1
 ## explicit
 github.com/nats-io/nuid
-# github.com/nwaples/rardecode v1.1.0
-## explicit
-github.com/nwaples/rardecode
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
@@ -348,13 +314,6 @@ github.com/openzipkin/zipkin-go/model
 # github.com/otiai10/copy v1.7.0
 ## explicit; go 1.14
 github.com/otiai10/copy
-# github.com/pierrec/lz4/v4 v4.1.2
-## explicit; go 1.14
-github.com/pierrec/lz4/v4
-github.com/pierrec/lz4/v4/internal/lz4block
-github.com/pierrec/lz4/v4/internal/lz4errors
-github.com/pierrec/lz4/v4/internal/lz4stream
-github.com/pierrec/lz4/v4/internal/xxh32
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -382,21 +341,12 @@ github.com/stretchr/testify/assert
 # github.com/ugorji/go/codec v1.1.7
 ## explicit
 github.com/ugorji/go/codec
-# github.com/ulikunitz/xz v0.5.9
-## explicit; go 1.12
-github.com/ulikunitz/xz
-github.com/ulikunitz/xz/internal/hash
-github.com/ulikunitz/xz/internal/xlog
-github.com/ulikunitz/xz/lzma
 # github.com/urfave/cli/v2 v2.3.0
 ## explicit; go 1.11
 github.com/urfave/cli/v2
 # github.com/xanzy/ssh-agent v0.3.0
 ## explicit
 github.com/xanzy/ssh-agent
-# github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8
-## explicit
-github.com/xi2/xz
 # go.opencensus.io v0.23.0
 ## explicit; go 1.13
 go.opencensus.io

@@ -2,7 +2,6 @@ package FuncFw
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -10,43 +9,44 @@ import (
 	"time"
 
 	database "github.com/Ishan27g/ryo-Faas/database/client"
-	"github.com/Ishan27g/ryo-Faas/pkg/plugins"
+	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
-	appName                      = "ryo-faas-func"
-	serviceName                  = ""
-	port                         = ""
-	jaegerHost                   = os.Getenv("JAEGER")
-	zipkinHost                   = os.Getenv("ZIPKIN")
-	databaseAddress              = os.Getenv("DATABASE")
-	httpSrv         *http.Server = nil
-	logger                       = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
-	healthCheckUrl               = "/healthcheck"
-	stopUrl                      = "/stop"
-	Export                       = funcFw{
+	appName                         = "ryo-faas-func"
+	serviceName                     = ""
+	port                            = ""
+	jaegerHost                      = os.Getenv("JAEGER")
+	zipkinHost                      = os.Getenv("ZIPKIN")
+	databaseAddress                 = os.Getenv("DATABASE")
+	httpSrv         *http.Server    = nil
+	logger                          = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
+	healthCheckUrl                  = "/healthcheck"
+	stopUrl                         = "/stop"
+	ctx             context.Context = nil
+	Export                          = funcFw{
 		httpFns:       make(map[string]*HttpFunction),
 		httpAsync:     make(map[string]*HttpAsync),
 		httpAsyncNats: make(map[string]*HttpAsync),
 		storeEvents:   nil,
 	}
-	provider plugins.TraceProvider
+	provider tracing.TraceProvider
 )
 
 func Start(port string) {
+	ctx = context.Background()
 	serviceName, _ = os.Hostname()
 
 	if jaegerHost == "" && zipkinHost != "" {
-		provider = plugins.Init("zipkin", appName, serviceName)
+		provider = tracing.Init("zipkin", appName, serviceName)
 	}
 	if zipkinHost == "" && jaegerHost != "" {
-		provider = plugins.Init("jaeger", appName, serviceName)
+		provider = tracing.Init("jaeger", appName, serviceName)
 	}
 	if provider == nil {
-		fmt.Println("provider ENV not set")
-		return
+		provider = tracing.Init("jaeger", appName, serviceName)
 	}
 
 	// apply store event handlers

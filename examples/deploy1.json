@@ -1,7 +1,6 @@
 {
   "deploy": [
     {
-      "packageDir": "/Users/ishan/Desktop/multi/method1",
       "name" : "Method1",
       "filePath": "/Users/ishan/Desktop/multi/method1/method1.go"
     }

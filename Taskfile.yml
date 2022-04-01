@@ -1,5 +1,8 @@
 version: '3'
 
+env:
+  JAEGER: localhost
+  DATABASE: localhost:5000
 
 vars:
     DOCKER_REMOTE: ishan27g/ryo-faas
@@ -13,16 +16,15 @@ tasks:
   # cleanup test dirs/
   testCleanup:
     cmds:
-      - rm -rf ./agent/registry/deploy/
       - rm -rf ./database/handler/ok*
-      # - c
   test:
     cmds:
-      # - defer: { task: testCleanup }
+      - defer: { task: testCleanup }
       - go test --v ./...
   test-ci:
     cmds:
       - go test --v ./...
+
   nats:
     cmds:
       - cd .dockerfiles && docker compose run --service-ports --rm nats
@@ -32,39 +34,22 @@ tasks:
   zipkin:
     cmds:
       - cd .dockerfiles && docker compose run --service-ports --rm zipkin
-
   # run database
   database:
     dir: database
     cmds:
       - go run main.go
-
   # run proxy
   proxy:
     dir: proxy
     cmds:
-      - go run main.go -agents :9000
-  
-  # run agent
-  agent:
-    dir: agent
-    cmds:
       - go run main.go
-
-  # run database events example
-  examples-db:
-     dir: examples/database-events
-     cmds:
-      - go run main.go subscribe.go
   
-  # test database events example 
-  examples-db-test:
-    cmds:
-      - curl http://localhost:9999/pay
-      - sleep 2 && echo 'getting'
-      - curl http://localhost:9999/get
-
   # call via go to run in parallel
+  metaGolangTask:
+    cmds:
+      - go run .dockerfiles/taskFile.go -buildImages
+      - go run .dockerfiles/taskFile.go -pushImages
   imgProxy:
     cmds:
       - docker build -f .dockerfiles/proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
@@ -74,15 +59,15 @@ tasks:
   imgDeployBase:
     cmds:
       - docker build -f .dockerfiles/deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
-
   pushImages:
       cmds:
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
         - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
 
-  metaGolangTask:
-      cmds:
-        - go run .dockerfiles/taskFile.go -buildImages
-        - go run .dockerfiles/taskFile.go -pushImages
-
+#  runLocal:
+#    cmds:
+#      - open -a terminal .dockerfiles/database.sh
+#      - open -a terminal .dockerfiles/nats.sh
+#      - open -a terminal .dockerfiles/jaeger.sh
+#      - open -a terminal .dockerfiles/proxy.sh

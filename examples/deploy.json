@@ -1,17 +1,14 @@
 {
   "deploy": [
     {
-      "packageDir": "/Users/ishan/Desktop/multi/method1",
       "name" : "Method1",
       "filePath": "/Users/ishan/Desktop/multi/method1/method1.go"
     },
     {
-      "packageDir": "/Users/ishan/Desktop/multi/method2",
       "name" : "Method2",
       "filePath": "/Users/ishan/Desktop/multi/method2/method2.go"
     },
     {
-      "packageDir": "/Users/ishan/Desktop/multi/methodOtel",
       "name" : "MethodWithOtel",
       "filePath": "/Users/ishan/Desktop/multi/methodOtel/methodOtel.go"
     }

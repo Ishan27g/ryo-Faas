@@ -3,11 +3,10 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"time"
 
-	"github.com/Ishan27g/ryo-Faas/pkg/plugins"
+	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
 	"github.com/Ishan27g/ryo-Faas/store"
@@ -28,16 +27,15 @@ var serviceName = proxy.ServiceName
 func main() {
 	flag.Parse()
 
-	var provider plugins.TraceProvider
+	var provider tracing.TraceProvider
 	if jaegerUrl == "" && zipKinUrl != "" {
-		provider = plugins.Init("zipkin", appName, serviceName)
+		provider = tracing.Init("zipkin", appName, serviceName)
 	}
 	if zipKinUrl == "" && jaegerUrl != "" {
-		provider = plugins.Init("jaeger", appName, serviceName)
+		provider = tracing.Init("jaeger", appName, serviceName)
 	}
 	if provider == nil {
-		fmt.Println("provider ENV not set")
-		return
+		provider = tracing.Init("jaeger", appName, serviceName)
 	}
 	defer provider.Close()
 

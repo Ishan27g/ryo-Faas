@@ -67,7 +67,6 @@ type shell struct {
 
 func (s *shell) WaitTillDone() {
 	<-s.done
-	fmt.Println("done")
 	return
 }
 

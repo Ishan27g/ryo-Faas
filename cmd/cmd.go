@@ -2,115 +2,16 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
-	"github.com/Ishan27g/ryo-Faas/proxy/proxy"
-	cp "github.com/otiai10/copy"
 	"github.com/urfave/cli/v2"
 )
-
-var proxyAddress string // rpc address of proxy (default :9001)
-var proxyHttpAddr = "localhost" + proxy.DefaultHttp
-
-var bypass bool
-var isAsync = false
-var isMain = false
-
-type definition struct {
-	Deploy []struct {
-		Name       string `json:"name"`
-		FilePath   string `json:"filePath"`
-		PackageDir string `json:"packageDir"`
-	} `json:"deploy"`
-}
-
-var getProxy = func() transport.AgentWrapper {
-	if proxyAddress == "" {
-		proxyAddress = proxy.DefaultRpc
-	}
-	// return transport.ProxyGrpcClient(proxyAddress)
-	return transport.ProxyGrpcClient(proxyAddress)
-}
-
-var read = func(defFile string) (definition, bool) {
-	var d definition
-	var fns definition
-
-	content, err := ioutil.ReadFile(defFile)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	err = json.Unmarshal(content, &d)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	var df []*deploy.Function
-	for _, fn := range d.Deploy {
-		df = append(df, &deploy.Function{
-			Entrypoint: fn.Name,
-			FilePath:   fn.FilePath,
-			Dir:        fn.PackageDir,
-		})
-	}
-
-	cwd := getDir() + "/"
-	err = os.Chdir(cwd)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	os.MkdirAll(cwd+tmpDir, os.ModePerm)
-
-	valid, genFile := generateFile(cwd+tmpDir, df)
-	if !valid {
-		log.Fatal("Invalid definition ")
-	}
-
-	fmt.Println("Generated file", genFile)
-	for _, fn := range d.Deploy {
-		dir, fName := filepath.Split(fn.FilePath)
-		pn := filepath.Base(dir)
-		if err := cp.Copy(fn.PackageDir, cwd+tmpDir+pn); err != nil {
-			log.Fatal("Error copying files ", err.Error())
-		}
-		fn.PackageDir = cwd + tmpDir
-		fn.FilePath = cwd + tmpDir + pn + "/" + fName
-		fns.Deploy = append(fns.Deploy, fn)
-	}
-
-	return fns, isMain
-}
-
-func printResonse(response *deploy.DeployResponse) {
-	for _, fn := range response.Functions {
-		fmt.Printf("%s %s [%s]\n", fn.Entrypoint, fn.Url, fn.Status)
-	}
-}
-
-func sendHttp(url, agentAddr string) []byte {
-	resp, err := http.Get("http://" + proxyHttpAddr + url + agentAddr)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil
-	}
-	return body
-}
 
 var deployCmd = cli.Command{
 
@@ -254,21 +155,20 @@ var proxyResetCmd = cli.Command{
 	HideHelp:        false,
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
-		sendHttp("/reset", "")
+		sendHttp("/reset")
 		return nil
 	},
 }
 
 func Init() *cli.App {
-	app := &cli.App{Commands: []*cli.Command{&initRfaFaasCmd, &envCmd, &deployCmd, &stopCmd, &detailsProxyCmd,
-		&proxyResetCmd, &startRyoFaas, &stopRyoFaas},
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:        "proxy",
-				Aliases:     []string{"p"},
-				DefaultText: "RPC port of the proxy server, default ",
-				Destination: &proxyAddress,
-			},
-		}}
+	app := &cli.App{Commands: []*cli.Command{
+		&initRfaFaasCmd, &envCmd, &proxyResetCmd,
+		&startRyoFaas, &stopRyoFaas, &pruneRyoFaas,
+		&deployCmd, &stopCmd, &detailsProxyCmd},
+		HideHelp:             true,
+		HideHelpCommand:      true,
+		HideVersion:          true,
+		EnableBashCompletion: true,
+	}
 	return app
 }
