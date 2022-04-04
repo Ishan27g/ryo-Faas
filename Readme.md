@@ -4,11 +4,11 @@
 
 Functions as a service and json datastore.
 
-- Run `http functions` as individual services (see examples/method2)
-- Run `Async / background http` functions over Nats (see examples/async)
-- Run functions triggered on changes to the `Json datastore` like `new`,`updated`,`deleted`, `get` (see examples/database-events)
-- Run a `combination` of above as a service (examples/database-events)
-- Observable functions with built-in [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) tracing
+- Run `http functions` as individual services (see [examples/method1](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/method1))
+- Run `Async / background http` functions over Nats (see [examples/async](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/async))
+- Run functions triggered on changes to the `Json datastore` like `new`,`updated`,`deleted`, `get` (see [examples/database-events](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/database-events))
+- Run a `combination` of above as a service (see [examples/database-events](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/database-events))
+- Observable functions with built-in [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) tracing (see [examples/methodOtel](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/methodOtel))
 
 
 >[Example](#Example)
