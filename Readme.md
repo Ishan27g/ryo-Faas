@@ -8,9 +8,19 @@ Functions as a service and json datastore.
 - Run a `combination` of above as a service (examples/database-events)
 - Observable functions with built-in [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) tracing
 
-## Definition
 
-#### Define a golang function - `hello/helloWorld.go`
+>[Example](#Example)
+> 
+>[Async](#Async-Functions)
+> 
+>[Document Triggers](#DataStore-Event-Triggers)
+> 
+> [Install](#Install)
+>
+> [How it works](#How-it-works)
+
+## Example
+1.Define a golang function - `hello/helloWorld.go`
 
 ```go
 package hello
@@ -26,7 +36,7 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-#### Create its definition File - `deploy.json`
+2. Create its definition File - `deploy.json`
 
 ```json
 {
@@ -39,58 +49,40 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-#### Setup / Install ryo-Faas
-```shell
-# Creates a directory - $HOME/.ry-faas/
-# and pulls relevant docker images 
-./proxyCli init
-```
-
-Will take a few minutes to download the following docker images
-
-- [proxy](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) running at `localhost:9999`
-- [database](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) running at `localhost:5000/5001`
-- [functionBase](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) attached to internal docker network
-
-- nats:alpine3.15 running at `localhost:4222/8222`
-- openzipkin/zipkin:2.23.15 running at `localhost:9411`
-
-#### Start ryo-Faas
-
-```shell
-# Ensure docker is running
-./proxyCli startFaas
-```
-
-#### Deploy
+3.Deploy
 
 ```shell
 ./proxyCli deploy deploy.json
 ```
-__The function is made available via the proxy at `http://localhost:9999/functions/helloworld`__
+The function gets deployed as its own container - configured with OpenTelemetry traces and connected to the internal services (nats, database & other deployments)
 
-Trigger the endpoint and view the traces collected by the default exporter - `Jaeger` running at `http://localhost:16686`
+#### - The function is made available via the proxy at `http://localhost:9999/functions/helloworld`
+
+#### - Trigger the endpoint and view the `traces` collected by the default exporter - `Jaeger` running at `http://localhost:16686`
+
 ```shell
 curl http://localhost:9999/functions/helloworld
 open http://localhost:16686
 ```
 
-## Individual HTTP/ASYNC Functions
+## Async Functions
 
-__Add flag `--async` to deploy as an `async` function__. See [Async](#####Async Http)
+__Add flag `--async` to deploy as an `async` function__. Check out [example](https://github.com/Ishan27g/ryo-Faas/tree/readme/examples/async#readme)
 
 ```shell
 ./proxyCli deploy --async deploy.json
 ```
 
-## DataStore Event Triggers , or a combination with HTTP/ASYNC Functions
+## DataStore Event Triggers
 
-__Add `--main` to deploy a combination of `http` `async` & `events`__
+or a combination with HTTP/ASYNC Functions
+
+__Add `--main` to deploy a combination of `http`, `async` & `events`__
 ```shell
 ./proxyCli deploy --main deployMain.json
 ```
 
-Should export a single `Init()` method that registers the requires triggers, http & async functions. See (example/database-events/)
+Should export a single `Init()` method that registers the required triggers, http & async functions. Check out [example](https://github.com/Ishan27g/ryo-Faas/tree/readme/examples/database-events)
 
 ```go
 // NOTE THE PACKAGE NAME, IT SHOULD NOT BE A MAIN PACKAGE
@@ -153,6 +145,36 @@ func main() {
 }
 ```
 
+## Install
+
+
+```shell
+./proxyCli init
+```
+Creates a directory - $HOME/.ry-faas/ and pulls relevant docker images
+
+May take a few minutes to download the following docker images
+
+- [proxy](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) running at `localhost:9999`
+- [database](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) running at `localhost:5000/5001`
+- [functionBase](https://hub.docker.com/repository/docker/ishan27g/ryo-faas) attached to internal docker network
+
+- `nats:alpine3.15` running at `localhost:4222/8222`
+- `openzipkin/zipkin:2.23.15` running at `localhost:9411`
+
+#### Start
+
+```shell
+# Ensure docker is running
+./proxyCli startFaas
+```
+
+#### Deploy
+
+```shell
+./proxyCli deploy deploy.json
+```
+
 #### Get details of all deployments
 ```shell
 ./proxyCli details
@@ -171,23 +193,26 @@ func main() {
 
 ## How it works
 
-#####Http
-functions are run in a manner similar to Google's [functions-framework-go](https://github.com/GoogleCloudPlatform/functions-framework-go).
+#### Http
+
+Functions are run in a manner similar to Google's [functions-framework-go](https://github.com/GoogleCloudPlatform/functions-framework-go).
 It simply registers the http-functions and then starts an HTTP server serving that function. (not considering cloudEvents).
 
-#####Async-Http 
-functions are run in a manner similar to [OpenFaas](https://docs.openfaas.com/reference/async/). 
+#### Async-Http 
+
+Functions are run in a manner similar to [OpenFaas](https://docs.openfaas.com/reference/async/). 
 The incoming request is serialised and sent to Nats allowing immediate response for the request. 
 The Nats message is received, deserialized into the http request and then acted upon. 
 The result is sent to a `X-Callback-Url` that is expected in the original request.
 
-#####Store
+#### Store
+
 The `store` publishes `events` to Nats on each `CRUD` operation to the database, allowing subscribers to act on relevant changes
 
-- The function to be deployed along with its directory are copied to `$HOME/.ry-faas/deployments/tmp/`. Using the `ast`  package, the `cli`
+The function to be deployed along with its directory are copied to `$HOME/.ry-faas/deployments/tmp/`. Using the `ast`  package, the `cli`
   - Verifies the signature
     - of the exported `http-function`, or
     - of the exported `main-service`
-  - Generates a new `exported_{function}.go` file (based on this [template](https://github.com/Ishan27g/ryo-Faas/blob/main/pkg/template/template.go)) that registers the provided function with the framework before starting an Http server.
-- The generated `service` is then built into a Docker image and run as its own container
+  - Generates a new `exported_{function}.go` file (based on [template.go](https://github.com/Ishan27g/ryo-Faas/blob/main/pkg/template/template.go) that registers the provided function with the framework before starting an Http server.
+  - The generated `service` is then built into a Docker image and run as its own container
 

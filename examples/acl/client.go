@@ -1,4 +1,8 @@
-package main
+package acl
+
+/*
+* Testing acl Rest API (once deployed)
+ */
 
 //
 //func main() {

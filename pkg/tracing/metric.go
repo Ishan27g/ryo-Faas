@@ -28,12 +28,12 @@ type Metric struct {
 	Duration    []Duration `json:"duration"`
 }
 
-type MetricManager struct {
+type UselessMetrics struct {
 	sync.RWMutex
 	fns map[string]*Metric
 }
 
-func (mm *MetricManager) GetAll() []Metric {
+func (mm *UselessMetrics) GetAll() []Metric {
 	var m = make([]Metric, len(mm.fns))
 	mm.RLock()
 	defer mm.RUnlock()
@@ -43,8 +43,8 @@ func (mm *MetricManager) GetAll() []Metric {
 	return m
 }
 
-func Manager() MetricManager {
-	mm := MetricManager{}
+func Manager() UselessMetrics {
+	mm := UselessMetrics{}
 	mm.RWMutex = sync.RWMutex{}
 	mm.fns = make(map[string]*Metric)
 	return mm
@@ -75,12 +75,12 @@ func copy(function *deploy.Function) Function {
 	f.Status = function.Status
 	return *f
 }
-func (mm *MetricManager) Register(fn *deploy.Function) {
+func (mm *UselessMetrics) Register(fn *deploy.Function) {
 	mm.Lock()
 	defer mm.Unlock()
 	mm.fns[fn.Entrypoint] = newMetric(fn)
 }
-func (mm *MetricManager) Invoked(name string) chan<- bool {
+func (mm *UselessMetrics) Invoked(name string) chan<- bool {
 	mm.RLock()
 	if mm.fns[name] == nil {
 		mm.RUnlock()

@@ -15,7 +15,7 @@ import (
 	cp "github.com/otiai10/copy"
 )
 
-var proxyAddress string // rpc address of proxy (default :9001)
+var proxyAddress string
 var proxyHttpAddr = "localhost" + proxy.DefaultHttp
 
 var bypass bool
@@ -34,7 +34,6 @@ var getProxy = func() transport.AgentWrapper {
 	if proxyAddress == "" {
 		proxyAddress = proxy.DefaultRpc
 	}
-	// return transport.ProxyGrpcClient(proxyAddress)
 	return transport.ProxyGrpcClient(proxyAddress)
 }
 
@@ -87,7 +86,7 @@ var read = func(defFile string) (definition, bool) {
 	return fns, isMain
 }
 
-func printResonse(response *deploy.DeployResponse) {
+func printResponse(response *deploy.DeployResponse) {
 	for _, fn := range response.Functions {
 		fmt.Printf("%s %s [%s]\n", fn.Entrypoint, fn.Url, fn.Status)
 	}

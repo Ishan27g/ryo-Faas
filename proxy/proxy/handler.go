@@ -34,13 +34,20 @@ const (
 	DeployedFunctionPort = ":6000"
 )
 
+var buildHostName = func(entrypoint string) string {
+	hostname, _ := os.Hostname()
+	if strings.Contains(hostname, "Ishan") { // if running locally
+		return "http://" + "localhost"
+	}
+	// if in docker network
+	return "http://" + "rfa-deploy-" + strings.ToLower(entrypoint)
+}
+
 type handler struct {
 	g               *gin.Engine
 	httpFnProxyPort string
-
-	proxies proxy
-
-	tracing.MetricManager
+	proxies         proxy
+	tracing.UselessMetrics
 
 	*log.Logger
 }
@@ -52,19 +59,26 @@ func prettyJson(js interface{}) string {
 	}
 	return string(data)
 }
+func addFunctionAttributes(span *trace.Span, function *deploy.Function) {
+	(*span).SetAttributes(attribute.Key(tracing.Entrypoint).String(function.Entrypoint))
+	(*span).SetAttributes(attribute.Key(tracing.Url).String(function.Url))
+	(*span).SetAttributes(attribute.Key(tracing.Status).String(function.Status))
+	(*span).SetAttributes(attribute.Key(tracing.IsMain).Bool(function.IsMain))
+	(*span).SetAttributes(attribute.Key(tracing.IsAsync).Bool(function.Async))
+}
+
+func updateSpan(sp trace.Span, deploymentType string, statusCode int, now time.Time, fnName string) trace.Span {
+	sp.SetAttributes(attribute.Key("deployment").String(deploymentType))
+	sp.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
+	sp.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
+	sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
+	return sp
+}
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 
 	span := trace.SpanFromContext(ctx)
-
 	response := new(deploy.DeployResponse)
-	var buildHostName = func(entrypoint string) string {
-		hostname, _ := os.Hostname()
-		if strings.Contains(hostname, "Ishan") { // if running locally
-			return "http://" + "localhost"
-		}
-		// if in docker network
-		return "http://" + "rfa-deploy-" + strings.ToLower(request.Functions[0].Entrypoint)
-	}
+
 	hnFn := buildHostName(request.Functions[0].Entrypoint) + DeployedFunctionPort
 	for _, function := range request.Functions {
 		function.ProxyServiceAddr = hnFn
@@ -74,23 +88,13 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
 
-		h.MetricManager.Register(function)
-
+		h.UselessMetrics.Register(function)
 		addFunctionAttributes(&span, function)
 	}
 
 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
-
 	span.AddEvent(prettyJson(response))
 	return response, nil
-}
-
-func addFunctionAttributes(span *trace.Span, function *deploy.Function) {
-	(*span).SetAttributes(attribute.Key(tracing.Entrypoint).String(function.Entrypoint))
-	(*span).SetAttributes(attribute.Key(tracing.Url).String(function.Url))
-	(*span).SetAttributes(attribute.Key(tracing.Status).String(function.Status))
-	(*span).SetAttributes(attribute.Key(tracing.IsMain).Bool(function.IsMain))
-	(*span).SetAttributes(attribute.Key(tracing.IsAsync).Bool(function.Async))
 }
 
 func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.DeployResponse, error) {
@@ -135,10 +139,10 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
 	var proxyError error = nil
 	var statusCode = http.StatusBadGateway
+	var ctxR context.Context
 
 	sp := trace.SpanFromContext(c.Request.Context())
 
-	var ctxR context.Context
 	if !sp.IsRecording() {
 		ctxR, sp = otel.Tracer(ServiceName).Start(c.Request.Context(), "forward"+"-"+fnName)
 	} else {
@@ -149,7 +153,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	newReq := newFwRequestWithCtx(ctxR, c.Request)
 	now := time.Now()
 
-	result := h.MetricManager.Invoked(fnName)
+	result := h.UselessMetrics.Invoked(fnName)
 	defer func() {
 		defer close(result)
 		result <- proxyError == nil
@@ -180,14 +184,6 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	}
 }
 
-func updateSpan(sp trace.Span, deploymentType string, statusCode int, now time.Time, fnName string) trace.Span {
-	sp.SetAttributes(attribute.Key("deployment").String(deploymentType))
-	sp.SetAttributes(attribute.Key("function-rsp-status").String(strconv.Itoa(statusCode)))
-	sp.SetAttributes(attribute.Key("function-round-trip").String(time.Since(now).String()))
-	sp.AddEvent(fnName, trace.WithAttributes(attribute.Key(fnName).String(strconv.Itoa(statusCode))))
-	return sp
-}
-
 func (h *handler) reset(c *gin.Context) {
 	h.proxies = newProxy()
 	c.Status(http.StatusAccepted)
@@ -195,7 +191,7 @@ func (h *handler) reset(c *gin.Context) {
 }
 func (h *handler) metrics(c *gin.Context) {
 	span := trace.SpanFromContext(c)
-	m := h.MetricManager.GetAll()
+	m := h.UselessMetrics.GetAll()
 	fmt.Println(m)
 	span.AddEvent(prettyJson(m))
 	c.JSON(http.StatusOK, m)
@@ -241,7 +237,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
 	h.httpFnProxyPort = http
 	h.proxies = newProxy()
-	h.MetricManager = tracing.Manager()
+	h.UselessMetrics = tracing.Manager()
 	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
 
 	gin.SetMode(gin.ReleaseMode)
