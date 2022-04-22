@@ -37,9 +37,10 @@ const (
 	zipkinVersion  = ":2.23.15"
 	zipkinHostPort = "9411"
 
-	jaegerImage    = "jaegertracing/all-in-one"
-	jaegerVersion  = ":1.31"
-	jaegerHostPort = "16686"
+	jaegerImage     = "jaegertracing/all-in-one"
+	jaegerVersion   = ":1.31"
+	jaegerHostPort1 = "14268"
+	jaegerHostPort2 = "16686"
 
 	networkName = "rfa_nw"
 	natsNwHost  = "nats://rfa-nats:4222"
@@ -72,7 +73,7 @@ func defaultProviderHost() string {
 }
 
 func jaegerContainerName() string {
-	return "host.docker.internal" // todo
+	return "rfa-jaeger"
 }
 
 var labels = map[string]string{
@@ -195,7 +196,10 @@ func (d *docker) stopZipkin() error {
 	name := zipkinContainerName()
 	return d.stop(name)
 }
-
+func (d *docker) stopJaeger() error {
+	name := jaegerContainerName()
+	return d.stop(name)
+}
 func (d *docker) stopProxy() error {
 	name := proxyContainerName()
 	return d.stop(name)
@@ -348,7 +352,8 @@ func (d *docker) ensureImages() bool {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(remoteTimeout))
 	defer cancel()
 
-	var errs = make(chan error, 4)
+	var errs = make(chan error, 5)
+	// var errs = make(chan error, 5)
 
 	wg.Add(1)
 	go func() {
@@ -356,6 +361,17 @@ func (d *docker) ensureImages() bool {
 		if !d.checkImage(deployBaseImage) {
 			if err := d.pull(ctx, deployBaseImage); err != nil {
 				d.Println("error-pull", deployBaseImage, err.Error())
+				errs <- err
+			}
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if !d.checkImage(jaegerImage + jaegerVersion) {
+			if err := d.pull(ctx, jaegerImage+jaegerVersion); err != nil {
+				d.Println("error-pull", jaegerImage+jaegerVersion, err.Error())
 				errs <- err
 			}
 		}
@@ -417,6 +433,56 @@ func (d *docker) ensureImages() bool {
 	return true
 }
 
+func (d *docker) startJaeger() error {
+	ctx := context.Background()
+
+	name := jaegerContainerName()
+	var config = new(container.Config)
+	var hostConfig = new(container.HostConfig)
+	var networkingConfig = &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{},
+	}
+	config = &container.Config{Image: jaegerImage + jaegerVersion, Hostname: name, Labels: labels}
+
+	// bind container port to host port
+	hostBinding1 := nat.PortBinding{
+		HostIP:   "0.0.0.0",
+		HostPort: jaegerHostPort1,
+	}
+	containerPort1, err := nat.NewPort("tcp", jaegerHostPort1)
+	if err != nil {
+		d.Println("Unable to get the port", err.Error())
+		return err
+	}
+	// bind container port to host port
+	hostBinding2 := nat.PortBinding{
+		HostIP:   "0.0.0.0",
+		HostPort: jaegerHostPort2,
+	}
+	containerPort2, err := nat.NewPort("tcp", jaegerHostPort2)
+	if err != nil {
+		d.Println("Unable to get the port", err.Error())
+		return err
+	}
+	hostConfig.PortBindings = nat.PortMap{containerPort1: []nat.PortBinding{hostBinding1}, containerPort2: []nat.PortBinding{hostBinding2}}
+
+	// attach container to network
+	networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{}
+
+	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	if err := d.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	return nil
+
+}
 func (d *docker) startZipkin() error {
 	ctx := context.Background()
 

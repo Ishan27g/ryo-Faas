@@ -1,0 +1,8 @@
+{
+  "deploy": [
+    {
+      "name" : "Hello",
+      "filePath": "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/examples/helloWorld/hello.go"
+    }
+  ]
+}

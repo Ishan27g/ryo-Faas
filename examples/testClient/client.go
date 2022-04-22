@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
@@ -27,7 +28,7 @@ func main() {
 func requestWithOtel() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	os.Setenv("JAEGER", "localhost")
 	// connect to jaeger
 	jp := tracing.Init("jaeger", "otel-client", "test-Client")
 	defer jp.Close()

@@ -75,6 +75,11 @@ func (d *docker) Start() bool {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		errs <- d.startJaeger()
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		errs <- d.startDatabase()
 	}()
 	if !d.isProxyLocal {
@@ -113,7 +118,8 @@ func (d *docker) Stop() bool {
 	d.stopDatabase()
 	d.stopNats()
 	d.stopProxy()
-	d.stopZipkin()
+	//d.stopZipkin()
+	d.stopJaeger()
 	return true
 }
 
@@ -153,7 +159,7 @@ func (d *docker) Check() map[string]string {
 	status[natsContainerName] = d.check(asFilter("name", natsContainerName))
 	status[databaseContainerName()] = d.check(asFilter("name", databaseContainerName()))
 	status[proxyContainerName()] = d.check(asFilter("name", proxyContainerName()))
-	// status[zipkinContainerName()] = d.check(asFilter("name", zipkinContainerName()))
+	status[jaegerContainerName()] = d.check(asFilter("name", jaegerContainerName()))
 	return status
 }
 func (d *docker) CheckLabel() bool {

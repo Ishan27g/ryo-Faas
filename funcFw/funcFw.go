@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	appName                         = "ryo-faas-func"
 	serviceName                     = ""
 	port                            = ""
 	jaegerHost                      = os.Getenv("JAEGER")
@@ -40,13 +39,13 @@ func Start(port string) {
 	serviceName, _ = os.Hostname()
 
 	if jaegerHost == "" && zipkinHost != "" {
-		provider = tracing.Init("zipkin", appName, serviceName)
+		provider = tracing.Init("zipkin", serviceName, serviceName)
 	}
 	if zipkinHost == "" && jaegerHost != "" {
-		provider = tracing.Init("jaeger", appName, serviceName)
+		provider = tracing.Init("jaeger", serviceName, serviceName)
 	}
 	if provider == nil {
-		provider = tracing.Init("jaeger", appName, serviceName)
+		provider = tracing.Init("jaeger", serviceName, serviceName)
 	}
 
 	// apply store event handlers

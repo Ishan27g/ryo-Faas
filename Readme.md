@@ -22,7 +22,7 @@ Functions as a service and json datastore.
 > [How it works](#How-it-works)
 
 ## Example
-1.Define a golang function - `hello/helloWorld.go`
+1.Define a golang function -> see `examples/helloWorld/hello.go`
 
 ```go
 package hello
@@ -45,7 +45,7 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
   "deploy": [
     {
       "name" : "HelloWorld",
-      "filePath": "./example/hello/helloWorld.go"
+      "filePath": "full/path/to/example/hello/helloWorld.go"
     }
   ]
 }
@@ -58,7 +58,7 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
 ```
 The function gets deployed as its own container - configured with OpenTelemetry traces and connected to the internal services (nats, database & other deployments)
 
-#### - The function is made available via the proxy at `http://localhost:9999/functions/helloworld`
+#### - The function is made available via the proxy at `http://localhost:9999/functions/hello`
 
 #### - Trigger the endpoint and view the `traces` collected by the default exporter - `Jaeger` running at `http://localhost:16686`
 
