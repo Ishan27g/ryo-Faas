@@ -120,7 +120,7 @@ func mockIncomingRequest(t *testing.T, cb func(w http.ResponseWriter, r *http.Re
 }
 func TestNatsHttpFunction(t *testing.T) {
 	os.Setenv("NATS", "nats://localhost:4222")
-	provider = tracing.Init("jaeger", appName, serviceName)
+	provider = tracing.Init("jaeger", serviceName, serviceName)
 
 	var method2 = func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
