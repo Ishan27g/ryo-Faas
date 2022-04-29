@@ -33,6 +33,31 @@ const (
 	ErrorPub   = "could not publish to nats"
 )
 
+var status = make(chan bool, 1)
+var tp = new(provider)
+
+func Disable() {
+	enabled := <-status
+	defer func() { status <- false }()
+	if !enabled {
+		return
+	}
+	tp.Close()
+	tp = &provider{
+		exporter:       tp.exporter,
+		app:            tp.app,
+		service:        tp.service,
+		TracerProvider: nil,
+	}
+}
+func Enable() {
+	enabled := <-status
+	defer func() { status <- true }()
+	if !enabled {
+		Init(tp.exporter, tp.app, tp.service)
+	}
+}
+
 // https://stackoverflow.com/questions/70378025/how-to-create-opentelemetry-span-from-a-string-traceid
 func CreateSpanContext(traceID trace.TraceID, spanID trace.SpanID) context.Context {
 	var spanContextConfig trace.SpanContextConfig

@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/DavidGamba/dgtools/run v0.6.0
 	github.com/Ishan27g/go-utils/mLogger v0.0.0-20220308132511-ad5f5c0e8f14
+	github.com/Ishan27g/go-utils/noop v0.0.0-20220425113802-61ee4cf50959
 	github.com/docker/docker v20.10.13+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/gin-gonic/gin v1.7.7
@@ -13,7 +14,7 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
+	github.com/nats-io/nats.go v1.14.0
 	github.com/pkg/errors v0.9.1
 	github.com/sonyarouje/simdb v0.1.0
 	github.com/stretchr/testify v1.7.1
@@ -27,7 +28,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.6.0
 	go.opentelemetry.io/otel/trace v1.6.0
 	google.golang.org/grpc v1.44.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.0
 )
 
 require (
@@ -47,8 +48,11 @@ require (
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
+	github.com/klauspost/compress v1.14.4 // indirect
+	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/moby/sys/mount v0.3.1 // indirect
 	github.com/moby/sys/mountinfo v0.6.0 // indirect
+	github.com/nats-io/jwt/v2 v2.2.1-0.20220330180145-442af02fd36a // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opencontainers/runc v1.1.0 // indirect
@@ -57,6 +61,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
+	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
@@ -81,7 +86,6 @@ require (
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/nats-io/nats-server/v2 v2.7.4 // indirect
 	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/otiai10/copy v1.7.0
@@ -91,7 +95,7 @@ require (
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	go.opentelemetry.io/otel/internal/metric v0.27.0 // indirect
 	go.opentelemetry.io/otel/metric v0.27.0 // indirect
-	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect
+	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd // indirect
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/text v0.3.7 // indirect

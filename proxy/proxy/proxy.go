@@ -139,6 +139,7 @@ func (p *Pxy) ServeHTTP(rw http.ResponseWriter, outReq *http.Request, host strin
 		rw.WriteHeader(http.StatusBadGateway)
 		return http.StatusBadGateway, span
 	}
+
 	res, err := transport.RoundTrip(outReq)
 	if err != nil {
 		rw.WriteHeader(http.StatusBadGateway)

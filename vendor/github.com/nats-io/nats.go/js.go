@@ -181,6 +181,15 @@ const (
 	// routine. Without this, the subscription would possibly stall until
 	// a new message or heartbeat/fc are received.
 	chanSubFCCheckInterval = 250 * time.Millisecond
+
+	// Default time wait between retries on Publish iff err is NoResponders.
+	DefaultPubRetryWait = 250 * time.Millisecond
+
+	// Default number of retries
+	DefaultPubRetryAttempts = 2
+
+	// defaultAsyncPubAckInflight is the number of async pub acks inflight.
+	defaultAsyncPubAckInflight = 4000
 )
 
 // Types of control messages, so far heartbeat and flow control
@@ -212,12 +221,12 @@ type jsOpts struct {
 	wait time.Duration
 	// For async publish error handling.
 	aecb MsgErrHandler
-	// Maximum in flight.
-	maxap int
+	// Max async pub ack in flight
+	maxpa int
 	// the domain that produced the pre
 	domain string
 	// enables protocol tracing
-	trace       TraceCB
+	ctrace      ClientTrace
 	shouldTrace bool
 }
 
@@ -232,8 +241,9 @@ func (nc *Conn) JetStream(opts ...JSOpt) (JetStreamContext, error) {
 	js := &js{
 		nc: nc,
 		opts: &jsOpts{
-			pre:  defaultAPIPrefix,
-			wait: defaultRequestWait,
+			pre:   defaultAPIPrefix,
+			wait:  defaultRequestWait,
+			maxpa: defaultAsyncPubAckInflight,
 		},
 	}
 
@@ -257,26 +267,16 @@ func (opt jsOptFn) configureJSContext(opts *jsOpts) error {
 	return opt(opts)
 }
 
-// TraceOperation indicates the direction of traffic flow to TraceCB
-type TraceOperation int
+// ClientTrace can be used to trace API interactions for the JetStream Context.
+type ClientTrace struct {
+	RequestSent      func(subj string, payload []byte)
+	ResponseReceived func(subj string, payload []byte, hdr Header)
+}
 
-const (
-	// TraceSent indicate the payload is being sent to subj
-	TraceSent TraceOperation = 0
-	// TraceReceived indicate the payload is being received on subj
-	TraceReceived TraceOperation = 1
-)
-
-// TraceCB is called to trace API interactions for the JetStream Context
-type TraceCB func(op TraceOperation, subj string, payload []byte, hdr Header)
-
-// TraceFunc enables tracing of JetStream API interactions
-func TraceFunc(cb TraceCB) JSOpt {
-	return jsOptFn(func(js *jsOpts) error {
-		js.trace = cb
-		js.shouldTrace = true
-		return nil
-	})
+func (ct ClientTrace) configureJSContext(js *jsOpts) error {
+	js.ctrace = ct
+	js.shouldTrace = true
+	return nil
 }
 
 // Domain changes the domain part of JetStream API prefix.
@@ -340,6 +340,13 @@ type pubOpts struct {
 	str string // Expected stream name
 	seq uint64 // Expected last sequence
 	lss uint64 // Expected last sequence per subject
+
+	// Publish retries for NoResponders err.
+	rwait time.Duration // Retry wait between attempts
+	rnum  int           // Retry attempts
+
+	// stallWait is the max wait of a async pub ack.
+	stallWait time.Duration
 }
 
 // pubAckResponse is the ack response from the JetStream API when publishing a message.
@@ -377,7 +384,7 @@ const (
 
 // PublishMsg publishes a Msg to a stream from JetStream.
 func (js *js) PublishMsg(m *Msg, opts ...PubOpt) (*PubAck, error) {
-	var o pubOpts
+	var o = pubOpts{rwait: DefaultPubRetryWait, rnum: DefaultPubRetryAttempts}
 	if len(opts) > 0 {
 		if m.Header == nil {
 			m.Header = Header{}
@@ -394,6 +401,9 @@ func (js *js) PublishMsg(m *Msg, opts ...PubOpt) (*PubAck, error) {
 	}
 	if o.ttl == 0 && o.ctx == nil {
 		o.ttl = js.opts.wait
+	}
+	if o.stallWait > 0 {
+		return nil, fmt.Errorf("nats: stall wait cannot be set to sync publish")
 	}
 
 	if o.id != _EMPTY_ {
@@ -422,11 +432,35 @@ func (js *js) PublishMsg(m *Msg, opts ...PubOpt) (*PubAck, error) {
 	}
 
 	if err != nil {
-		if err == ErrNoResponders {
-			err = ErrNoStreamResponse
+		for r, ttl := 0, o.ttl; err == ErrNoResponders && (r < o.rnum || o.rnum < 0); r++ {
+			// To protect against small blips in leadership changes etc, if we get a no responders here retry.
+			if o.ctx != nil {
+				select {
+				case <-o.ctx.Done():
+				case <-time.After(o.rwait):
+				}
+			} else {
+				time.Sleep(o.rwait)
+			}
+			if o.ttl > 0 {
+				ttl -= o.rwait
+				if ttl <= 0 {
+					err = ErrTimeout
+					break
+				}
+				resp, err = js.nc.RequestMsg(m, time.Duration(ttl))
+			} else {
+				resp, err = js.nc.RequestMsgWithContext(o.ctx, m)
+			}
 		}
-		return nil, err
+		if err != nil {
+			if err == ErrNoResponders {
+				err = ErrNoStreamResponse
+			}
+			return nil, err
+		}
 	}
+
 	var pa pubAckResponse
 	if err := json.Unmarshal(resp.Data, &pa); err != nil {
 		return nil, ErrInvalidJSAck
@@ -546,9 +580,9 @@ func (js *js) registerPAF(id string, paf *pubAckFuture) (int, int) {
 	paf.js = js
 	js.pafs[id] = paf
 	np := len(js.pafs)
-	maxap := js.opts.maxap
+	maxpa := js.opts.maxpa
 	js.mu.Unlock()
-	return np, maxap
+	return np, maxpa
 }
 
 // Lock should be held.
@@ -600,7 +634,7 @@ func (js *js) handleAsyncReply(m *Msg) {
 	delete(js.pafs, id)
 
 	// Check on anyone stalled and waiting.
-	if js.stc != nil && len(js.pafs) < js.opts.maxap {
+	if js.stc != nil && len(js.pafs) < js.opts.maxpa {
 		close(js.stc)
 		js.stc = nil
 	}
@@ -671,7 +705,7 @@ func PublishAsyncMaxPending(max int) JSOpt {
 		if max < 1 {
 			return errors.New("nats: max ack pending should be >= 1")
 		}
-		js.maxap = max
+		js.maxpa = max
 		return nil
 	})
 }
@@ -680,6 +714,8 @@ func PublishAsyncMaxPending(max int) JSOpt {
 func (js *js) PublishAsync(subj string, data []byte, opts ...PubOpt) (PubAckFuture, error) {
 	return js.PublishMsgAsync(&Msg{Subject: subj, Data: data}, opts...)
 }
+
+const defaultStallWait = 200 * time.Millisecond
 
 func (js *js) PublishMsgAsync(m *Msg, opts ...PubOpt) (PubAckFuture, error) {
 	var o pubOpts
@@ -697,6 +733,10 @@ func (js *js) PublishMsgAsync(m *Msg, opts ...PubOpt) (PubAckFuture, error) {
 	// Timeouts and contexts do not make sense for these.
 	if o.ttl != 0 || o.ctx != nil {
 		return nil, ErrContextAndTimeout
+	}
+	stallWait := defaultStallWait
+	if o.stallWait > 0 {
+		stallWait = o.stallWait
 	}
 
 	// FIXME(dlc) - Make common.
@@ -735,7 +775,7 @@ func (js *js) PublishMsgAsync(m *Msg, opts ...PubOpt) (PubAckFuture, error) {
 	if maxPending > 0 && numPending >= maxPending {
 		select {
 		case <-js.asyncStall():
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(stallWait):
 			js.clearPAF(id)
 			return nil, errors.New("nats: stalled with too many outstanding async published messages")
 		}
@@ -799,6 +839,33 @@ func ExpectLastSequencePerSubject(seq uint64) PubOpt {
 func ExpectLastMsgId(id string) PubOpt {
 	return pubOptFn(func(opts *pubOpts) error {
 		opts.lid = id
+		return nil
+	})
+}
+
+// RetryWait sets the retry wait time when ErrNoResponders is encountered.
+func RetryWait(dur time.Duration) PubOpt {
+	return pubOptFn(func(opts *pubOpts) error {
+		opts.rwait = dur
+		return nil
+	})
+}
+
+// RetryAttempts sets the retry number of attemopts when ErrNoResponders is encountered.
+func RetryAttempts(num int) PubOpt {
+	return pubOptFn(func(opts *pubOpts) error {
+		opts.rnum = num
+		return nil
+	})
+}
+
+// StallWait sets the max wait when the producer becomes stall producing messages.
+func StallWait(ttl time.Duration) PubOpt {
+	return pubOptFn(func(opts *pubOpts) error {
+		if ttl <= 0 {
+			return fmt.Errorf("nats: stall wait should be more than 0")
+		}
+		opts.stallWait = ttl
 		return nil
 	})
 }
@@ -1476,7 +1543,10 @@ func (js *js) subscribe(subj, queue string, cb MsgHandler, ch chan *Msg, isSync,
 		}
 
 		if js.opts.shouldTrace {
-			js.opts.trace(TraceSent, ccSubj, j, nil)
+			ctrace := js.opts.ctrace
+			if ctrace.RequestSent != nil {
+				ctrace.RequestSent(ccSubj, j)
+			}
 		}
 		resp, err := nc.Request(ccSubj, j, js.opts.wait)
 		if err != nil {
@@ -1487,7 +1557,10 @@ func (js *js) subscribe(subj, queue string, cb MsgHandler, ch chan *Msg, isSync,
 			return nil, err
 		}
 		if js.opts.shouldTrace {
-			js.opts.trace(TraceReceived, ccSubj, resp.Data, resp.Header)
+			ctrace := js.opts.ctrace
+			if ctrace.ResponseReceived != nil {
+				ctrace.ResponseReceived(ccSubj, resp.Data, resp.Header)
+			}
 		}
 
 		var cinfo consumerResponse
@@ -2186,6 +2259,14 @@ func RateLimit(n uint64) SubOpt {
 	})
 }
 
+// BackOff is an array of time durations that represent the time to delay based on delivery count.
+func BackOff(backOff []time.Duration) SubOpt {
+	return subOptFn(func(opts *subOpts) error {
+		opts.cfg.BackOff = backOff
+		return nil
+	})
+}
+
 // BindStream binds a consumer to a stream explicitly based on a name.
 // When a stream name is not specified, the library uses the subscribe
 // subject as a way to find the stream name. It is done by making a request
@@ -2585,14 +2666,20 @@ func (js *js) getConsumerInfoContext(ctx context.Context, stream, consumer strin
 // a RequestWithContext with tracing via TraceCB
 func (js *js) apiRequestWithContext(ctx context.Context, subj string, data []byte) (*Msg, error) {
 	if js.opts.shouldTrace {
-		js.opts.trace(TraceSent, subj, data, nil)
+		ctrace := js.opts.ctrace
+		if ctrace.RequestSent != nil {
+			ctrace.RequestSent(subj, data)
+		}
 	}
 	resp, err := js.nc.RequestWithContext(ctx, subj, data)
 	if err != nil {
 		return nil, err
 	}
 	if js.opts.shouldTrace {
-		js.opts.trace(TraceReceived, subj, resp.Data, resp.Header)
+		ctrace := js.opts.ctrace
+		if ctrace.RequestSent != nil {
+			ctrace.ResponseReceived(subj, resp.Data, resp.Header)
+		}
 	}
 
 	return resp, nil
