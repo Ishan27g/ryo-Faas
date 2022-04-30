@@ -11,6 +11,7 @@ import (
 
 // NoopSpanFromGin returns a span with noop-ctx if url has a query => `?noop=true`
 // otherwise it returns the request's span (if any)
+// if the request's ctx has noop, it overrides presence of the query param
 func NoopSpanFromGin(c *gin.Context) (trace.Span, context.Context) {
 	isNoop := strings.EqualFold(c.Query("noop"), "true")
 	ctx := noop.NewCtxWithNoop(c.Request.Context(), isNoop)

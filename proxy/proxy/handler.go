@@ -240,22 +240,6 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 	c.JSON(200, details)
 }
 
-func (h *handler) switchTracing(c *gin.Context) {
-	switchTo := c.Query("tracing")
-	fmt.Println(switchTo)
-	if strings.EqualFold(switchTo, "true") {
-		tracing.Enable()
-		c.JSON(http.StatusOK, "Tracing enabled")
-		return
-	}
-	if strings.EqualFold(switchTo, "false") {
-		tracing.Disable()
-		c.JSON(http.StatusOK, "Tracing disabled")
-		return
-	}
-	c.JSON(http.StatusBadRequest, "Expected /switch?tracing=true or /switch?tracing=false")
-}
-
 func checkHealth(addr string) bool {
 	resp, err := http.Get(addr + "/healthcheck")
 	if err != nil {
@@ -284,7 +268,6 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.Use(otelgin.Middleware(ServiceName))
 
 	h.g.GET("/reset", h.reset)
-	h.g.GET("/switch", h.switchTracing) // /switch?tracing=true
 	h.g.GET("/metrics", h.metrics)
 	h.g.GET("/details", h.DetailsHttp)
 

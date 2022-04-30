@@ -17,9 +17,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func init() {
-	status <- true
-}
+var tp = new(provider)
 
 type TraceProvider interface {
 	Get() trace.Tracer

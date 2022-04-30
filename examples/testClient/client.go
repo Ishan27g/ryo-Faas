@@ -37,10 +37,17 @@ func main() {
 func requestWithOtel(atUrl string, tr trace.Tracer) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ctx2, span := tr.Start(ctx, "client-with-otel-header", trace.WithAttributes(semconv.MessagingDestinationKey.String(atUrl)))
+	spanName := ""
+	if atUrl == url {
+		spanName = "client-with-otel-header"
+	}
+	if atUrl == urlNoop {
+		spanName = "client-with-otel-header-&-noop"
+	}
+	ctx2, span := tr.Start(ctx, spanName, trace.WithAttributes(semconv.MessagingDestinationKey.String(atUrl)))
 
 	// add baggage to span
-	bag, err := baggage.Parse("username=Goku,id=Saiyan")
+	bag, err := baggage.Parse("username=Sensu,id=Bean")
 	if err != nil {
 		panic(err.Error())
 	}
