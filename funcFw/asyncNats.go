@@ -29,7 +29,6 @@ func (hn HttpAsyncNats) getSubj() string {
 }
 
 func (hn HttpAsyncNats) HandleAsyncNats(w http.ResponseWriter, r *http.Request) {
-
 	callback := r.Header.Get(tracing.XCallback)
 	span := trace.SpanFromContext(r.Context())
 	span.SetAttributes(attribute.Key(tracing.XCallback).String(callback))

@@ -138,7 +138,6 @@ func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployR
 
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
-	fmt.Println(fnName)
 	var proxyError error = nil
 	var statusCode = http.StatusBadGateway
 	var ctxR context.Context

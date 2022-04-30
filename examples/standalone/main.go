@@ -28,7 +28,15 @@ func Method1(w http.ResponseWriter, r *http.Request) {
 func cb(document store.Doc) {
 	fmt.Println(document.CreatedAt + " " + document.Id + " ---- at GenericCb()")
 }
+
+func Test(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.RequestURI)
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprint(w, "Accepted at Test ..."+"\n")
+}
 func main() {
+
+	FuncFw.Export.Http("testMethod", "/test", Test)
 
 	FuncFw.Export.Http("Method2", "/method2", Method2)
 	FuncFw.Export.Http("Method1", "/method1", Method1)
@@ -43,7 +51,7 @@ func main() {
 	FuncFw.Export.EventsFor("bills").OnIds(store.DocumentGET, cb, "some-known-id")
 	FuncFw.Export.EventsFor("payments").OnIds(store.DocumentUPDATE, cb, "some-known-id")
 
-	FuncFw.Start("9999")
+	FuncFw.Start("9997")
 
 	<-time.After(10000 * time.Second)
 	FuncFw.Stop()

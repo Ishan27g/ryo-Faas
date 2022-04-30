@@ -123,7 +123,6 @@ var initRfaFaasCmd = cli.Command{
 		}
 		d := docker.New()
 		d.SetSilent()
-		d.SetLocalProxy() // todo remove
 
 		go d.Setup()
 

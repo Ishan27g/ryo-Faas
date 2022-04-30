@@ -62,6 +62,7 @@ func Start(port string) {
 	for entrypoint, function := range Export.GetHttp() {
 		otelHandler := otelhttp.NewHandler(http.HandlerFunc(function.HttpFn), "deployed-service-"+entrypoint)
 		http.Handle(function.UrlPath, otelHandler)
+		http.Handle(function.UrlPath+"/", otelHandler)
 		logger.Println("[http] " + function.Entrypoint + " at " + function.UrlPath)
 	}
 
@@ -69,6 +70,7 @@ func Start(port string) {
 	for entrypoint, httpAsync := range Export.GetHttpAsync() {
 		otelHandler := otelhttp.NewHandler(http.HandlerFunc(wrapAsync(httpAsync)), "deployed-service-async-"+entrypoint)
 		http.Handle(httpAsync.UrlPath, otelHandler)
+		http.Handle(httpAsync.UrlPath+"/", otelHandler)
 		logger.Println("[http-Async] " + httpAsync.Entrypoint + " at " + httpAsync.UrlPath)
 	}
 
