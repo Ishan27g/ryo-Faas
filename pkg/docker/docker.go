@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/docker/docker/api/types"
@@ -33,7 +34,9 @@ type Docker interface {
 
 	Stop() bool
 
-	RunFunction(serviceName string) error
+	BuildAndRunFunction(serviceName string) error
+	RunFunctionInstance(serviceName string, instance int) error
+	StopFunctionInstance(serviceName string, asInstance int) error
 	CheckFunction(serviceName string) bool
 	StopFunction(serviceName string, prune bool) error
 }
@@ -125,7 +128,7 @@ func (d *docker) Stop() bool {
 
 func (d *docker) StopFunction(serviceName string, prune bool) error {
 	var err error
-	name := serviceContainerName(serviceName)
+	name := serviceImageName(serviceName)
 	if err = d.stop(name); err == nil && prune {
 		d.pruneFunctionImages(name)
 	}
@@ -168,31 +171,32 @@ func (d *docker) CheckLabel() bool {
 }
 func (d *docker) CheckFunction(serviceName string) bool {
 	ctx := context.Background()
-	containers, err := d.ContainerList(ctx, types.ContainerListOptions{Filters: asFilter("name", serviceContainerName(serviceName))})
+	containers, err := d.ContainerList(ctx, types.ContainerListOptions{Filters: asFilter("name", serviceImageName(serviceName))})
 	if err != nil {
 		panic(err)
 	}
 	return containers[0].State == "running"
 }
-
-func (d *docker) RunFunction(serviceName string) error {
-	dir := os.Getenv("RYA_FAAS")
-	if dir == "" {
-		return errors.New("cannot find ryo-faas directory")
+func (d *docker) StopFunctionInstance(serviceName string, asInstance int) error {
+	name := serviceImageName(serviceName) + strconv.Itoa(asInstance)
+	return d.stop(name)
+}
+func (d *docker) RunFunctionInstance(serviceName string, asInstance int) error {
+	name := serviceImageName(serviceName)
+	if asInstance == 0 {
+		return d.runFunction(name, name)
 	}
-	err := os.Chdir(dir)
+	return d.runFunction(name, name+strconv.Itoa(asInstance))
+}
+func (d *docker) BuildAndRunFunction(serviceName string) error {
+	err := d.buildImage(serviceImageName(serviceName))
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
 	}
-
-	name := serviceContainerName(serviceName)
-
-	err = d.imageBuild(d.Client, name)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
+	return d.RunFunctionInstance(serviceName, 0)
+}
+func (d *docker) runFunction(imageName, serviceName string) error {
 
 	ctx := context.Background()
 
@@ -205,7 +209,7 @@ func (d *docker) RunFunction(serviceName string) error {
 		deployedFnNetworkPort + "/tcp": {},
 	}
 
-	config = &container.Config{Image: name, Hostname: name, ExposedPorts: ports, Env: defaultEnv, Labels: labels}
+	config = &container.Config{Image: imageName, Hostname: serviceName, ExposedPorts: ports, Env: defaultEnv, Labels: labels}
 
 	// if proxy is running outside docker, expose fn-container port to host
 	if d.isProxyLocal {
@@ -228,7 +232,7 @@ func (d *docker) RunFunction(serviceName string) error {
 		Type:   "json-file",
 		Config: map[string]string{},
 	}
-	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
+	resp, err := d.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, serviceName)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -241,6 +245,33 @@ func (d *docker) RunFunction(serviceName string) error {
 
 	return nil
 
+}
+
+func (d *docker) buildImage(name string) error {
+	dir := os.Getenv("RYO_FAAS")
+	if dir == "" {
+		return errors.New("cannot find ryo-faas directory")
+	}
+	err := os.Chdir(dir)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	//fmt.Println("cwd = ", dir)
+	//files, err := ioutil.ReadDir(dir)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//for _, file := range files {
+	//	fmt.Println(file.Name(), file.IsDir())
+	//}
+	err = d.imageBuild(d.Client, name)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	return nil
 }
 
 func databaseNwHost() string {

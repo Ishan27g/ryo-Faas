@@ -53,7 +53,7 @@ func Manager() UselessMetrics {
 func newMetric(function *deploy.Function) *Metric {
 	var f Function
 	if function != nil {
-		f = copy(function)
+		f = copyFunction(function)
 	}
 	m := Metric{
 		Function:    f,
@@ -65,7 +65,7 @@ func newMetric(function *deploy.Function) *Metric {
 	return &m
 }
 
-func copy(function *deploy.Function) Function {
+func copyFunction(function *deploy.Function) Function {
 	f := new(Function)
 	f.Entrypoint = function.Entrypoint
 	f.FilePath = function.FilePath

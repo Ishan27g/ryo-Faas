@@ -92,7 +92,7 @@ func proxyContainerName() string {
 	return trimVersion(proxyImage)
 }
 
-func serviceContainerName(serviceName string) string {
+func serviceImageName(serviceName string) string {
 	return "rfa-deploy-" + serviceName
 }
 func zipkinContainerName() string {
@@ -240,8 +240,10 @@ func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) err
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 
-	tar, err := archive.TarWithOptions(".", &archive.TarOptions{})
+	//	tar, err := archive.TarWithOptions(".", &archive.TarOptions{})
+	tar, err := archive.TarWithOptions("./", &archive.TarOptions{})
 	if err != nil {
+		fmt.Println("tar err ", err.Error())
 		return err
 	}
 

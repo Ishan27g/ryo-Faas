@@ -3,6 +3,8 @@ version: '3'
 env:
   JAEGER: localhost
   DATABASE: localhost:5000
+  NATS: nats://localhost:4222
+  RYO_FAAS: /Users/ishan/Documents/Drive/golang/ryo-Faas
 
 vars:
     DOCKER_REMOTE: ishan27g/ryo-faas
@@ -44,8 +46,12 @@ tasks:
     dir: proxy
     cmds:
       - go run main.go
-  
-  # call via go to run in parallel
+  # run metric
+  metric:
+    cmds:
+      - go run mmmmm.go
+
+      # call via go to run in parallel
   metaGolangTask:
     cmds:
       - go run .dockerfiles/taskFile.go -buildImages

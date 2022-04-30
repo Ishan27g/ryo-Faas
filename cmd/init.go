@@ -15,7 +15,7 @@ import (
 //var cwdMock = "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas"
 var cwdMock = "/Users/ishan/Documents/Drive/golang"
 
-const DIR_KEY = "RYA_FAAS"
+const DIR_KEY = "RYO_FAAS"
 
 var repositoryUrl = "https://github.com/Ishan27g/registry.git"
 

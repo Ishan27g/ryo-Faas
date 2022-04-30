@@ -76,7 +76,7 @@ var deployCmd = cli.Command{
 		d := docker.New()
 		// d.SetLocalProxy()
 
-		if d.RunFunction(fns[0].Entrypoint) != nil {
+		if d.BuildAndRunFunction(fns[0].Entrypoint) != nil {
 			log.Fatal("cannot run container" + fns[0].Entrypoint)
 		}
 		if !bypass {
@@ -88,6 +88,7 @@ var deployCmd = cli.Command{
 			}
 			printResponse(deployResponse)
 		}
+		// delete dir to `go build` latest during next run
 		os.RemoveAll("deployment/tmp/")
 		return nil
 	},

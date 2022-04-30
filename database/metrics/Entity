@@ -1,0 +1,164 @@
+[
+	{
+		"CreatedAt": "2022-04-30 23:37:09.626929 +1000 AEST m=+11.870713751",
+		"Data": {
+			"Value": {
+				"duration": [
+					{
+						"at": "1970-01-01T10:00:01.000000001+10:00",
+						"duration": "1s",
+						"till": "1970-01-01T10:00:02.000000001+10:00"
+					}
+				],
+				"error": 1,
+				"function": {
+					"dir": "okk",
+					"entrypoint": "something",
+					"filePath": "ok",
+					"proxyServiceAddr": "/123",
+					"status": "what",
+					"url": "/1/2/3"
+				},
+				"invocations": 2,
+				"success": 3
+			}
+		},
+		"EditedAt": "2022-04-30 23:37:09.626961 +1000 AEST m=+11.870746042",
+		"Id": "something"
+	},
+	{
+		"CreatedAt": "2022-04-30 23:37:52.85775 +1000 AEST m=+55.102783542",
+		"Data": {
+			"Value": {
+				"duration": [
+					{
+						"at": "1970-01-01T10:00:01.000000001+10:00",
+						"duration": "1s",
+						"till": "1970-01-01T10:00:02.000000001+10:00"
+					}
+				],
+				"error": 1,
+				"function": {
+					"dir": "okk",
+					"entrypoint": "something",
+					"filePath": "ok",
+					"proxyServiceAddr": "/123",
+					"status": "what",
+					"url": "/1/2/3"
+				},
+				"invocations": 2,
+				"success": 3
+			}
+		},
+		"EditedAt": "2022-04-30 23:37:52.857761 +1000 AEST m=+55.102794751",
+		"Id": "something"
+	},
+	{
+		"CreatedAt": "2022-04-30 23:38:39.194937 +1000 AEST m=+101.442143001",
+		"Data": {
+			"Value": {
+				"duration": [
+					{
+						"at": "1970-01-01T10:00:01.000000001+10:00",
+						"duration": "1s",
+						"till": "1970-01-01T10:00:02.000000001+10:00"
+					}
+				],
+				"error": 1,
+				"function": {
+					"dir": "okk",
+					"entrypoint": "something",
+					"filePath": "ok",
+					"proxyServiceAddr": "/123",
+					"status": "what",
+					"url": "/1/2/3"
+				},
+				"invocations": 2,
+				"success": 3
+			}
+		},
+		"EditedAt": "2022-04-30 23:38:39.194952 +1000 AEST m=+101.442157376",
+		"Id": "something"
+	},
+	{
+		"CreatedAt": "2022-04-30 23:38:51.234927 +1000 AEST m=+113.482193084",
+		"Data": {
+			"Value": {
+				"duration": [
+					{
+						"at": "1970-01-01T10:00:01.000000001+10:00",
+						"duration": "1s",
+						"till": "1970-01-01T10:00:02.000000001+10:00"
+					}
+				],
+				"error": 1,
+				"function": {
+					"dir": "okk",
+					"entrypoint": "something",
+					"filePath": "ok",
+					"proxyServiceAddr": "/123",
+					"status": "what",
+					"url": "/1/2/3"
+				},
+				"invocations": 2,
+				"success": 3
+			}
+		},
+		"EditedAt": "2022-04-30 23:38:51.234937 +1000 AEST m=+113.482203417",
+		"Id": "something"
+	},
+	{
+		"CreatedAt": "2022-04-30 23:39:24.000661 +1000 AEST m=+146.247969917",
+		"Data": {
+			"Value": {
+				"duration": [
+					{
+						"at": "1970-01-01T10:00:01.000000001+10:00",
+						"duration": "1s",
+						"till": "1970-01-01T10:00:02.000000001+10:00"
+					}
+				],
+				"error": 1,
+				"function": {
+					"dir": "okk",
+					"entrypoint": "something",
+					"filePath": "ok",
+					"proxyServiceAddr": "/123",
+					"status": "what",
+					"url": "/1/2/3"
+				},
+				"invocations": 2,
+				"success": 3
+			}
+		},
+		"EditedAt": "2022-04-30 23:39:24.000672 +1000 AEST m=+146.247980917",
+		"Id": "something"
+	},
+	{
+		"Id": "something",
+		"CreatedAt": "2022-04-30 23:47:34.468566 +1000 AEST m=+7.542213918",
+		"EditedAt": "2022-04-30 23:47:34.468585 +1000 AEST m=+7.542232834",
+		"Data": {
+			"Value": {
+				"duration": [
+					{
+						"at": "1970-01-01T10:00:01.000000001+10:00",
+						"duration": "1s",
+						"till": "1970-01-01T10:00:02.000000001+10:00"
+					}
+				],
+				"error": 1,
+				"function": {
+					"dir": "okk",
+					"entrypoint": "something",
+					"filePath": "ok",
+					"proxyServiceAddr": "/123",
+					"status": "what",
+					"url": "/1/2/3"
+				},
+				"invocations": 2,
+				"success": 3
+			}
+		}
+	}
+]

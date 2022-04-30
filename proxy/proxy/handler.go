@@ -76,6 +76,25 @@ func updateSpan(sp trace.Span, deploymentType string, statusCode int, now time.T
 	return sp
 }
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
+	//var wg sync.WaitGroup
+	//wg.Add(1)
+	//go func() {
+	//	defer wg.Done()
+	//	d := docker.New()
+	//	if d.BuildAndRunFunction(request.Functions[0].Entrypoint) != nil {
+	//		log.Println("cannot run container" + request.Functions[0].Entrypoint)
+	//	}
+	//	<-time.After(3 * time.Second)
+	//	fmt.Println("Running new instance")
+	//	if d.RunFunctionInstance(request.Functions[0].Entrypoint, 2) != nil {
+	//		log.Println("cannot run container instance 2 " + request.Functions[0].Entrypoint)
+	//	}
+	//	<-time.After(3 * time.Second)
+	//	fmt.Println("Stopping new instance")
+	//	if d.StopFunctionInstance(request.Functions[0].Entrypoint, 2) != nil {
+	//		log.Println("cannot stop container instance 2 " + request.Functions[0].Entrypoint)
+	//	}
+	//}()
 
 	span := trace.SpanFromContext(ctx)
 	response := new(deploy.DeployResponse)
@@ -95,6 +114,7 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 
 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
 	span.AddEvent(prettyJson(response))
+	// wg.Wait()
 	return response, nil
 }
 

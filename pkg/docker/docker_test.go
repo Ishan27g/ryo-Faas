@@ -33,7 +33,7 @@ package docker
 //
 //func TestDocker_RunFunction(t *testing.T) {
 //	d := New()
-//	d.RunFunction("method-async")
+//	d.BuildAndRunFunction("method-async")
 //	<-time.After(5 * time.Second)
 //	isRunning := d.CheckFunction("method-async")
 //	fmt.Println("isRunning", isRunning)
