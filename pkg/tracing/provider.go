@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+var exporter, app string
 var tp = new(provider)
 
 type TraceProvider interface {
@@ -25,7 +26,7 @@ type TraceProvider interface {
 }
 
 type provider struct {
-	exporter, app, service string
+	service string
 	*tracesdk.TracerProvider
 }
 
@@ -34,6 +35,7 @@ func (j *provider) Get() trace.Tracer {
 }
 
 func (j *provider) Close() {
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func(ctx context.Context) {
@@ -43,10 +45,15 @@ func (j *provider) Close() {
 			log.Fatal(err)
 		}
 	}(ctx)
+
+	tp = &provider{
+		service:        tp.service,
+		TracerProvider: nil,
+	}
 }
 
-func Init(exporter, app, service string) TraceProvider {
-
+func Init(exporterName, appName, service string) TraceProvider {
+	exporter, app = exporterName, appName
 	var exp tracesdk.SpanExporter = nil
 	var err error
 
@@ -58,22 +65,22 @@ func Init(exporter, app, service string) TraceProvider {
 			fmt.Println("Cannot connect to Jaeger ", err.Error())
 			return nil
 		}
-		tp = initProvider(exporter, app, service, exp)
+		tp = initProvider(app, service, exp)
 	case "zipkin":
 		zipkinUrl := "http://" + os.Getenv("ZIPKIN") + ":9411/api/v2/spans"
 		exp, err = zipkin.New(zipkinUrl)
 		if err != nil {
 			fmt.Println("Cannot connect to Zipkin ", err.Error())
 		}
-		tp = initProvider(exporter, app, service, exp)
+		tp = initProvider(app, service, exp)
 	}
 	return tp
 }
 
-func initProvider(exporter, app, service string, exp tracesdk.SpanExporter) *provider {
+func initProvider(app, service string, exp tracesdk.SpanExporter) *provider {
 	tsp := tracesdk.NewTracerProvider(
 		tracesdk.WithBatcher(exp),
-		//		tracesdk.WithSpanProcessor(tracesdk.NewBatchSpanProcessor(exporter)),
+		// tracesdk.WithSpanProcessor(tracesdk.NewBatchSpanProcessor(exp)),
 		tracesdk.WithSampler(tracesdk.TraceIDRatioBased(1)),
 		tracesdk.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
@@ -86,5 +93,5 @@ func initProvider(exporter, app, service string, exp tracesdk.SpanExporter) *pro
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{}, propagation.Baggage{}))
 
-	return &provider{exporter, app, service, tsp}
+	return &provider{service, tsp}
 }
