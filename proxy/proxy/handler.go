@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Ishan27g/go-utils/noop/noop"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
@@ -141,14 +142,18 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	var statusCode = http.StatusBadGateway
 	var ctxR context.Context
 
-	sp := trace.SpanFromContext(c.Request.Context())
+	sp, ctx := tracing.NoopSpanFromGin(c)
 
 	if !sp.IsRecording() {
-		ctxR, sp = otel.Tracer(ServiceName).Start(c.Request.Context(), "forward"+"-"+fnName)
+		ctxR, sp = otel.Tracer(ServiceName).Start(ctx, "forward"+"-"+fnName)
 	} else {
-		ctxR = trace.ContextWithSpan(c.Request.Context(), sp)
+		ctxR = trace.ContextWithSpan(ctx, sp)
 	}
 	sp.SetName(fnName)
+	sp.SetAttributes(attribute.KeyValue{
+		Key:   "noop",
+		Value: attribute.BoolValue(noop.ContainsNoop(ctxR)),
+	})
 
 	newReq := newFwRequestWithCtx(ctxR, c.Request)
 	now := time.Now()
@@ -161,8 +166,11 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 
 	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
 		proxyError = nil
-		sp.SetAttributes(attribute.Key(semconv.HTTPHostKey).String(fnServiceHost))
+		sp.SetAttributes(semconv.HTTPHostKey.String(fnServiceHost))
 		if isAsyncNats {
+			if noop.ContainsNoop(ctxR) {
+				return
+			}
 			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, newReq)
 			statusCode = http.StatusOK
 			sp = updateSpan(sp, "async-nats", statusCode, now, fnName)
@@ -170,8 +178,14 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 			var stc int
 			var span trace.Span
 			if isMain {
+				if noop.ContainsNoop(ctxR) {
+					return
+				}
 				stc, span = proxy.ServeHTTP(c.Writer, newReq, fnServiceHost, strings.ToLower(fnName))
 			} else {
+				if noop.ContainsNoop(ctxR) {
+					return
+				}
 				stc, span = proxy.ServeHTTP(c.Writer, newReq, fnServiceHost, "")
 			}
 			statusCode = stc

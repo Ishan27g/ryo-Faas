@@ -17,13 +17,16 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+var exporter, app string
+var tp = new(provider)
+
 type TraceProvider interface {
 	Get() trace.Tracer
 	Close()
 }
 
 type provider struct {
-	app, service string
+	service string
 	*tracesdk.TracerProvider
 }
 
@@ -32,19 +35,25 @@ func (j *provider) Get() trace.Tracer {
 }
 
 func (j *provider) Close() {
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func(ctx context.Context) {
 		ctx, cancel = context.WithTimeout(ctx, time.Second*5)
 		defer cancel()
-		if err := j.Shutdown(ctx); err != nil {
+		if err := j.TracerProvider.Shutdown(ctx); err != nil {
 			log.Fatal(err)
 		}
 	}(ctx)
+
+	tp = &provider{
+		service:        tp.service,
+		TracerProvider: nil,
+	}
 }
 
-func Init(exporter, app, service string) TraceProvider {
-
+func Init(exporterName, appName, service string) TraceProvider {
+	exporter, app = exporterName, appName
 	var exp tracesdk.SpanExporter = nil
 	var err error
 
@@ -56,22 +65,22 @@ func Init(exporter, app, service string) TraceProvider {
 			fmt.Println("Cannot connect to Jaeger ", err.Error())
 			return nil
 		}
-		return initProvider(app, service, exp)
+		tp = initProvider(app, service, exp)
 	case "zipkin":
 		zipkinUrl := "http://" + os.Getenv("ZIPKIN") + ":9411/api/v2/spans"
 		exp, err = zipkin.New(zipkinUrl)
 		if err != nil {
 			fmt.Println("Cannot connect to Zipkin ", err.Error())
 		}
-		return initProvider(app, service, exp)
+		tp = initProvider(app, service, exp)
 	}
-	return &provider{app, service, nil}
+	return tp
 }
 
-func initProvider(app, service string, exporter tracesdk.SpanExporter) TraceProvider {
-	tp := tracesdk.NewTracerProvider(
-		tracesdk.WithBatcher(exporter),
-		//		tracesdk.WithSpanProcessor(tracesdk.NewBatchSpanProcessor(exporter)),
+func initProvider(app, service string, exp tracesdk.SpanExporter) *provider {
+	tsp := tracesdk.NewTracerProvider(
+		tracesdk.WithBatcher(exp),
+		// tracesdk.WithSpanProcessor(tracesdk.NewBatchSpanProcessor(exp)),
 		tracesdk.WithSampler(tracesdk.TraceIDRatioBased(1)),
 		tracesdk.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
@@ -79,9 +88,10 @@ func initProvider(app, service string, exporter tracesdk.SpanExporter) TraceProv
 			semconv.ServiceNamespaceKey.String(service),
 		)),
 	)
-	otel.SetTracerProvider(tp)
+
+	otel.SetTracerProvider(tsp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{}, propagation.Baggage{}))
 
-	return &provider{app, service, tp}
+	return &provider{service, tsp}
 }

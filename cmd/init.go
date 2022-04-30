@@ -123,6 +123,7 @@ var initRfaFaasCmd = cli.Command{
 		}
 		d := docker.New()
 		d.SetSilent()
+
 		go d.Setup()
 
 		if d.CheckImages() {

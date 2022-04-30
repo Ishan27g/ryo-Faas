@@ -17,28 +17,34 @@ import (
 )
 
 var url = "http://localhost:9999/functions/methodwithotel"
+var urlNoop = "http://localhost:9999/functions/methodwithotel/some/thing?noop"
 
 // example of using opentelemetry metrics
 // assumes `MethodWithOtel` is deployed and available via proxy at `url`
 func main() {
-	requestWithOtel()
-}
-
-// starts a span that gets propagated from this client to the proxy and then to the deployed function.
-func requestWithOtel() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	//requestTest("http://localhost:9997/test")
+	//requestTest("http://localhost:9997/test/1212?noop=123")
 	os.Setenv("JAEGER", "localhost")
 	// connect to jaeger
 	jp := tracing.Init("jaeger", "otel-client", "test-Client")
 	defer jp.Close()
 
-	// start new span
-	tr := jp.Get()
-	ctx2, span := tr.Start(ctx, "client-with-otel-header", trace.WithAttributes(semconv.MessagingDestinationKey.String(url)))
+	requestWithOtel(url, jp.Get())
+	<-time.After(2 * time.Second)
+	requestWithOtel(urlNoop+"=true", jp.Get())
+	<-time.After(2 * time.Second)
+	requestWithOtel(urlNoop+"=false", jp.Get())
+}
+
+// starts a span that gets propagated from this client to the proxy and then to the deployed function.
+func requestWithOtel(atUrl string, tr trace.Tracer) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ctx2, span := tr.Start(ctx, "client-with-otel-header", trace.WithAttributes(semconv.MessagingDestinationKey.String(atUrl)))
 
 	// add baggage to span
-	bag, err := baggage.Parse("username=Goku,id=Saiyan")
+	bag, err := baggage.Parse("username=Sensu,id=Bean")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -54,7 +60,7 @@ func requestWithOtel() {
 	}()
 
 	// add ctx to http request
-	req, _ := http.NewRequestWithContext(ctx3, "GET", url, nil)
+	req, _ := http.NewRequestWithContext(ctx3, "GET", atUrl, nil)
 
 	// receiving server will extract the span from the context, add events/attributes
 	res, err := client.Do(req)
@@ -63,9 +69,25 @@ func requestWithOtel() {
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	_ = res.Body.Close()
-	fmt.Println("response is ", string(body))
-
 	// set response status as an attribute
+	fmt.Println("status is ", res.StatusCode)
 	span.SetAttributes(attribute.String("resp-status", res.Status))
+	fmt.Println("response is ", string(body))
+	fmt.Println()
+}
 
+func requestTest(to string) {
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+
+	// add ctx to http request
+	req, _ := http.NewRequest("GET", to, nil)
+
+	// receiving server will extract the span from the context, add events/attributes
+	res, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	_ = res.Body.Close()
+	fmt.Println(string(body))
 }
