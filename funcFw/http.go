@@ -2,42 +2,53 @@ package FuncFw
 
 import (
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
-type HttpFn func(w http.ResponseWriter, r *http.Request)
-
-func (h HttpFunction) wrap() http.HandlerFunc {
-	return http.HandlerFunc(h.HttpFn)
-}
-
-type HttpFunction struct {
+type HttpFn http.HandlerFunc
+type httpFunction struct {
 	Entrypoint string
 	UrlPath    string
 	HttpFn
 }
+type HttpAsync httpFunction
+
 type HttpAsyncNats struct {
 	callback   string
 	entrypoint string
 	req        *http.Request
 }
 
-type HttpAsync HttpFunction
-
 type funcFw struct {
-	httpFns       map[string]*HttpFunction
+	httpFns       map[string]*httpFunction
+	httpFnsGin    map[string]*httpFnGin
 	httpAsync     map[string]*HttpAsync
 	httpAsyncNats map[string]*HttpAsync
 	storeEvents   map[string]StoreEventsI
 }
 
+func (f *funcFw) EventsFor(tableName string) StoreEventsI {
+	if f.storeEvents == nil {
+		f.storeEvents = make(map[string]StoreEventsI)
+	}
+	if f.storeEvents[tableName] == nil {
+		f.storeEvents[tableName] = &storeEvents{
+			Table: tableName,
+			on:    nil,
+		}
+	}
+	return f.storeEvents[tableName]
+}
+
 func (f *funcFw) Http(entrypoint, url string, fn HttpFn) {
-	f.httpFns[entrypoint] = &HttpFunction{
+	f.httpFns[entrypoint] = &httpFunction{
 		Entrypoint: entrypoint,
 		UrlPath:    url,
 		HttpFn:     fn,
 	}
 }
-func (f *funcFw) GetHttp() map[string]*HttpFunction {
+func (f *funcFw) getHttp() map[string]*httpFunction {
 	return f.httpFns
 }
 func (f *funcFw) HttpAsync(entrypoint, url string, fn HttpFn) {
@@ -47,7 +58,7 @@ func (f *funcFw) HttpAsync(entrypoint, url string, fn HttpFn) {
 		HttpFn:     fn,
 	}
 }
-func (f *funcFw) GetHttpAsync() map[string]*HttpAsync {
+func (f *funcFw) getHttpAsync() map[string]*HttpAsync {
 	return f.httpAsync
 }
 func (f *funcFw) NatsAsync(entrypoint string, url string, fn HttpFn) {
@@ -57,6 +68,18 @@ func (f *funcFw) NatsAsync(entrypoint string, url string, fn HttpFn) {
 		HttpFn:     fn,
 	}
 }
-func (f *funcFw) GetHttpAsyncNats() map[string]*HttpAsync {
+func (f *funcFw) getHttpAsyncNats() map[string]*HttpAsync {
 	return f.httpAsyncNats
+}
+func (f *funcFw) HttpGin(entrypoint, url string, fn HttpFnGin) {
+	f.httpFnsGin[entrypoint] = &httpFnGin{
+		httpFunction: httpFunction{
+			Entrypoint: entrypoint,
+			UrlPath:    url,
+		},
+		gf: gin.HandlerFunc(fn),
+	}
+}
+func (f *funcFw) getHttpGin() map[string]*httpFnGin {
+	return f.httpFnsGin
 }

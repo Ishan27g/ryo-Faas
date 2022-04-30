@@ -52,7 +52,7 @@ type store struct {
 	*log.Logger
 }
 
-func new(table string) DocStore {
+func newTable(table string) DocStore {
 
 	if databaseAddress == "" {
 		databaseAddress = "localhost:5000"
@@ -74,7 +74,7 @@ func new(table string) DocStore {
 
 func Get(table string) DocStore {
 	if documents[table] == nil {
-		return new(table)
+		return newTable(table)
 	}
 	return documents[table]
 }

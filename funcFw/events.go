@@ -19,20 +19,7 @@ type storeEvents struct {
 	on    []eventCb
 }
 
-func (f *funcFw) EventsFor(tableName string) StoreEventsI {
-	if f.storeEvents == nil {
-		f.storeEvents = make(map[string]StoreEventsI)
-	}
-	if f.storeEvents[tableName] == nil {
-		f.storeEvents[tableName] = &storeEvents{
-			Table: tableName,
-			on:    nil,
-		}
-	}
-	return f.storeEvents[tableName]
-}
-
-func ApplyEvents() (ok bool) {
+func applyEvents() (ok bool) {
 	ok = false
 	for tableName, se := range Export.storeEvents {
 		s := se.get()

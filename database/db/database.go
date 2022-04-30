@@ -8,6 +8,7 @@ import (
 	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27g/ryo-Faas/pkg/types"
 	"github.com/hashicorp/go-hclog"
+	"github.com/patrickmn/go-cache"
 	db "github.com/sonyarouje/simdb"
 )
 
@@ -18,6 +19,7 @@ var databaseStore = dbStore{
 	driver:    make(map[string]*db.Driver), // database driver
 	Mutex:     sync.Mutex{},
 	Logger:    mLogger.Get("DATABASE"),
+	cache:     cache.New(1*time.Minute, 5*time.Minute),
 }
 
 type Database interface {
@@ -32,6 +34,7 @@ type Database interface {
 type dbStore struct {
 	documents types.SyncMap
 	driver    map[string]*db.Driver
+	cache     *cache.Cache
 	sync.Mutex
 	hclog.Logger
 }
@@ -86,6 +89,10 @@ func (d *dbStore) New(doc NatsDoc) {
 		d.Logger.Error("driver.Insert", "id", entity.Id)
 	}
 	d.documents.Add(doc.Id(), doc.Table()) // value=createAttime
+	if _, found := d.cache.Get(doc.Id()); found {
+		d.cache.Delete(doc.Id())
+	}
+	d.cache.Set(doc.Id(), entity, cache.DefaultExpiration)
 	fmt.Println("Added", doc.Id(), " to", doc.Table())
 }
 
@@ -96,7 +103,6 @@ func (d *dbStore) Update(doc NatsDoc) {
 		d.Logger.Error("driver.Update - not found", "id", doc.Id())
 		return
 	}
-
 	d.Lock()
 	defer d.Unlock()
 
@@ -107,6 +113,10 @@ func (d *dbStore) Update(doc NatsDoc) {
 	err := d.getDriver(doc.Table()).Update(entity)
 	if err != nil {
 		d.Logger.Error("driver.Update", "id", entity.Id, "err", err.Error())
+	}
+	if _, found := d.cache.Get(doc.Id()); found {
+		d.cache.Delete(doc.Id())
+		d.cache.Set(doc.Id(), entity, cache.DefaultExpiration)
 	}
 	// no need to update d.doc
 }
@@ -121,9 +131,13 @@ func (d *dbStore) Delete(id string) {
 		d.Logger.Error("driver.Delete", "id", id)
 	}
 	d.documents.Delete(id)
+	d.cache.Delete(id)
 }
 
 func (d *dbStore) get(id string) Entity {
+	if e, found := d.cache.Get(id); found {
+		return e.(Entity)
+	}
 	var entity Entity
 	tableName := d.documents.Get(id)
 	if tableName != nil {

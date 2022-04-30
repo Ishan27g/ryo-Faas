@@ -1,4 +1,4 @@
-package main
+package dbMain
 
 import (
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
