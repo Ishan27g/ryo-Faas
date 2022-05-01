@@ -12,7 +12,7 @@ func (s *Scale) scale(invocations ...invocation) map[string]int {
 	rsp := make(map[string]int)
 	for _, i := range invocations {
 		var curr int
-		if i.count >= 1 && i.count < 4 {
+		if i.count < 4 {
 			curr = ScaleMin
 		} else if i.count >= 4 && i.count < 7 {
 			curr = ScaleTwo
