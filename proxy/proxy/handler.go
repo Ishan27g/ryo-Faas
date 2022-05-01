@@ -135,7 +135,6 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	}
 	span.AddEvent("Stopped container " + fnName + " for instance " + strconv.Itoa(instance))
 	h.Println("Stopped container " + fnName + " for instance " + strconv.Itoa(instance))
-	// h.Println("Proxy details after stop -> ", h.proxies.details())
 
 	return response, nil
 }
