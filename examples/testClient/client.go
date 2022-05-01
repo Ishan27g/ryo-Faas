@@ -33,7 +33,10 @@ func main() {
 	//<-time.After(2 * time.Second)
 	//requestWithOtel(urlNoop+"=true", jp.Get())
 	//<-time.After(2 * time.Second)
-	requestWithOtel(urlNoop+"=false", jp.Get())
+	for i := 0; i < 10; i++ {
+		<-time.After(100 * time.Millisecond)
+		requestWithOtel(urlNoop+"=false", jp.Get())
+	}
 }
 
 // starts a span that gets propagated from this client to the proxy and then to the deployed function.

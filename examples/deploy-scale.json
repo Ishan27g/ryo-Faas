@@ -1,0 +1,8 @@
+{
+  "deploy": [
+    {
+      "name" : "Scale",
+      "filePath": "/Users/ishan/Desktop/multi/scale/scale.go"
+    }
+  ]
+}

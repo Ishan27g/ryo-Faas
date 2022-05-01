@@ -190,11 +190,6 @@ func (d *docker) RunFunctionInstance(serviceName string, asInstance int) error {
 }
 func (d *docker) BuildFunction(serviceName string) error {
 	return d.buildImage(serviceImageName(serviceName))
-	//if err != nil {
-	//	fmt.Println(err.Error())
-	//	return err
-	//}
-	//return d.RunFunctionInstance(serviceName, 0)
 }
 func (d *docker) runFunction(imageName, serviceName string) error {
 
@@ -257,15 +252,6 @@ func (d *docker) buildImage(name string) error {
 		fmt.Println(err.Error())
 		return err
 	}
-	//fmt.Println("cwd = ", dir)
-	//files, err := ioutil.ReadDir(dir)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//
-	//for _, file := range files {
-	//	fmt.Println(file.Name(), file.IsDir())
-	//}
 	err = d.imageBuild(d.Client, name)
 	if err != nil {
 		fmt.Println(err.Error())

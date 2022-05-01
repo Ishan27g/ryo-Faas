@@ -186,13 +186,14 @@ func (p *proxy) asDefinition(fnName string) *definition {
 	}
 	return p.functions[fnName]
 }
-func (p *proxy) getFuncFwHost(fnName string) string {
+func (p *proxy) getFlags(fnName string) (bool, bool, bool) {
 	fnName = strings.ToLower(fnName)
 	if p.functions[fnName] == nil {
 		fmt.Println("not found in proxyDefinitions", fnName)
-		return ""
+		return false, false, false
 	}
-	return p.getUpstreamFor(fnName)
+	return true, p.functions[fnName].isAsync, p.functions[fnName].isMain
+	//return p.getUpstreamFor(fnName)
 }
 func (p *proxy) invoke(fnName string) (*Pxy, string, bool, bool) {
 	fnName = strings.ToLower(fnName)

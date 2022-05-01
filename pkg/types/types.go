@@ -40,3 +40,10 @@ func RpcFunctionRspToJson(rFn *deploy.Function) FunctionJsonRsp {
 		IsMain:  rFn.GetIsMain(),
 	}
 }
+
+type Metric struct {
+	Name    string `json:"Name"`
+	Count   int    `json:"Count"`
+	IsAsync bool   `json:"IsAsync"`
+	IsMain  bool   `json:"IsMain"`
+}

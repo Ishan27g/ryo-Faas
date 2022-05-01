@@ -242,11 +242,10 @@ func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) err
 
 	// todo
 	// remove
-	if d.checkImage(serviceName) {
-		return nil
-	}
+	//if d.checkImage(serviceName) {
+	//	return nil
+	//}
 
-	//	tar, err := archive.TarWithOptions(".", &archive.TarOptions{})
 	tar, err := archive.TarWithOptions("./", &archive.TarOptions{})
 	if err != nil {
 		fmt.Println("tar err ", err.Error())

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Ishan27g/go-utils/noop/noop"
+	"github.com/Ishan27g/ryo-Faas/examples/scale"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
@@ -35,6 +36,16 @@ const (
 	DeployedFunctionPort = ":6000"
 )
 
+var scaleEndpoint = hn() + DefaultHttp + Functions + "/scale"
+
+var hn = func() string {
+	hostname, _ := os.Hostname()
+	if strings.Contains(hostname, "Ishan") { // if running locally
+		return "http://" + "localhost"
+	}
+	// if in docker network
+	return "http://host.docker.internal"
+}
 var buildHostName = func(entrypoint string) string {
 	hostname, _ := os.Hostname()
 	if strings.Contains(hostname, "Ishan") { // if running locally
@@ -80,14 +91,14 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	span := trace.SpanFromContext(ctx)
 	instance := 0
 	fnName := strings.ToLower(request.Functions[0].Entrypoint)
-	if h.proxies.getFuncFwHost(fnName) != "" {
+
+	if found, _, _ := h.proxies.getFlags(fnName); found {
 		// scale-up this function container by 1
 		instance = len(h.proxies.groups[fnName].urls)
 		if instance == 0 {
 			instance = 1
 		}
 	}
-	fmt.Println("Instance - ", instance)
 	err := docker.New().RunFunctionInstance(request.Functions[0].Entrypoint, instance)
 	if err != nil {
 		span.AddEvent("unable to start container for " + request.Functions[0].Entrypoint)
@@ -96,7 +107,6 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	}
 	response := new(deploy.DeployResponse)
 
-	// todo instance
 	hnFn := buildHostName(request.Functions[0].Entrypoint+strconv.Itoa(instance)) + DeployedFunctionPort
 	for _, function := range request.Functions {
 		function.ProxyServiceAddr = hnFn
@@ -112,7 +122,6 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 
 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
 	span.AddEvent(prettyJson(response))
-	// wg.Wait()
 	return response, nil
 }
 
@@ -122,10 +131,10 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	span := trace.SpanFromContext(ctx)
 
 	fnName := strings.ToLower(request.GetEntrypoint())
-	h.proxies.details()
+	// h.proxies.details()
 	instance := h.proxies.remove(fnName)
 
-	span.SetAttributes(attribute.Key(request.GetEntrypoint()).String(fnName))
+	span.SetAttributes(attribute.Key("entrypoint").String(fnName))
 	span.SetAttributes(attribute.Key("instance").Int(instance))
 
 	if docker.New().StopFunctionInstance(fnName, instance) != nil {
@@ -189,10 +198,10 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 		result <- proxyError == nil
 	}()
 
-	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.invoke(fnName); fnServiceHost != "" {
+	if proxy, fnServiceHost, isAsync, isMain := h.proxies.invoke(fnName); fnServiceHost != "" {
 		proxyError = nil
 		sp.SetAttributes(semconv.HTTPHostKey.String(fnServiceHost))
-		if isAsyncNats {
+		if isAsync {
 			if noop.ContainsNoop(ctxR) {
 				return
 			}
@@ -257,7 +266,7 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 			span.SetAttributes(attribute.Key(fn.Name).String(prettyJson(pFn)))
 
 		} else {
-			h.Println(h.proxies.getFuncFwHost(fn.Name) + " unreachable")
+			h.Println(upstream + " unreachable")
 			span.SetAttributes(attribute.Key(fn.Name).String("unreachable"))
 		}
 	}
@@ -266,10 +275,20 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 	c.JSON(200, details)
 }
 
-func (h *handler) ScaleHttp(c *gin.Context) {
-	c.JSON(http.StatusOK, h.proxies.metrics.GetScaleFactors())
-
-}
+//func (h *handler) ScaleHttp(c *gin.Context) {
+//	var m []types.Metric
+//	for fnName, factor := range h.proxies.metrics.GetScaleFactors() {
+//		if found, isAsync, isMain := h.proxies.getFlags(fnName); found {
+//			m = append(m, types.Metric{
+//				Name:    fnName,
+//				Count:   factor,
+//				IsAsync: isAsync,
+//				IsMain:  isMain,
+//			})
+//		}
+//	}
+//	c.JSON(http.StatusOK, m)
+//}
 
 func checkHealth(addr string) bool {
 	resp, err := http.Get(addr + "/healthcheck")
@@ -286,6 +305,21 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.UselessMetrics = tracing.Manager()
 	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
 
+	go scale.ExportMetrics(func() []types.Metric {
+		var m []types.Metric
+		for fnName, factor := range h.proxies.metrics.GetScaleFactors() {
+			if found, isAsync, isMain := h.proxies.getFlags(fnName); found {
+				m = append(m, types.Metric{
+					Name:    fnName,
+					Count:   factor,
+					IsAsync: isAsync,
+					IsMain:  isMain,
+				})
+			}
+		}
+		return m
+	}).Start(ctx, scaleEndpoint)
+
 	gin.SetMode(gin.ReleaseMode)
 	h.g = gin.New()
 
@@ -301,7 +335,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.GET("/reset", h.reset)
 	h.g.GET("/metrics", h.metrics)
 	h.g.GET("/details", h.DetailsHttp)
-	h.g.GET("/scale", h.ScaleHttp)
+	// h.g.GET("/scale", h.ScaleHttp)
 
 	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
 	h.g.Any("/functions/:entrypoint/*action", h.ForwardToAgentHttp)
