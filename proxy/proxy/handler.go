@@ -82,7 +82,7 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	fnName := strings.ToLower(request.Functions[0].Entrypoint)
 	if h.proxies.getFuncFwHost(fnName) != "" {
 		// scale-up this function container by 1
-		instance = len(h.proxies.functions[fnName].proxyUpstreams.groups[fnName].urls)
+		instance = len(h.proxies.groups[fnName].urls)
 		if instance == 0 {
 			instance = 1
 		}
@@ -102,7 +102,7 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 		function.ProxyServiceAddr = hnFn
 		jsonFn := types.RpcFunctionRspToJson(function)
 
-		proxyUrl := h.proxies.add(jsonFn)
+		proxyUrl := h.proxies.add(jsonFn, instance)
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
 
@@ -120,15 +120,23 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	response := new(deploy.DeployResponse)
 
 	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.Key(request.GetEntrypoint()).String(request.GetEntrypoint()))
 
-	if docker.New().StopFunction(strings.ToLower(request.GetEntrypoint()), true) != nil {
-		h.Println("Unable to stop ", request.GetEntrypoint())
-		span.AddEvent("Unable to stop " + request.GetEntrypoint())
+	fnName := strings.ToLower(request.GetEntrypoint())
+	h.proxies.details()
+	instance := h.proxies.remove(fnName)
+
+	span.SetAttributes(attribute.Key(request.GetEntrypoint()).String(fnName))
+	span.SetAttributes(attribute.Key("instance").Int(instance))
+
+	if docker.New().StopFunctionInstance(fnName, instance) != nil {
+		h.Println("Unable to stop container", fnName, " for instance ", instance)
+		span.AddEvent("Unable to stop container" + fnName + " for instance " + strconv.Itoa(instance))
 		return response, nil
 	}
-	h.proxies.remove(request.GetEntrypoint())
-	span.AddEvent("Stopped " + request.GetEntrypoint())
+	span.AddEvent("Stopped container " + fnName + " for instance " + strconv.Itoa(instance))
+	h.Println("Stopped container " + fnName + " for instance " + strconv.Itoa(instance))
+	// h.Println("Proxy details after stop -> ", h.proxies.details())
+
 	return response, nil
 }
 
@@ -260,14 +268,8 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 }
 
 func (h *handler) ScaleHttp(c *gin.Context) {
-	var req map[string]int
-	if c.ShouldBindJSON(&req) != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-	//for s, i := range req {
-	//
-	//}
+	c.JSON(http.StatusOK, h.proxies.metrics.GetScaleFactors())
+
 }
 
 func checkHealth(addr string) bool {
@@ -300,7 +302,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.GET("/reset", h.reset)
 	h.g.GET("/metrics", h.metrics)
 	h.g.GET("/details", h.DetailsHttp)
-	h.g.POST("/scale", h.ScaleHttp)
+	h.g.GET("/scale", h.ScaleHttp)
 
 	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
 	h.g.Any("/functions/:entrypoint/*action", h.ForwardToAgentHttp)

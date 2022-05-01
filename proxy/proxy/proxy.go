@@ -25,25 +25,25 @@ type definition struct {
 	proxyFrom string // /functions/fnName
 	// proxyTo   string // fn.url -> hostname:service-port/entryPoint
 
-	proxyUpstreams balancer
-
-	isAsync bool
-	isMain  bool
+	isAsync  bool
+	isMain   bool
+	instance int
+	proxyTo  string
 }
 type balancer struct {
 	groups map[string]*balancerGroup
 }
 
-func (b *balancer) Add(fnName, url string) {
+func (b *balancer) Add(instance int, fnName, url string) {
 	if b.groups[fnName] == nil {
 		b.groups[fnName] = &balancerGroup{
 			lock:      sync.Mutex{},
 			fnName:    fnName,
-			urls:      map[int]*string{},
+			urls:      map[int]*inst{},
 			currIndex: 0,
 		}
 	}
-	b.groups[fnName].Add(url)
+	b.groups[fnName].Add(instance, url)
 	fmt.Println("balancer - added upstream ", url, " for ", fnName)
 	fmt.Println("balancer - all upstreams ")
 	for fnName, bg := range b.groups {
@@ -57,45 +57,63 @@ func (b *balancer) GetNext(fnName string) string {
 	return b.groups[fnName].GetNext()
 }
 
+type inst struct {
+	url      *string
+	instance int
+}
 type balancerGroup struct {
 	lock      sync.Mutex
 	fnName    string
-	urls      map[int]*string
+	urls      map[int]*inst
 	currIndex int
 }
 
-func (b *balancerGroup) Add(url string) {
+func (b *balancerGroup) Add(instance int, url string) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	fmt.Println("len before add  is ", len(b.urls))
-	b.urls[len(b.urls)] = &url
+	b.urls[len(b.urls)] = &inst{
+		url:      &url,
+		instance: instance,
+	}
 	fmt.Println("len afterwards is ", len(b.urls))
 
 }
-func (b *balancerGroup) Remove(url string) {
+func (b *balancerGroup) Remove(url string) int {
+	fmt.Println("--------------------------------------")
+	defer fmt.Println("--------------------------------------")
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	var existing []*string
+	var existing []*inst
+	var removedInst int
+	fmt.Println("len before remove  is ", len(b.urls))
+	fmt.Println("removing ", url)
 	for i, s := range b.urls {
-		if *s != url {
+		if *s.url == url {
+			removedInst = s.instance
+		} else {
+			fmt.Println("no matched ", *s.url)
 			existing = append(existing, s)
 		}
 		delete(b.urls, i)
 	}
+	b.currIndex = 0
 	for i, s := range existing {
 		b.urls[i] = s
+		// b.currIndex++
 	}
+	fmt.Println("len afterwards is ", len(b.urls))
+	return removedInst
 }
 func (b *balancerGroup) GetNext() string {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	service := b.urls[b.currIndex]
 	b.currIndex = (b.currIndex + 1) % len(b.urls)
-	return *service
+	return *service.url
 }
 
 type proxy struct {
-	// *proxyDefinitions
 	functions map[string]*definition
 	metrics   metric.Monitor
 	balancer
@@ -132,19 +150,34 @@ func (p *proxy) details() []types.FunctionJsonRsp {
 		str = append(str, types.FunctionJsonRsp{
 			Name:    d.fnName,
 			Url:     d.proxyFrom,
-			Proxy:   p.getFuncFwHost(d.fnName),
+			Proxy:   d.proxyTo,
 			IsAsync: d.isAsync,
 			IsMain:  d.isMain,
 		})
 	}
+	for s, bg := range p.groups {
+		fmt.Println(s)
+		for _, i := range bg.urls {
+			fmt.Println(bg.fnName, *i.url, i.instance)
+		}
+	}
 	return str
 }
-func (p *proxy) remove(fnName string) {
+func (p *proxy) remove(fnName string) int {
 	fnName = strings.ToLower(fnName)
 	if p.functions[fnName] == nil {
-		return
+		return -1
 	}
-	delete(p.functions, fnName)
+	defer func() {
+		if len(p.groups[fnName].urls) == 0 {
+			defer delete(p.functions, fnName)
+			defer delete(p.groups, fnName)
+		}
+	}()
+
+	toRemove := p.groups[fnName].GetNext()
+	fmt.Println("p.groups[fnName].GetNext() -> toRemove -> ", toRemove)
+	return p.groups[fnName].Remove(toRemove)
 }
 func (p *proxy) asDefinition(fnName string) *definition {
 	if p.functions[fnName] == nil {
@@ -168,30 +201,25 @@ func (p *proxy) invoke(fnName string) (*Pxy, string, bool, bool) {
 		return nil, "", false, false
 	}
 	p.metrics.Invoked(fnName)
-
 	upstream := p.getUpstreamFor(fnName)
-	fmt.Println("bg upstream found - ", upstream)
-
 	return new(Pxy), upstream, p.functions[fnName].isAsync, p.functions[fnName].isMain
 }
 
 func (p *proxy) getUpstreamFor(fnName string) string {
-	return p.functions[fnName].proxyUpstreams.GetNext(fnName)
+	return p.balancer.GetNext(fnName)
 }
-func (p *proxy) add(fn types.FunctionJsonRsp) string {
+func (p *proxy) add(fn types.FunctionJsonRsp, instance int) string {
 	fmt.Println("Adding PROXY ", fn)
 	d := &definition{
 		fnName:    fn.Name,
 		proxyFrom: Functions + "/" + strings.ToLower(fn.Name),
-		// proxyTo:        fn.Proxy,
-		isAsync:        fn.IsAsync,
-		isMain:         fn.IsMain,
-		proxyUpstreams: p.balancer,
+		proxyTo:   fn.Proxy,
+		isAsync:   fn.IsAsync,
+		isMain:    fn.IsMain,
+		instance:  instance,
 	}
 	p.functions[strings.ToLower(fn.Name)] = d
-
-	p.functions[strings.ToLower(fn.Name)].proxyUpstreams.Add(strings.ToLower(fn.Name), fn.Proxy)
-	// add to metrics
+	p.balancer.Add(instance, strings.ToLower(fn.Name), d.proxyTo)
 	metric.Register(fn.Name)
 
 	fmt.Println("ADDED PROXY ", p.functions[strings.ToLower(fn.Name)])

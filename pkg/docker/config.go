@@ -240,7 +240,11 @@ func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) err
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 
-	// if d.checkImage(serviceName) {}
+	// todo
+	// remove
+	if d.checkImage(serviceName) {
+		return nil
+	}
 
 	//	tar, err := archive.TarWithOptions(".", &archive.TarOptions{})
 	tar, err := archive.TarWithOptions("./", &archive.TarOptions{})
