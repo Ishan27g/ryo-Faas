@@ -76,30 +76,28 @@ func updateSpan(sp trace.Span, deploymentType string, statusCode int, now time.T
 	return sp
 }
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
-	//var wg sync.WaitGroup
-	//wg.Add(1)
-	//go func() {
-	//	defer wg.Done()
-	//	d := docker.New()
-	//	if d.BuildAndRunFunction(request.Functions[0].Entrypoint) != nil {
-	//		log.Println("cannot run container" + request.Functions[0].Entrypoint)
-	//	}
-	//	<-time.After(3 * time.Second)
-	//	fmt.Println("Running new instance")
-	//	if d.RunFunctionInstance(request.Functions[0].Entrypoint, 2) != nil {
-	//		log.Println("cannot run container instance 2 " + request.Functions[0].Entrypoint)
-	//	}
-	//	<-time.After(3 * time.Second)
-	//	fmt.Println("Stopping new instance")
-	//	if d.StopFunctionInstance(request.Functions[0].Entrypoint, 2) != nil {
-	//		log.Println("cannot stop container instance 2 " + request.Functions[0].Entrypoint)
-	//	}
-	//}()
 
 	span := trace.SpanFromContext(ctx)
+	instance := 0
+	fnName := strings.ToLower(request.Functions[0].Entrypoint)
+	if h.proxies.getFuncFwHost(fnName) != "" {
+		// scale-up this function container by 1
+		instance = len(h.proxies.functions[fnName].proxyUpstreams.groups[fnName].urls)
+		if instance == 0 {
+			instance = 1
+		}
+	}
+	fmt.Println("Instance - ", instance)
+	err := docker.New().RunFunctionInstance(request.Functions[0].Entrypoint, instance)
+	if err != nil {
+		span.AddEvent("unable to start container for " + request.Functions[0].Entrypoint)
+		fmt.Println(err.Error())
+		return nil, errors.New("unable to start container for " + request.Functions[0].Entrypoint)
+	}
 	response := new(deploy.DeployResponse)
 
-	hnFn := buildHostName(request.Functions[0].Entrypoint) + DeployedFunctionPort
+	// todo instance
+	hnFn := buildHostName(request.Functions[0].Entrypoint+strconv.Itoa(instance)) + DeployedFunctionPort
 	for _, function := range request.Functions {
 		function.ProxyServiceAddr = hnFn
 		jsonFn := types.RpcFunctionRspToJson(function)
@@ -147,11 +145,11 @@ func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployR
 			Async:            rsp.IsAsync,
 			IsMain:           rsp.IsMain,
 		}
-
 		details.Functions = append(details.Functions, df)
 
 		addFunctionAttributes(&span, df)
 	}
+
 	h.Println("Proxy details returning -> ", h.proxies.details())
 	return details, nil
 }
@@ -184,7 +182,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 		result <- proxyError == nil
 	}()
 
-	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
+	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.invoke(fnName); fnServiceHost != "" {
 		proxyError = nil
 		sp.SetAttributes(semconv.HTTPHostKey.String(fnServiceHost))
 		if isAsyncNats {
@@ -238,13 +236,15 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 	var details []types.FunctionJsonRsp
 
 	for _, fn := range h.proxies.details() {
-		if checkHealth(h.proxies.getFuncFwHost(fn.Name)) {
+		upstream := h.proxies.getUpstreamFor(fn.Name)
+		if checkHealth(upstream) {
 			pFn := h.proxies.asDefinition(fn.Name)
 			details = append(details, types.FunctionJsonRsp{
-				Name:    pFn.fnName,
-				Proxy:   pFn.proxyTo,
-				IsAsync: pFn.isAsync,
-				IsMain:  pFn.isMain,
+				Name:      pFn.fnName,
+				Proxy:     upstream,
+				IsAsync:   pFn.isAsync,
+				IsMain:    pFn.isMain,
+				Instances: len(h.proxies.groups[fn.Name].urls),
 			})
 
 			span.SetAttributes(attribute.Key(fn.Name).String(prettyJson(pFn)))
@@ -257,6 +257,17 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 	span.AddEvent(prettyJson(details))
 
 	c.JSON(200, details)
+}
+
+func (h *handler) ScaleHttp(c *gin.Context) {
+	var req map[string]int
+	if c.ShouldBindJSON(&req) != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	//for s, i := range req {
+	//
+	//}
 }
 
 func checkHealth(addr string) bool {
@@ -289,6 +300,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.GET("/reset", h.reset)
 	h.g.GET("/metrics", h.metrics)
 	h.g.GET("/details", h.DetailsHttp)
+	h.g.POST("/scale", h.ScaleHttp)
 
 	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
 	h.g.Any("/functions/:entrypoint/*action", h.ForwardToAgentHttp)

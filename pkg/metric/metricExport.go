@@ -3,15 +3,13 @@ package metric
 import (
 	"fmt"
 	"sync"
-	"time"
-
-	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 )
 
 var m metricMmmm
 
 type Monitor interface {
-	Invoked(m tracing.Metric)
+	Invoked(entrypoint string)
+	GetScaleFactors() map[string]int
 }
 type invocation struct {
 	name  string
@@ -28,7 +26,16 @@ type metricMmmm struct {
 	currentMetrics map[string]*invocation
 }
 
-func (e *metricMmmm) analyse(sc *Scale) {
+func Start() Monitor {
+	m = metricMmmm{
+		registered:     map[string]string{},
+		currentMetrics: make(map[string]*invocation),
+		l:              sync.Mutex{},
+	}
+	return &m
+}
+
+func (e *metricMmmm) GetScaleFactors() map[string]int {
 	e.l.Lock()
 	defer e.l.Unlock()
 	fmt.Println("scale factors - ")
@@ -37,44 +44,31 @@ func (e *metricMmmm) analyse(sc *Scale) {
 		inv = append(inv, *invocation)
 		e.currentMetrics[invocation.name].count = 0
 	}
+	sc := &Scale{}
 	scaled := sc.scale(inv...)
 	for name, factor := range scaled {
 		fmt.Println(name, factor)
 	}
+	return scaled
 }
-func Start() Monitor {
-	m = metricMmmm{
-		registered:     map[string]string{},
-		currentMetrics: make(map[string]*invocation),
-		l:              sync.Mutex{},
-	}
-	sc := Scale{functions: map[string]*int{}}
-	go func() {
-		for {
-			<-time.After(5 * time.Second)
-			m.analyse(&sc)
-		}
-	}()
-	return &m
-}
-func Register(functionName string) {
+func Register(entrypoint string) {
 	m.l.Lock()
 	defer m.l.Unlock()
-	m.registered[functionName] = functionName
-	m.currentMetrics[functionName] = &invocation{
-		name:  functionName,
+	m.registered[entrypoint] = entrypoint
+	m.currentMetrics[entrypoint] = &invocation{
+		name:  entrypoint,
 		count: 0,
 	}
 }
 
-func (e *metricMmmm) Invoked(m tracing.Metric) {
+func (e *metricMmmm) Invoked(entrypoint string) {
 	e.l.Lock()
 	defer e.l.Unlock()
-	if e.registered[m.Function.Entrypoint] == "" {
-		fmt.Println(m.Function.Entrypoint + " not registered")
+	if e.registered[entrypoint] == "" {
+		fmt.Println(entrypoint + " not registered")
 		return
 	}
-	(*e.currentMetrics[m.Function.Entrypoint]).invoked()
+	(*e.currentMetrics[entrypoint]).invoked()
 }
 
 //func Register(functionName string) {

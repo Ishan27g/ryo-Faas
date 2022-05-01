@@ -14,9 +14,10 @@ type FunctionJsonRsp struct {
 	Status string `json:"status,omitempty"`
 	Url    string `json:"url,omitempty"`
 
-	Proxy   string `json:"proxy,omitempty"`
-	IsAsync bool   `json:"IsAsync,omitempty"`
-	IsMain  bool   `json:"IsMain,omitempty"`
+	Proxy     string `json:"proxy,omitempty"`
+	IsAsync   bool   `json:"IsAsync,omitempty"`
+	IsMain    bool   `json:"IsMain,omitempty"`
+	Instances int    `json:"instance,omitempty"`
 }
 
 func JsonFunctionToRpc(jFn FunctionJson) []*deploy.Function {

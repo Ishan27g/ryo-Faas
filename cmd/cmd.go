@@ -74,9 +74,8 @@ var deployCmd = cli.Command{
 		fmt.Println("Starting container ...")
 
 		d := docker.New()
-		// d.SetLocalProxy()
 
-		if d.BuildAndRunFunction(fns[0].Entrypoint) != nil {
+		if d.BuildFunction(fns[0].Entrypoint) != nil {
 			log.Fatal("cannot run container" + fns[0].Entrypoint)
 		}
 		if !bypass {

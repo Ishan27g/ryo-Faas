@@ -29,10 +29,10 @@ func main() {
 	jp := tracing.Init("jaeger", "otel-client", "test-Client")
 	defer jp.Close()
 
-	requestWithOtel(url, jp.Get())
-	<-time.After(2 * time.Second)
-	requestWithOtel(urlNoop+"=true", jp.Get())
-	<-time.After(2 * time.Second)
+	//requestWithOtel(url, jp.Get())
+	//<-time.After(2 * time.Second)
+	//requestWithOtel(urlNoop+"=true", jp.Get())
+	//<-time.After(2 * time.Second)
 	requestWithOtel(urlNoop+"=false", jp.Get())
 }
 

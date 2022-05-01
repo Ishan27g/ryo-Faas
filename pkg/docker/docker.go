@@ -34,7 +34,7 @@ type Docker interface {
 
 	Stop() bool
 
-	BuildAndRunFunction(serviceName string) error
+	BuildFunction(serviceName string) error
 	RunFunctionInstance(serviceName string, instance int) error
 	StopFunctionInstance(serviceName string, asInstance int) error
 	CheckFunction(serviceName string) bool
@@ -183,18 +183,18 @@ func (d *docker) StopFunctionInstance(serviceName string, asInstance int) error 
 }
 func (d *docker) RunFunctionInstance(serviceName string, asInstance int) error {
 	name := serviceImageName(serviceName)
-	if asInstance == 0 {
-		return d.runFunction(name, name)
-	}
+	//if asInstance == 0 {
+	//	return d.runFunction(name, name)
+	//}
 	return d.runFunction(name, name+strconv.Itoa(asInstance))
 }
-func (d *docker) BuildAndRunFunction(serviceName string) error {
-	err := d.buildImage(serviceImageName(serviceName))
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-	return d.RunFunctionInstance(serviceName, 0)
+func (d *docker) BuildFunction(serviceName string) error {
+	return d.buildImage(serviceImageName(serviceName))
+	//if err != nil {
+	//	fmt.Println(err.Error())
+	//	return err
+	//}
+	//return d.RunFunctionInstance(serviceName, 0)
 }
 func (d *docker) runFunction(imageName, serviceName string) error {
 

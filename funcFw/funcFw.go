@@ -37,7 +37,7 @@ var (
 func Start(port string) {
 	serviceName, _ = os.Hostname()
 
-	gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.DebugMode)
 	g := gin.New()
 	g.Use(gin.Logger())
 	g.Use(gin.Recovery())
