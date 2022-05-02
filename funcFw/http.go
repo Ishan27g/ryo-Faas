@@ -13,7 +13,6 @@ type httpFunction struct {
 	HttpFn
 }
 type HttpAsync httpFunction
-
 type HttpAsyncNats struct {
 	callback   string
 	entrypoint string
@@ -26,6 +25,17 @@ type funcFw struct {
 	httpAsync     map[string]*HttpAsync
 	httpAsyncNats map[string]*HttpAsync
 	storeEvents   map[string]StoreEventsI
+}
+
+func wrap(f HttpFn) gin.HandlerFunc {
+	return gin.WrapH(http.HandlerFunc(f))
+}
+func (f httpFunction) AsGin() gin.HandlerFunc {
+	return wrap(f.HttpFn)
+}
+
+func (f HttpAsync) AsGin() gin.HandlerFunc {
+	return wrap(wrapAsync(f))
 }
 
 func (f *funcFw) EventsFor(tableName string) StoreEventsI {

@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/http"
 	"os"
-	"time"
 
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -25,10 +23,6 @@ type listener struct {
 		databaseServer deploy.DatabaseServer
 		port           string
 	}
-	http *struct {
-		handler http.Handler
-		port    string
-	}
 	*log.Logger
 }
 type RpcServer struct {
@@ -37,16 +31,6 @@ type RpcServer struct {
 }
 type Config func(*listener)
 
-func WithHandler(handler http.Handler) Config {
-	return func(l *listener) {
-		l.http.handler = handler
-	}
-}
-func WithHttpPort(port string) Config {
-	return func(l *listener) {
-		l.http.port = port
-	}
-}
 func WithRpcPort(port string) Config {
 	return func(l *listener) {
 		l.grpc.port = port
@@ -69,18 +53,14 @@ func Init(ctx context.Context, conf ...Config) Listener {
 		databaseServer deploy.DatabaseServer
 		port           string
 	}{deployServer: nil, databaseServer: nil, port: ""}
-	l.http = &struct {
-		handler http.Handler
-		port    string
-	}{handler: nil, port: ""}
 	for _, config := range conf {
 		config(l)
 	}
-	if l.http.port == "" && l.grpc.port == "" {
-		fmt.Println("both ports are nil")
+	if l.grpc.port == "" {
+		fmt.Println("grpc port is nil")
 		return nil
 	}
-	if l.grpc.port != "" && l.grpc.deployServer == nil && l.grpc.databaseServer == nil {
+	if l.grpc.deployServer == nil && l.grpc.databaseServer == nil {
 		fmt.Println("bad grpc")
 		return nil
 	}
@@ -116,31 +96,9 @@ func (l *listener) startGrpc() {
 	<-l.ctx.Done()
 	grpcServer.Stop()
 }
-func (l *listener) startHttp() {
-
-	httpSrv := &http.Server{
-		Addr:    l.http.port,
-		Handler: l.http.handler,
-	}
-	go func() {
-		l.Println("HTTP started on " + httpSrv.Addr)
-		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			l.Println("HTTP", err.Error())
-		}
-	}()
-	<-l.ctx.Done()
-	cx, can := context.WithTimeout(l.ctx, 2*time.Second)
-	defer can()
-	if err := httpSrv.Shutdown(cx); err != nil {
-		l.Println("Http-Shutdown " + err.Error())
-	}
-}
 
 func (l *listener) Start() {
 	if l.grpc.port != "" {
 		go l.startGrpc()
-	}
-	if l.http.port != "" {
-		go l.startHttp()
 	}
 }

@@ -5,10 +5,12 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/Ishan27g/ryo-Faas/database/handler"
+	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 )
@@ -18,7 +20,7 @@ var DefaultHttp = ":5001"
 
 // Optional flags to change config
 var grpcPort = flag.String("grpc", DefaultGrpc, "--grpc "+DefaultGrpc)
-var httpPort = flag.String("htpp", DefaultHttp, "--http "+DefaultHttp)
+var httpPort = flag.String("http", DefaultHttp, "--http "+DefaultHttp)
 var jaegerUrl = os.Getenv("JAEGER")
 var zipKinUrl = os.Getenv("ZIPKIN")
 
@@ -44,9 +46,10 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	config := []transport.Config{transport.WithRpcPort(*grpcPort), transport.WithDatabaseServer(&db.Rpc),
-		transport.WithHttpPort(*httpPort), transport.WithHandler(db.Gin)}
+	config := []transport.Config{transport.WithRpcPort(*grpcPort), transport.WithDatabaseServer(&db.Rpc)}
 	transport.Init(ctx, config...).Start()
+
+	FuncFw.Start(strings.TrimPrefix(DefaultHttp, ":"))
 
 	<-time.After(5 * time.Second)
 	// todo only to check connectivity
