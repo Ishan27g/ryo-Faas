@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -33,9 +34,15 @@ func main() {
 	//<-time.After(2 * time.Second)
 	//requestWithOtel(urlNoop+"=true", jp.Get())
 	//<-time.After(2 * time.Second)
+	rand.Seed(time.Now().Unix())
 	for i := 0; i < 10; i++ {
-		<-time.After(100 * time.Millisecond)
-		requestWithOtel(urlNoop+"=false", jp.Get())
+		r := time.Duration(rand.Intn(3000))
+		<-time.After(r * time.Millisecond)
+		for i := 0; i < 10; i++ {
+			r := time.Duration(rand.Intn(1000))
+			<-time.After(r * time.Millisecond)
+			requestWithOtel(urlNoop+"=false", jp.Get())
+		}
 	}
 }
 

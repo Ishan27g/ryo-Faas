@@ -183,9 +183,6 @@ func (d *docker) StopFunctionInstance(serviceName string, asInstance int) error 
 }
 func (d *docker) RunFunctionInstance(serviceName string, asInstance int) error {
 	name := serviceImageName(serviceName)
-	//if asInstance == 0 {
-	//	return d.runFunction(name, name)
-	//}
 	return d.runFunction(name, name+strconv.Itoa(asInstance))
 }
 func (d *docker) BuildFunction(serviceName string) error {

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Ishan27g/ryo-Faas/pkg/metric"
 	"github.com/Ishan27g/ryo-Faas/pkg/types"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
@@ -22,13 +21,11 @@ const Functions = "/functions"
 
 type definition struct {
 	fnName    string
-	proxyFrom string // /functions/fnName
-	// proxyTo   string // fn.url -> hostname:service-port/entryPoint
-
-	isAsync  bool
-	isMain   bool
-	instance int
-	proxyTo  string
+	proxyFrom string // /functions/entrypoint
+	isAsync   bool
+	isMain    bool
+	instance  int
+	proxyTo   string
 }
 type balancer struct {
 	groups map[string]*balancerGroup
@@ -44,8 +41,6 @@ func (b *balancer) Add(instance int, fnName, url string) {
 		}
 	}
 	b.groups[fnName].Add(instance, url)
-	fmt.Println("balancer - added upstream ", url, " for ", fnName)
-	fmt.Println("balancer - all upstreams ")
 	for fnName, bg := range b.groups {
 		fmt.Println("\t", fnName)
 		for _, s := range bg.urls {
@@ -71,28 +66,20 @@ type balancerGroup struct {
 func (b *balancerGroup) Add(instance int, url string) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	fmt.Println("len before add  is ", len(b.urls))
 	b.urls[len(b.urls)] = &inst{
 		url:      &url,
 		instance: instance,
 	}
-	fmt.Println("len afterwards is ", len(b.urls))
-
 }
 func (b *balancerGroup) Remove(url string) int {
-	fmt.Println("--------------------------------------")
-	defer fmt.Println("--------------------------------------")
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	var existing []*inst
 	var removedInst int
-	fmt.Println("len before remove  is ", len(b.urls))
-	fmt.Println("removing ", url)
 	for i, s := range b.urls {
 		if *s.url == url {
 			removedInst = s.instance
 		} else {
-			fmt.Println("no matched ", *s.url)
 			existing = append(existing, s)
 		}
 		delete(b.urls, i)
@@ -100,9 +87,7 @@ func (b *balancerGroup) Remove(url string) int {
 	b.currIndex = 0
 	for i, s := range existing {
 		b.urls[i] = s
-		// b.currIndex++
 	}
-	fmt.Println("len afterwards is ", len(b.urls))
 	return removedInst
 }
 func (b *balancerGroup) GetNext() string {
@@ -115,14 +100,12 @@ func (b *balancerGroup) GetNext() string {
 
 type proxy struct {
 	functions map[string]*definition
-	metrics   metric.Monitor
 	balancer
 }
 
 func newProxy() proxy {
 	return proxy{
 		functions: make(map[string]*definition),
-		metrics:   metric.Start(),
 		balancer:  balancer{groups: map[string]*balancerGroup{}},
 	}
 }
@@ -176,7 +159,6 @@ func (p *proxy) remove(fnName string) int {
 	}()
 
 	toRemove := p.groups[fnName].GetNext()
-	fmt.Println("p.groups[fnName].GetNext() -> toRemove -> ", toRemove)
 	return p.groups[fnName].Remove(toRemove)
 }
 func (p *proxy) asDefinition(fnName string) *definition {
@@ -193,7 +175,6 @@ func (p *proxy) getFlags(fnName string) (bool, bool, bool) {
 		return false, false, false
 	}
 	return true, p.functions[fnName].isAsync, p.functions[fnName].isMain
-	//return p.getUpstreamFor(fnName)
 }
 func (p *proxy) invoke(fnName string) (*Pxy, string, bool, bool) {
 	fnName = strings.ToLower(fnName)
@@ -201,7 +182,6 @@ func (p *proxy) invoke(fnName string) (*Pxy, string, bool, bool) {
 		fmt.Println("not found in proxyDefinitions", fnName)
 		return nil, "", false, false
 	}
-	p.metrics.Invoked(fnName)
 	upstream := p.getUpstreamFor(fnName)
 	return new(Pxy), upstream, p.functions[fnName].isAsync, p.functions[fnName].isMain
 }
@@ -221,7 +201,7 @@ func (p *proxy) add(fn types.FunctionJsonRsp, instance int) string {
 	}
 	p.functions[strings.ToLower(fn.Name)] = d
 	p.balancer.Add(instance, strings.ToLower(fn.Name), d.proxyTo)
-	metric.Register(fn.Name)
+	// metric.Register(fn.Name)
 
 	fmt.Println("ADDED PROXY ", p.functions[strings.ToLower(fn.Name)])
 	return d.proxyFrom

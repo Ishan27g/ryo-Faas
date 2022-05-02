@@ -42,8 +42,8 @@ func RpcFunctionRspToJson(rFn *deploy.Function) FunctionJsonRsp {
 }
 
 type Metric struct {
-	Name    string `json:"Name"`
-	Count   int    `json:"Count"`
-	IsAsync bool   `json:"IsAsync"`
-	IsMain  bool   `json:"IsMain"`
+	Name  string `json:"Name"`
+	Count int    `json:"Count"`
+	//IsAsync bool   `json:"IsAsync"`
+	//IsMain  bool   `json:"IsMain"`
 }

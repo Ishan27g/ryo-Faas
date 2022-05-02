@@ -59,8 +59,7 @@ type handler struct {
 	g               *gin.Engine
 	httpFnProxyPort string
 	proxies         proxy
-	tracing.UselessMetrics
-
+	*scale.Monitor
 	*log.Logger
 }
 
@@ -92,19 +91,29 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 	instance := 0
 	fnName := strings.ToLower(request.Functions[0].Entrypoint)
 
-	if found, _, _ := h.proxies.getFlags(fnName); found {
+	var found, isAsync, isMain bool
+	if found, isAsync, isMain = h.proxies.getFlags(fnName); found {
 		// scale-up this function container by 1
 		instance = len(h.proxies.groups[fnName].urls)
 		if instance == 0 {
 			instance = 1
 		}
+		// don't consider cli flags for scaling
+		// deploy with flags are as they were before,
+		for _, function := range request.Functions {
+			function.IsMain = isMain
+			function.Async = isAsync
+		}
 	}
 	err := docker.New().RunFunctionInstance(request.Functions[0].Entrypoint, instance)
 	if err != nil {
 		span.AddEvent("unable to start container for " + request.Functions[0].Entrypoint)
-		fmt.Println(err.Error())
+		h.Println(err.Error())
 		return nil, errors.New("unable to start container for " + request.Functions[0].Entrypoint)
 	}
+	span.SetAttributes(attribute.Key("entrypoint").String(fnName))
+	span.SetAttributes(attribute.Key("instance").Int(instance))
+
 	response := new(deploy.DeployResponse)
 
 	hnFn := buildHostName(request.Functions[0].Entrypoint+strconv.Itoa(instance)) + DeployedFunctionPort
@@ -116,11 +125,11 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
 
-		h.UselessMetrics.Register(function)
+		// h.UselessMetrics.Register(function)
 		addFunctionAttributes(&span, function)
 	}
 
-	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
+	// 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
 	span.AddEvent(prettyJson(response))
 	return response, nil
 }
@@ -131,7 +140,7 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	span := trace.SpanFromContext(ctx)
 
 	fnName := strings.ToLower(request.GetEntrypoint())
-	// h.proxies.details()
+
 	instance := h.proxies.remove(fnName)
 
 	span.SetAttributes(attribute.Key("entrypoint").String(fnName))
@@ -172,7 +181,6 @@ func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployR
 
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
-	var proxyError error = nil
 	var statusCode = http.StatusBadGateway
 	var ctxR context.Context
 
@@ -192,14 +200,10 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	newReq := newFwRequestWithCtx(ctxR, c.Request)
 	now := time.Now()
 
-	result := h.UselessMetrics.Invoked(fnName)
-	defer func() {
-		defer close(result)
-		result <- proxyError == nil
-	}()
-
 	if proxy, fnServiceHost, isAsync, isMain := h.proxies.invoke(fnName); fnServiceHost != "" {
-		proxyError = nil
+
+		h.Monitor.Invoked(fnName)
+
 		sp.SetAttributes(semconv.HTTPHostKey.String(fnServiceHost))
 		if isAsync {
 			if noop.ContainsNoop(ctxR) {
@@ -226,7 +230,6 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 			span = updateSpan(span, "http", statusCode, now, fnName)
 		}
 	} else {
-		proxyError = errors.New(fnName + " not found")
 		sp.SetAttributes(attribute.Key("No Proxy found").String(fnName))
 		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}
@@ -236,13 +239,6 @@ func (h *handler) reset(c *gin.Context) {
 	h.proxies = newProxy()
 	c.Status(http.StatusAccepted)
 	h.Println("reset")
-}
-func (h *handler) metrics(c *gin.Context) {
-	span := trace.SpanFromContext(c)
-	m := h.UselessMetrics.GetAll()
-	fmt.Println(m)
-	span.AddEvent(prettyJson(m))
-	c.JSON(http.StatusOK, m)
 }
 
 func (h *handler) DetailsHttp(c *gin.Context) {
@@ -275,20 +271,20 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 	c.JSON(200, details)
 }
 
-//func (h *handler) ScaleHttp(c *gin.Context) {
-//	var m []types.Metric
-//	for fnName, factor := range h.proxies.metrics.GetScaleFactors() {
-//		if found, isAsync, isMain := h.proxies.getFlags(fnName); found {
-//			m = append(m, types.Metric{
-//				Name:    fnName,
-//				Count:   factor,
-//				IsAsync: isAsync,
-//				IsMain:  isMain,
-//			})
-//		}
-//	}
-//	c.JSON(http.StatusOK, m)
-//}
+func (h *handler) SwitchMetrics(c *gin.Context) {
+	h.Println("SwitchMetrics -> query param -> ", c.Query("bool"))
+	if c.Query("bool") == "" {
+		c.JSON(http.StatusBadRequest, nil)
+		return
+	}
+	startExporter := strings.EqualFold(c.Query("bool"), "true")
+	if startExporter {
+		scale.StartExporter(h.Monitor, scaleEndpoint)
+	} else {
+		scale.StopExporter()
+	}
+	c.JSON(http.StatusOK, startExporter)
+}
 
 func checkHealth(addr string) bool {
 	resp, err := http.Get(addr + "/healthcheck")
@@ -300,25 +296,13 @@ func checkHealth(addr string) bool {
 
 func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
-	h.httpFnProxyPort = http
-	h.proxies = newProxy()
-	h.UselessMetrics = tracing.Manager()
 	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
 
-	go scale.ExportMetrics(func() []types.Metric {
-		var m []types.Metric
-		for fnName, factor := range h.proxies.metrics.GetScaleFactors() {
-			if found, isAsync, isMain := h.proxies.getFlags(fnName); found {
-				m = append(m, types.Metric{
-					Name:    fnName,
-					Count:   factor,
-					IsAsync: isAsync,
-					IsMain:  isMain,
-				})
-			}
-		}
-		return m
-	}).Start(ctx, scaleEndpoint)
+	h.httpFnProxyPort = http
+	h.proxies = newProxy()
+	h.Monitor = scale.NewMetricsMonitor()
+
+	scale.StartExporter(h.Monitor, scaleEndpoint)
 
 	gin.SetMode(gin.ReleaseMode)
 	h.g = gin.New()
@@ -333,9 +317,8 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g.Use(otelgin.Middleware(ServiceName))
 
 	h.g.GET("/reset", h.reset)
-	h.g.GET("/metrics", h.metrics)
 	h.g.GET("/details", h.DetailsHttp)
-	// h.g.GET("/scale", h.ScaleHttp)
+	h.g.GET("/metrics/:bool", h.SwitchMetrics)
 
 	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
 	h.g.Any("/functions/:entrypoint/*action", h.ForwardToAgentHttp)

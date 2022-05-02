@@ -23,6 +23,6 @@ func SendHttp(method string, url string, body []byte) ([]byte, int) {
 	}
 	body, err = ioutil.ReadAll(res.Body)
 	_ = res.Body.Close()
-	fmt.Println("response is ", string(body))
+	// fmt.Println("response is ", string(body))
 	return body, res.StatusCode
 }
