@@ -302,25 +302,6 @@ func Start(ctx context.Context, grpcPort, http string) {
 
 	scale.StartExporter(h.Monitor, scaleEndpoint)
 
-	//gin.SetMode(gin.ReleaseMode)
-	//h.g = gin.New()
-	//
-	//h.g.Use(gin.Recovery())
-	//
-	//h.g.Use(func(ctx *gin.Context) {
-	//	h.Println(fmt.Sprintf("[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
-	//	ctx.Next()
-	//})
-	//
-	//h.g.Use(otelgin.Middleware(ServiceName))
-	//
-	//h.g.GET("/reset", h.reset)
-	//h.g.GET("/details", h.DetailsHttp)
-	//h.g.GET("/metrics/:bool", h.SwitchMetrics)
-	//
-	//h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
-	//h.g.Any("/functions/:entrypoint/*action", h.ForwardToAgentHttp)
-
 	FuncFw.Export.HttpGin("Reset", "/reset", h.reset)
 	FuncFw.Export.HttpGin("DetailsHttp", "/details", h.DetailsHttp)
 	FuncFw.Export.HttpGin("SwitchMetrics", "/metrics/:bool", h.SwitchMetrics)
@@ -328,5 +309,5 @@ func Start(ctx context.Context, grpcPort, http string) {
 
 	config := []transport.Config{transport.WithRpcPort(grpcPort), transport.WithDeployServer(h)}
 	transport.Init(ctx, config...).Start()
-	FuncFw.Start(strings.TrimPrefix(http, ":"))
+	FuncFw.Start(strings.TrimPrefix(http, ":"), ServiceName)
 }

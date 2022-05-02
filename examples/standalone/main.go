@@ -55,7 +55,7 @@ func main() {
 	//FuncFw.Export.EventsFor("bills").OnIds(store.DocumentGET, cb, "some-known-id")
 	//FuncFw.Export.EventsFor("payments").OnIds(store.DocumentUPDATE, cb, "some-known-id")
 
-	FuncFw.Start("9999")
+	FuncFw.Start("9999", "any exampleee")
 
 	<-time.After(10000 * time.Second)
 	FuncFw.Stop()

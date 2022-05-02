@@ -35,8 +35,12 @@ var (
 	provider tracing.TraceProvider
 )
 
-func Start(port string) {
-	serviceName, _ = os.Hostname()
+func Start(port, service string) {
+	if service == "" {
+		serviceName, _ = os.Hostname()
+	} else {
+		serviceName = service
+	}
 
 	// health check
 	Export.Http("Healthcheck", healthCheckUrl, func(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +70,6 @@ func Start(port string) {
 	if provider == nil {
 		provider = tracing.Init("jaeger", serviceName, serviceName)
 	}
-	// g.Use(gin.Logger())
 
 	// apply store event handlers
 	if Export.storeEvents != nil {
@@ -114,14 +117,6 @@ func Start(port string) {
 			fmt.Println("HTTP", err.Error())
 		}
 	}()
-	//<-l.ctx.Done()
-	//cx, can := context.WithTimeout(l.ctx, 2*time.Second)
-	//defer can()
-	//if err := httpSrv.Shutdown(cx); err != nil {
-	//	l.Println("Http-Shutdown " + err.Error())
-	//}
-
-	// transport.Init(context.Background(), transport.WithHandler(httpSrv.Handler), transport.WithHttpPort(httpSrv.Addr)).Start()
 }
 
 func wrapAsync(fn HttpAsync) HttpFn {

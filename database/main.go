@@ -49,7 +49,7 @@ func main() {
 	config := []transport.Config{transport.WithRpcPort(*grpcPort), transport.WithDatabaseServer(&db.Rpc)}
 	transport.Init(ctx, config...).Start()
 
-	FuncFw.Start(strings.TrimPrefix(DefaultHttp, ":"))
+	FuncFw.Start(strings.TrimPrefix(DefaultHttp, ":"), appName)
 
 	<-time.After(5 * time.Second)
 	// todo only to check connectivity

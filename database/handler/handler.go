@@ -14,11 +14,8 @@ import (
 
 var db = database.GetDatabase()
 
-type handle struct {
-	Gin *gin.Engine
-	Rpc rpc
-}
 type rpc struct{}
+type handle struct{ Rpc rpc }
 
 func toStoreDoc(document *deploy.Document) database.NatsDoc {
 	data := make(map[string]interface{})
@@ -177,29 +174,7 @@ func (*handle) isValid(c *gin.Context, id ...string) (database.NatsDoc, bool) {
 	return doc, true
 }
 func GetHandler() handle {
-	h := handle{
-		nil,
-		rpc{},
-	}
-	//gin.SetMode(gin.ReleaseMode)
-	//h.Gin = gin.New()
-	//h.Gin.Use(gin.Recovery())
-	//h.Gin.Use(func(ctx *gin.Context) {
-	//	fmt.Println(fmt.Sprintf("[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
-	//	ctx.Next()
-	//})
-	//h.Gin.Use(otelgin.Middleware("database"))
-	//g := h.Gin.Group("/database")
-	//{
-	//	g.GET("/get/:id", h.GetHttp)
-	//	g.GET("/all", h.AllHttp)
-	//	g.GET("/after/:time", h.AfterHttp)
-	//	g.GET("/ids", h.AllHttpIds)
-	//	g.POST("/new", h.AddHttp)
-	//	g.PATCH("/update/:id", h.UpdateHttp)
-	//	g.DELETE("/delete/:id", h.DeleteHttp)
-	//}
-
+	h := handle{rpc{}}
 	FuncFw.Export.HttpGin("GetHttp", "/database/get/:id", h.GetHttp)
 	FuncFw.Export.HttpGin("AllHttp", "/database/all", h.AllHttp)
 	FuncFw.Export.HttpGin("GetHttp", "/database/get/:id", h.GetHttp)

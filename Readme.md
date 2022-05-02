@@ -2,6 +2,17 @@
 
 > # WIP
 
+```markdown
+# Todo
+readme:
+> definition as gin Handler type 
+> auto-scaling via example/scale
+> manual scaling via cli
+> round-robin routing
+feature:
+> deployment versioning - update deployment with new code, deploys at `/v2`  
+```
+
 Functions as a service and json datastore.
 
 - Run `http functions` as individual services (see [examples/method1](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/method1))
@@ -9,7 +20,7 @@ Functions as a service and json datastore.
 - Run functions triggered on changes to the `Json datastore` like `new`,`updated`,`deleted`, `get` (see [examples/database-events](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/database-events))
 - Run a `combination` of above as a service (see [examples/database-events](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/database-events))
 - Observable functions with built-in [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) tracing. (using this trace-span in a function [examples/methodOtel](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/methodOtel))
-- Scale functions up/down with round-robin routing (run `deploy`/`stop` multiple times to scale a function up/down) 
+- Enable autoscaling of functions or manually scale functions up/down with round-robin routing //// (run `deploy`/`stop` multiple times to scale a function up/down) 
 
 >[Example](#Example)
 > 

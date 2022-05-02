@@ -16,7 +16,7 @@ func main() {
 	FuncFw.Export.Http("AddChildPermissions", "/update", acl.AddChildPermission)
 	FuncFw.Export.Http("CheckPermission", "/get", acl.CheckPermission)
 
-	FuncFw.Start("9999")
+	FuncFw.Start("9999", "example")
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
