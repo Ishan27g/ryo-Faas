@@ -35,11 +35,11 @@ func main() {
 	//requestWithOtel(urlNoop+"=true", jp.Get())
 	//<-time.After(2 * time.Second)
 	rand.Seed(time.Now().Unix())
-	for i := 0; i < 10; i++ {
-		r := time.Duration(rand.Intn(3000))
+	for i := 0; i < 5; i++ {
+		r := time.Duration(rand.Intn(1500))
 		<-time.After(r * time.Millisecond)
-		for i := 0; i < 10; i++ {
-			r := time.Duration(rand.Intn(1000))
+		for i := 0; i < 5; i++ {
+			r := time.Duration(rand.Intn(500))
 			<-time.After(r * time.Millisecond)
 			requestWithOtel(urlNoop+"=false", jp.Get())
 		}
@@ -77,13 +77,12 @@ func requestWithOtel(atUrl string, tr trace.Tracer) {
 	if err != nil {
 		panic(err)
 	}
-	body, err := ioutil.ReadAll(res.Body)
+	//body, err := ioutil.ReadAll(res.Body)
 	_ = res.Body.Close()
 	// set response status as an attribute
-	fmt.Println("status is ", res.StatusCode)
+	fmt.Println("response status is ", res.StatusCode)
 	span.SetAttributes(attribute.String("resp-status", res.Status))
-	fmt.Println("response is ", string(body))
-	fmt.Println()
+	//fmt.Println("response is ", string(body))
 }
 
 func requestTest(to string) {

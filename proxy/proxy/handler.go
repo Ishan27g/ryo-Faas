@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/Ishan27g/go-utils/noop/noop"
-	"github.com/Ishan27g/ryo-Faas/examples/scale"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
+	"github.com/Ishan27g/ryo-Faas/pkg/scale"
 	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/Ishan27g/ryo-Faas/pkg/types"
@@ -285,6 +285,7 @@ func (h *handler) SwitchMetrics(c *gin.Context) {
 }
 
 func checkHealth(addr string) bool {
+
 	resp, err := http.Get(addr + "/healthcheck")
 	if err != nil {
 		return false
@@ -295,7 +296,6 @@ func checkHealth(addr string) bool {
 func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
 	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
-
 	h.httpFnProxyPort = http
 	h.proxies = newProxy()
 	h.Monitor = scale.NewMetricsMonitor()
