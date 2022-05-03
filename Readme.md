@@ -2,20 +2,14 @@
 
 > # WIP
 
-```markdown
-# Todo
-feature:
-> deployment versioning - update deployment with new code, deploys at `/v2`  
-```
-
 Functions as a service and json datastore.
 
 - Run `http functions` as individual services (see [examples/method1](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/method1))
 - Run `Async / background http` functions over Nats (see [examples/async](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/async))
 - Run functions triggered on changes to the `Json datastore` like `new`,`updated`,`deleted`, `get` (see [examples/database-events](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/database-events))
 - Run a `combination` of above as a service (see [examples/database-events](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/database-events))
-- Observable functions with built-in [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) tracing. (using this trace-span in a function [examples/methodOtel](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/methodOtel))
-- Enable autoscaling of functions or manually scale functions up/down with round-robin routing
+- `Observable` functions with built-in [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) tracing. (using this trace-span in a function [examples/methodOtel](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/methodOtel))
+- Enable `autoscaling` of functions or manually scale functions up/down with round-robin routing
 
 > [Example](#Example)
 > 
@@ -26,6 +20,8 @@ Functions as a service and json datastore.
 > [Install](#Install)
 >
 > [How it works](#How-it-works)
+> 
+> [Scaling](#Scaling)
 
 ## Example
 1.Define a golang function -> see `examples/helloWorld/hello.go`
@@ -240,7 +236,7 @@ The function to be deployed along with its directory are copied to `$HOME/.ry-fa
 
 `Proxy` maps each function instance to a urlPrefix and routes incoming requests to each instance in a round-robin manner
 
-#### Scaling
+## Scaling
 
 `Manually` scale a function up/down by re-deploying/stopping it via the cli.
 ```shell
@@ -259,6 +255,6 @@ To enable `autoscaling`, deploy the `scale` function.
 # deploy a function
 ./proxyCli deploy pkg/scale/deploy-scale.json
 ```
-The proxy exports function invocation counts to this deployed function.
+The proxy exports function `invocation` counts to this deployed function.
 which in turn scales the running deployments based on the periodic invocation counts received by it. To scale, it queries the proxy 
-in the same way as the `cli`
+in the same way as the `cli` does.

@@ -127,7 +127,7 @@ var initRfaFaasCmd = cli.Command{
 		go d.Setup()
 
 		if d.CheckImages() {
-			return cli.Exit("Done", 0)
+			return cli.Exit("", 0)
 		} else {
 			fmt.Println("still setting up... ", time.Since(now).Seconds())
 		}

@@ -71,8 +71,6 @@ var deployCmd = cli.Command{
 		}
 
 		// run definition as single container
-		fmt.Println("Starting container ...")
-
 		d := docker.New()
 
 		if d.BuildFunction(fns[0].Entrypoint) != nil {

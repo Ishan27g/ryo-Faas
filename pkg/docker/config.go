@@ -258,7 +258,7 @@ func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) err
 		Labels:         map[string]string{"label": "rfa", "rfa": serviceName},
 		Remove:         true,
 		ForceRemove:    true,
-		SuppressOutput: d.silent,
+		SuppressOutput: true,
 	}
 	res, err := dockerClient.ImageBuild(ctx, tar, opts)
 	if err != nil {
@@ -266,12 +266,12 @@ func (d *docker) imageBuild(dockerClient *client.Client, serviceName string) err
 		return err
 	}
 	defer res.Body.Close()
-	if !d.silent {
-		err = d.print(res.Body)
-		if err != nil {
-			return err
-		}
-	}
+	//if !d.silent {
+	//	err = d.print(res.Body)
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 
 	return nil
 }
