@@ -12,7 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ishan27g/go-utils/noop/noop"
+	"github.com/Ishan27g/noware/pkg/middleware"
+	"github.com/Ishan27g/noware/pkg/noop"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
@@ -142,7 +143,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	var statusCode = http.StatusBadGateway
 	var ctxR context.Context
 
-	sp, ctx := tracing.NoopSpanFromGin(c)
+	sp, ctx := trace.SpanFromContext(c.Request.Context()), c.Request.Context()
 
 	if !sp.IsRecording() {
 		ctxR, sp = otel.Tracer(ServiceName).Start(ctx, "forward"+"-"+fnName)
@@ -258,6 +259,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.g = gin.New()
 
 	h.g.Use(gin.Recovery())
+	h.g.Use(middleware.Gin())
 
 	h.g.Use(func(ctx *gin.Context) {
 		h.Println(fmt.Sprintf("[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
