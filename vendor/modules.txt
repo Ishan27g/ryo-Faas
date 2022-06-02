@@ -4,9 +4,11 @@ github.com/DavidGamba/dgtools/run
 # github.com/Ishan27g/go-utils/mLogger v0.0.0-20220308132511-ad5f5c0e8f14
 ## explicit; go 1.17
 github.com/Ishan27g/go-utils/mLogger
-# github.com/Ishan27g/go-utils/noop v0.0.0-20220425113802-61ee4cf50959
+# github.com/Ishan27g/noware v0.0.0-20220519143130-dbb002d80d96
 ## explicit; go 1.17
-github.com/Ishan27g/go-utils/noop/noop
+github.com/Ishan27g/noware/pkg/actions
+github.com/Ishan27g/noware/pkg/middleware
+github.com/Ishan27g/noware/pkg/noop
 # github.com/Microsoft/go-winio v0.5.1
 ## explicit; go 1.12
 github.com/Microsoft/go-winio
@@ -246,7 +248,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/google/uuid v1.2.0
+# github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
 # github.com/hashicorp/go-hclog v1.2.0
@@ -294,7 +296,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/nats-io/jwt/v2 v2.2.1-0.20220330180145-442af02fd36a
 ## explicit; go 1.16
-# github.com/nats-io/nats.go v1.14.0
+# github.com/nats-io/nats.go v1.15.0
 ## explicit; go 1.16
 github.com/nats-io/nats.go
 github.com/nats-io/nats.go/encoders/builtin
@@ -312,7 +314,7 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runc v1.1.0
+# github.com/opencontainers/runc v1.1.2
 ## explicit; go 1.16
 github.com/opencontainers/runc/libcontainer/user
 # github.com/openzipkin/zipkin-go v0.4.0
