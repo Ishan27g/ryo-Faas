@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ishan27g/go-utils/noop/noop"
+	"github.com/Ishan27g/noware/pkg/noop"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
@@ -55,6 +55,7 @@ var buildHostName = func(entrypoint string) string {
 }
 
 type handler struct {
+	g               *gin.Engine
 	httpFnProxyPort string
 	proxies         proxy
 	*scale.Monitor
@@ -182,7 +183,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	var statusCode = http.StatusBadGateway
 	var ctxR context.Context
 
-	sp, ctx := tracing.NoopSpanFromGin(c)
+	sp, ctx := trace.SpanFromContext(c.Request.Context()), c.Request.Context()
 
 	if !sp.IsRecording() {
 		ctxR, sp = otel.Tracer(ServiceName).Start(ctx, "forward"+"-"+fnName)

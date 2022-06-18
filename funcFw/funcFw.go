@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Ishan27g/noware/pkg/middleware"
 	database "github.com/Ishan27g/ryo-Faas/database/client"
 	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/gin-gonic/gin"
@@ -56,6 +57,8 @@ func Start(port, service string) {
 	g := gin.New()
 	g.Use(gin.Recovery())
 	g.Use(otelgin.Middleware(serviceName))
+	g.Use(middleware.Gin())
+
 	g.Use(func(ctx *gin.Context) {
 		fmt.Println(fmt.Sprintf("\t\t\t[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
 		ctx.Next()

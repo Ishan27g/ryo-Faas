@@ -1,46 +1,45 @@
-package noop
+package actions
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
-const actionKey keyType = "action_key"
+const actionKey string = "action-key"
 
-type Json struct {
-	Events []interface{} `json:"Events"`
-}
 type Actions struct {
 	Events chan []interface{}
 }
 type Event struct {
-	Name        string      `json:"name"` // ",omitempty"`
-	NextSubject string      `json:"nextSubject"`
-	Meta        interface{} `json:"meta,omitempty"`
+	Name string      `json:"name"`
+	Meta interface{} `json:"meta,omitempty"`
 }
 
-func ActionsFromCtx(ctx context.Context) *Actions {
+// FromCtx returns actions if present in the context or nil
+func FromCtx(ctx context.Context) *Actions {
 	if ctx == nil {
 		return nil
 	}
-	// return nil or actions if present
 	if a := ctx.Value(actionKey); a != nil {
 		return a.(*Actions)
 	}
 	return nil
 }
-func NewCtxWithActions(ctx context.Context, actions *Actions) context.Context {
+
+// NewCtx returns a context with actions
+func NewCtx(ctx context.Context, actions *Actions) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if actions == nil || actions.Events == nil {
-		actions = NewActions()
+		actions = New()
 	}
 	return context.WithValue(ctx, actionKey, actions)
 }
 
-func NewActions() *Actions {
+func New() *Actions {
 	a := &Actions{Events: make(chan []interface{}, 1)}
 	a.Events <- make([]interface{}, 0)
 	return a
@@ -60,7 +59,6 @@ func (a *Actions) GetEvents() []Event {
 func (a *Actions) AddEvent(events ...Event) {
 	// don't add if not present
 	if a == nil || a.Events == nil {
-		// fmt.Println("actions or Events is nil")
 		return
 	}
 	e := <-a.Events
@@ -77,5 +75,21 @@ func (a *Actions) Marshal() ([]byte, error) {
 	}
 	e := <-a.Events
 	defer func() { a.Events <- e }()
-	return json.Marshal(Json{Events: e})
+	return json.Marshal(e)
+}
+func UnMarshal(by []byte) (Actions, error) {
+	a := New()
+	var events []Event
+	var b interface{}
+	err := json.Unmarshal(by, &b)
+	if err != nil {
+		fmt.Println(err.Error())
+		return *a, nil
+	}
+	j, _ := json.Marshal(b)
+	_ = json.Unmarshal(j, &events)
+	for _, event := range events {
+		a.AddEvent(event)
+	}
+	return *a, nil
 }

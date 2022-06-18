@@ -5,17 +5,16 @@ go 1.17
 require (
 	github.com/DavidGamba/dgtools/run v0.6.0
 	github.com/Ishan27g/go-utils/mLogger v0.0.0-20220308132511-ad5f5c0e8f14
-	github.com/Ishan27g/go-utils/noop v0.0.0-20220425113802-61ee4cf50959
+	github.com/Ishan27g/noware v0.0.0-20220519143130-dbb002d80d96
 	github.com/docker/docker v20.10.13+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-redis/redis/v8 v8.11.4
-	github.com/google/uuid v1.2.0
+	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/nats-io/nats.go v1.14.0
-	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/nats-io/nats.go v1.15.0
 	github.com/pkg/errors v0.9.1
 	github.com/sonyarouje/simdb v0.1.0
 	github.com/stretchr/testify v1.7.1
@@ -56,7 +55,7 @@ require (
 	github.com/nats-io/jwt/v2 v2.2.1-0.20220330180145-442af02fd36a // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
-	github.com/opencontainers/runc v1.1.0 // indirect
+	github.com/opencontainers/runc v1.1.2 // indirect
 	github.com/openzipkin/zipkin-go v0.4.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
