@@ -58,7 +58,6 @@ var startRyoFaas = cli.Command{
 		}
 
 		d := docker.New()
-
 		if !d.Start() {
 			d.Stop()
 			fmt.Println("Unable to start")

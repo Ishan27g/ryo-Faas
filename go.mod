@@ -15,6 +15,7 @@ require (
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nats-io/nats.go v1.15.0
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/sonyarouje/simdb v0.1.0
 	github.com/stretchr/testify v1.7.1

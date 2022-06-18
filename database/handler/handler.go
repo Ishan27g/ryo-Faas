@@ -7,18 +7,15 @@ import (
 	"net/http"
 
 	database "github.com/Ishan27g/ryo-Faas/database/db"
+	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 var db = database.GetDatabase()
 
-type handle struct {
-	Gin *gin.Engine
-	Rpc rpc
-}
 type rpc struct{}
+type handle struct{ Rpc rpc }
 
 func toStoreDoc(document *deploy.Document) database.NatsDoc {
 	data := make(map[string]interface{})
@@ -177,28 +174,14 @@ func (*handle) isValid(c *gin.Context, id ...string) (database.NatsDoc, bool) {
 	return doc, true
 }
 func GetHandler() handle {
-	h := handle{
-		nil,
-		rpc{},
-	}
-	gin.SetMode(gin.ReleaseMode)
-	h.Gin = gin.New()
-	h.Gin.Use(gin.Recovery())
-	h.Gin.Use(func(ctx *gin.Context) {
-		fmt.Println(fmt.Sprintf("[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
-		ctx.Next()
-	})
-	h.Gin.Use(otelgin.Middleware("database"))
-	g := h.Gin.Group("/database")
-	{
-		g.GET("/get/:id", h.GetHttp)
-		g.GET("/all", h.AllHttp)
-		g.GET("/after/:time", h.AfterHttp)
-		g.GET("/ids", h.AllHttpIds)
-		g.POST("/new", h.AddHttp)
-		g.PATCH("/update/:id", h.UpdateHttp)
-		g.DELETE("/delete/:id", h.DeleteHttp)
-	}
+	h := handle{rpc{}}
+	FuncFw.Export.HttpGin("GetHttp", "/database/get/:id", h.GetHttp)
+	FuncFw.Export.HttpGin("AllHttp", "/database/all", h.AllHttp)
+	FuncFw.Export.HttpGin("GetHttp", "/database/get/:id", h.GetHttp)
+	FuncFw.Export.HttpGin("AfterHttp", "/database/after/:time", h.AfterHttp)
+	FuncFw.Export.HttpGin("AddHttp", "/database/new", h.AddHttp)
+	FuncFw.Export.HttpGin("UpdateHttp", "/database/update/:id", h.UpdateHttp)
+	FuncFw.Export.HttpGin("DeleteHttp", "/database/delete/:id", h.DeleteHttp)
 	return h
 
 }

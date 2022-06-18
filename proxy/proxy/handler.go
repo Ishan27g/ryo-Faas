@@ -12,16 +12,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ishan27g/noware/pkg/middleware"
 	"github.com/Ishan27g/noware/pkg/noop"
 	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
 	"github.com/Ishan27g/ryo-Faas/pkg/docker"
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
+	"github.com/Ishan27g/ryo-Faas/pkg/scale"
 	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
 	"github.com/Ishan27g/ryo-Faas/pkg/transport"
 	"github.com/Ishan27g/ryo-Faas/pkg/types"
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
@@ -36,6 +35,16 @@ const (
 	DeployedFunctionPort = ":6000"
 )
 
+var scaleEndpoint = hn() + DefaultHttp + Functions + "/scale"
+
+var hn = func() string {
+	hostname, _ := os.Hostname()
+	if strings.Contains(hostname, "Ishan") { // if running locally
+		return "http://" + "localhost"
+	}
+	// if in docker network
+	return "http://host.docker.internal"
+}
 var buildHostName = func(entrypoint string) string {
 	hostname, _ := os.Hostname()
 	if strings.Contains(hostname, "Ishan") { // if running locally
@@ -49,8 +58,7 @@ type handler struct {
 	g               *gin.Engine
 	httpFnProxyPort string
 	proxies         proxy
-	tracing.UselessMetrics
-
+	*scale.Monitor
 	*log.Logger
 }
 
@@ -79,22 +87,48 @@ func updateSpan(sp trace.Span, deploymentType string, statusCode int, now time.T
 func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 
 	span := trace.SpanFromContext(ctx)
+	instance := 0
+	fnName := strings.ToLower(request.Functions[0].Entrypoint)
+
+	var found, isAsync, isMain bool
+	if found, isAsync, isMain = h.proxies.getFlags(fnName); found {
+		// scale-up this function container by 1
+		instance = len(h.proxies.groups[fnName].urls)
+		if instance == 0 {
+			instance = 1
+		}
+		// don't consider cli flags for scaling
+		// deploy with flags are as they were before,
+		for _, function := range request.Functions {
+			function.IsMain = isMain
+			function.Async = isAsync
+		}
+	}
+	err := docker.New().RunFunctionInstance(request.Functions[0].Entrypoint, instance)
+	if err != nil {
+		span.AddEvent("unable to start container for " + request.Functions[0].Entrypoint)
+		h.Println(err.Error())
+		return nil, errors.New("unable to start container for " + request.Functions[0].Entrypoint)
+	}
+	span.SetAttributes(attribute.Key("entrypoint").String(fnName))
+	span.SetAttributes(attribute.Key("instance").Int(instance))
+
 	response := new(deploy.DeployResponse)
 
-	hnFn := buildHostName(request.Functions[0].Entrypoint) + DeployedFunctionPort
+	hnFn := buildHostName(request.Functions[0].Entrypoint+strconv.Itoa(instance)) + DeployedFunctionPort
 	for _, function := range request.Functions {
 		function.ProxyServiceAddr = hnFn
 		jsonFn := types.RpcFunctionRspToJson(function)
 
-		proxyUrl := h.proxies.add(jsonFn)
+		proxyUrl := h.proxies.add(jsonFn, instance)
 		function.Url = "http://localhost" + h.httpFnProxyPort + proxyUrl
 		response.Functions = append(response.Functions, function)
 
-		h.UselessMetrics.Register(function)
+		// h.UselessMetrics.Register(function)
 		addFunctionAttributes(&span, function)
 	}
 
-	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
+	// 	h.Println("DEPLOY RESPONSE IS", prettyJson(response))
 	span.AddEvent(prettyJson(response))
 	return response, nil
 }
@@ -103,15 +137,22 @@ func (h *handler) Stop(ctx context.Context, request *deploy.Empty) (*deploy.Depl
 	response := new(deploy.DeployResponse)
 
 	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.Key(request.GetEntrypoint()).String(request.GetEntrypoint()))
 
-	if docker.New().StopFunction(strings.ToLower(request.GetEntrypoint()), true) != nil {
-		h.Println("Unable to stop ", request.GetEntrypoint())
-		span.AddEvent("Unable to stop " + request.GetEntrypoint())
+	fnName := strings.ToLower(request.GetEntrypoint())
+
+	instance := h.proxies.remove(fnName)
+
+	span.SetAttributes(attribute.Key("entrypoint").String(fnName))
+	span.SetAttributes(attribute.Key("instance").Int(instance))
+
+	if docker.New().StopFunctionInstance(fnName, instance) != nil {
+		h.Println("Unable to stop container", fnName, " for instance ", instance)
+		span.AddEvent("Unable to stop container" + fnName + " for instance " + strconv.Itoa(instance))
 		return response, nil
 	}
-	h.proxies.remove(request.GetEntrypoint())
-	span.AddEvent("Stopped " + request.GetEntrypoint())
+	span.AddEvent("Stopped container " + fnName + " for instance " + strconv.Itoa(instance))
+	h.Println("Stopped container " + fnName + " for instance " + strconv.Itoa(instance))
+
 	return response, nil
 }
 
@@ -128,18 +169,17 @@ func (h *handler) Details(ctx context.Context, _ *deploy.Empty) (*deploy.DeployR
 			Async:            rsp.IsAsync,
 			IsMain:           rsp.IsMain,
 		}
-
 		details.Functions = append(details.Functions, df)
 
 		addFunctionAttributes(&span, df)
 	}
+
 	h.Println("Proxy details returning -> ", h.proxies.details())
 	return details, nil
 }
 
 func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	fnName := c.Param("entrypoint")
-	var proxyError error = nil
 	var statusCode = http.StatusBadGateway
 	var ctxR context.Context
 
@@ -159,16 +199,12 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 	newReq := newFwRequestWithCtx(ctxR, c.Request)
 	now := time.Now()
 
-	result := h.UselessMetrics.Invoked(fnName)
-	defer func() {
-		defer close(result)
-		result <- proxyError == nil
-	}()
+	if proxy, fnServiceHost, isAsync, isMain := h.proxies.invoke(fnName); fnServiceHost != "" {
 
-	if proxy, fnServiceHost, isAsyncNats, isMain := h.proxies.get(fnName); fnServiceHost != "" {
-		proxyError = nil
+		h.Monitor.Invoked(fnName)
+
 		sp.SetAttributes(semconv.HTTPHostKey.String(fnServiceHost))
-		if isAsyncNats {
+		if isAsync {
 			if noop.ContainsNoop(ctxR) {
 				return
 			}
@@ -193,7 +229,6 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 			span = updateSpan(span, "http", statusCode, now, fnName)
 		}
 	} else {
-		proxyError = errors.New(fnName + " not found")
 		sp.SetAttributes(attribute.Key("No Proxy found").String(fnName))
 		c.String(http.StatusBadGateway, "Not found - "+fnName)
 	}
@@ -204,13 +239,6 @@ func (h *handler) reset(c *gin.Context) {
 	c.Status(http.StatusAccepted)
 	h.Println("reset")
 }
-func (h *handler) metrics(c *gin.Context) {
-	span := trace.SpanFromContext(c)
-	m := h.UselessMetrics.GetAll()
-	fmt.Println(m)
-	span.AddEvent(prettyJson(m))
-	c.JSON(http.StatusOK, m)
-}
 
 func (h *handler) DetailsHttp(c *gin.Context) {
 
@@ -219,19 +247,21 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 	var details []types.FunctionJsonRsp
 
 	for _, fn := range h.proxies.details() {
-		if checkHealth(h.proxies.getFuncFwHost(fn.Name)) {
+		upstream := h.proxies.getUpstreamFor(fn.Name)
+		if checkHealth(upstream) {
 			pFn := h.proxies.asDefinition(fn.Name)
 			details = append(details, types.FunctionJsonRsp{
-				Name:    pFn.fnName,
-				Proxy:   pFn.proxyTo,
-				IsAsync: pFn.isAsync,
-				IsMain:  pFn.isMain,
+				Name:      pFn.fnName,
+				Proxy:     upstream,
+				IsAsync:   pFn.isAsync,
+				IsMain:    pFn.isMain,
+				Instances: len(h.proxies.groups[fn.Name].urls),
 			})
 
 			span.SetAttributes(attribute.Key(fn.Name).String(prettyJson(pFn)))
 
 		} else {
-			h.Println(h.proxies.getFuncFwHost(fn.Name) + " unreachable")
+			h.Println(upstream + " unreachable")
 			span.SetAttributes(attribute.Key(fn.Name).String("unreachable"))
 		}
 	}
@@ -240,7 +270,23 @@ func (h *handler) DetailsHttp(c *gin.Context) {
 	c.JSON(200, details)
 }
 
+func (h *handler) SwitchMetrics(c *gin.Context) {
+	h.Println("SwitchMetrics -> query param -> ", c.Query("bool"))
+	if c.Query("bool") == "" {
+		c.JSON(http.StatusBadRequest, nil)
+		return
+	}
+	startExporter := strings.EqualFold(c.Query("bool"), "true")
+	if startExporter {
+		scale.StartExporter(h.Monitor, scaleEndpoint)
+	} else {
+		scale.StopExporter()
+	}
+	c.JSON(http.StatusOK, startExporter)
+}
+
 func checkHealth(addr string) bool {
+
 	resp, err := http.Get(addr + "/healthcheck")
 	if err != nil {
 		return false
@@ -250,32 +296,19 @@ func checkHealth(addr string) bool {
 
 func Start(ctx context.Context, grpcPort, http string) {
 	h := new(handler)
+	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
 	h.httpFnProxyPort = http
 	h.proxies = newProxy()
-	h.UselessMetrics = tracing.Manager()
-	h.Logger = log.New(os.Stdout, ServiceName, log.Ltime)
+	h.Monitor = scale.NewMetricsMonitor()
 
-	gin.SetMode(gin.ReleaseMode)
-	h.g = gin.New()
+	scale.StartExporter(h.Monitor, scaleEndpoint)
 
-	h.g.Use(gin.Recovery())
-	h.g.Use(middleware.Gin())
+	FuncFw.Export.HttpGin("Reset", "/reset", h.reset)
+	FuncFw.Export.HttpGin("DetailsHttp", "/details", h.DetailsHttp)
+	FuncFw.Export.HttpGin("SwitchMetrics", "/metrics/:bool", h.SwitchMetrics)
+	FuncFw.Export.HttpGin("ForwardToAgentHttp", "/functions/:entrypoint", h.ForwardToAgentHttp)
 
-	h.g.Use(func(ctx *gin.Context) {
-		h.Println(fmt.Sprintf("[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
-		ctx.Next()
-	})
-
-	h.g.Use(otelgin.Middleware(ServiceName))
-
-	h.g.GET("/reset", h.reset)
-	h.g.GET("/metrics", h.metrics)
-	h.g.GET("/details", h.DetailsHttp)
-
-	h.g.Any("/functions/:entrypoint", h.ForwardToAgentHttp)
-	h.g.Any("/functions/:entrypoint/*action", h.ForwardToAgentHttp)
-
-	config := []transport.Config{transport.WithRpcPort(grpcPort), transport.WithDeployServer(h),
-		transport.WithHttpPort(http), transport.WithHandler(h.g)}
+	config := []transport.Config{transport.WithRpcPort(grpcPort), transport.WithDeployServer(h)}
 	transport.Init(ctx, config...).Start()
+	FuncFw.Start(strings.TrimPrefix(http, ":"), ServiceName)
 }

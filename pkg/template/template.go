@@ -22,7 +22,7 @@ func main() {
 	if *port == "" {
 		return
 	}
-	FuncFw.Start(*port)
+	FuncFw.Start(*port, "")
 
 	go func() {
 		<-time.After(3 * time.Second)

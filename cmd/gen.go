@@ -19,6 +19,7 @@ import (
 )
 
 var httpFn = "FuncFw.Export.Http"
+var httpFnGin = "FuncFw.Export.HttpGin"
 
 // var httpAsyncFn = "FuncFw.Export.HttpAsync"
 var httpNatsAsyncFn = "FuncFw.Export.NatsAsync"
@@ -33,19 +34,21 @@ type function struct {
 	pkgName    string
 	entrypoint string
 	isAsync    bool
+	stdHttp    bool
 }
 
 func generateFile(toDir string, fns []*deploy.Function) (bool, string) {
 	var deployments []function
 	for _, fn := range fns {
-		if !validate(fn.GetFilePath(), fn.GetEntrypoint()) {
+		valid, stdHttp := validate(fn.GetFilePath(), fn.GetEntrypoint())
+		if !valid {
 			fmt.Println("invalid")
 			return false, ""
 		}
 		dir, _ := filepath.Split(fn.GetFilePath())
 		pn := filepath.Base(dir)
 		deployments = append(deployments, function{
-			pn, fn.GetEntrypoint(), fn.Async,
+			pn, fn.GetEntrypoint(), fn.Async, stdHttp,
 		})
 	}
 	// generate a single file per deployment
@@ -58,14 +61,13 @@ func generateFile(toDir string, fns []*deploy.Function) (bool, string) {
 }
 
 // todo check entrypoint only
-func validate(fileName, entrypoint string) bool {
-	fmt.Println("Validating - ", fileName, entrypoint)
+func validate(fileName, entrypoint string) (bool, bool) {
 
 	set := token.NewFileSet()
 	node, err := parser.ParseFile(set, fileName, nil, parser.ParseComments)
 	if err != nil {
 		log.Fatal("Cannot validate ", err.Error())
-		return false
+		return false, false
 	}
 	formatNode := func(node ast.Node) string {
 		buf := new(bytes.Buffer)
@@ -73,6 +75,7 @@ func validate(fileName, entrypoint string) bool {
 		return buf.String()
 	}
 	valid := false
+	isStdHttp := true
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch ret := n.(type) {
 		case *ast.FuncDecl:
@@ -94,11 +97,18 @@ func validate(fileName, entrypoint string) bool {
 						valid = true
 					}
 				}
+				if len(params) == 1 {
+					if formatNode(params[0].Names[0]) == "c" &&
+						formatNode(params[0].Type) == "*gin.Context" {
+						valid = true
+						isStdHttp = false
+					}
+				}
 			}
 		}
 		return true
 	})
-	return valid
+	return valid, isStdHttp
 }
 
 func generate(toDir string, fns ...function) (string, error) {
@@ -116,6 +126,9 @@ func generate(toDir string, fns ...function) (string, error) {
 		var fnFwCall = httpFn
 		if isAsync {
 			fnFwCall = httpNatsAsyncFn
+		}
+		if !fn.stdHttp {
+			fnFwCall = httpFnGin
 		}
 		packageAlias := strings.ReplaceAll(fn.pkgName, "-", "")
 		for i := 0; i < len(node.Decls); i++ {

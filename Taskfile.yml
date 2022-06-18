@@ -3,13 +3,15 @@ version: '3'
 env:
   JAEGER: localhost
   DATABASE: localhost:5000
+  NATS: nats://localhost:4222
+  RYO_FAAS: /Users/ishan/Documents/Drive/golang/ryo-Faas
 
 vars:
-    DOCKER_REMOTE: ishan27g/ryo-faas
-    IMAGE_AGENT: rfa-agent.v0.1
-    IMAGE_PROXY: rfa-proxy.v0.1
-    IMAGE_DATABASE: rfa-database.v0.1
-    IMAGE_DEPLOY_BASE: rfa-deploy-base.v0.1
+  DOCKER_REMOTE: ishan27g/ryo-faas
+  IMAGE_AGENT: rfa-agent.v0.1
+  IMAGE_PROXY: rfa-proxy.v0.1
+  IMAGE_DATABASE: rfa-database.v0.1
+  IMAGE_DEPLOY_BASE: rfa-deploy-base.v0.1
 
 tasks:
 
@@ -25,6 +27,10 @@ tasks:
     cmds:
       - go test --v ./...
 
+  # run in docker
+  prometheus:
+    cmds:
+      - cd .dockerfiles && docker compose run --service-ports --rm prometheus
   nats:
     cmds:
       - cd .dockerfiles && docker compose run --service-ports --rm nats
@@ -34,6 +40,9 @@ tasks:
   zipkin:
     cmds:
       - cd .dockerfiles && docker compose run --service-ports --rm zipkin
+
+  # run local
+
   # run database
   database:
     dir: database
@@ -44,7 +53,8 @@ tasks:
     dir: proxy
     cmds:
       - go run main.go
-  
+
+  # build & push
   # call via go to run in parallel
   metaGolangTask:
     cmds:
@@ -60,10 +70,10 @@ tasks:
     cmds:
       - docker build -f .dockerfiles/deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
   pushImages:
-      cmds:
-        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
-        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
-        - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
+    cmds:
+      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
+      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
+      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
 
 #  runLocal:
 #    cmds:

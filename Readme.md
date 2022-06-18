@@ -8,33 +8,46 @@ Functions as a service and json datastore.
 - Run `Async / background http` functions over Nats (see [examples/async](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/async))
 - Run functions triggered on changes to the `Json datastore` like `new`,`updated`,`deleted`, `get` (see [examples/database-events](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/database-events))
 - Run a `combination` of above as a service (see [examples/database-events](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/database-events))
-- Observable functions with built-in [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) tracing (see [examples/methodOtel](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/methodOtel))
+- `Observable` functions with built-in [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-go) tracing. (using this trace-span in a function [examples/methodOtel](https://github.com/Ishan27g/ryo-Faas/tree/main/examples/methodOtel))
+- Enable `autoscaling` of functions or manually scale functions up/down with round-robin routing
 
-
->[Example](#Example)
+> [Example](#Example)
 > 
->[Async](#Async-Functions)
+> [Async](#Async-Functions)
 > 
->[Document Triggers](#DataStore-Event-Triggers)
+> [Document Triggers](#DataStore-Event-Triggers)
 > 
 > [Install](#Install)
 >
 > [How it works](#How-it-works)
+> 
+> [Scaling](#Scaling)
 
 ## Example
 1.Define a golang function -> see `examples/helloWorld/hello.go`
+- `std Handler (w http.ResponseWriter, r *http.Request)`
+- `gin Handler (c *gin.Context)`
 
 ```go
 package hello
 
 import (
-  "fmt"
-  "net/http"
+	"fmt"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
-// HelloWorld is the function to be deployed
+
+// HelloWorldStd is the function to be deployed
 // Note - function should be exported & have correct params
-func HelloWorld(w http.ResponseWriter, r *http.Request) {
-  fmt.Fprint(w, "Hello, World!\n")
+func HelloWorldStd(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "Hello, World!\n")
+}
+
+// OR
+
+func HelloWorldGin(c *gin.Context) {
+	c.JSON(http.StatusOK, "Hello, World!!!!\n")
 }
 ```
 
@@ -44,12 +57,13 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
 {
   "deploy": [
     {
-      "name" : "HelloWorld",
+      "name" : "HelloWorldStd", 
       "filePath": "full/path/to/example/hello/helloWorld.go"
     }
   ]
 }
 ```
+`name` can alternatively be `HelloWorldGin`
 
 3.Deploy
 
@@ -58,12 +72,12 @@ func HelloWorld(w http.ResponseWriter, r *http.Request) {
 ```
 The function gets deployed as its own container - configured with OpenTelemetry traces and connected to the internal services (nats, database & other deployments)
 
-#### - The function is made available via the proxy at `http://localhost:9999/functions/hello`
+#### - The function is made available via the proxy at `http://localhost:9999/functions/{functionName}`
 
 #### - Trigger the endpoint and view the `traces` collected by the default exporter - `Jaeger` running at `http://localhost:16686`
 
 ```shell
-curl http://localhost:9999/functions/helloworld
+curl http://localhost:9999/functions/helloworldstd
 open http://localhost:16686
 ```
 
@@ -211,10 +225,36 @@ The result is sent to a `X-Callback-Url` that is expected in the original reques
 
 The `store` publishes `events` to Nats on each `CRUD` operation to the database, allowing subscribers to act on relevant changes
 
+#### Deployment
+
 The function to be deployed along with its directory are copied to `$HOME/.ry-faas/deployments/tmp/`. Using the `ast`  package, the `cli`
   - Verifies the signature
     - of the exported `http-function`, or
     - of the exported `main-service`
   - Generates a new `exported_{function}.go` file (based on [template.go](https://github.com/Ishan27g/ryo-Faas/blob/main/pkg/template/template.go) that registers the provided function with the framework before starting an Http server.
-  - The generated `service` is then built into a Docker image and run as its own container
+  - The generated `service` is then built into a Docker image and run as its own container accessible via the proxy
 
+`Proxy` maps each function instance to a urlPrefix and routes incoming requests to each instance in a round-robin manner
+
+## Scaling
+
+`Manually` scale a function up/down by re-deploying/stopping it via the cli.
+```shell
+# deploy a function
+./proxyCli deploy deploy.json 
+# scale up a previous deployment
+./proxyCli deploy deploy.json 
+# scale it up again
+./proxyCli deploy deploy.json
+# scale it down
+./proxyCli stop {first function-name from deploy.json} 
+```
+
+To enable `autoscaling`, deploy the `scale` function. 
+```shell
+# deploy a function
+./proxyCli deploy pkg/scale/deploy-scale.json
+```
+The proxy exports function `invocation` counts to this deployed function.
+which in turn scales the running deployments based on the periodic invocation counts received by it. To scale, it queries the proxy 
+in the same way as the `cli` does.

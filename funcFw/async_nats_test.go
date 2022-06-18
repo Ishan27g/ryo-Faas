@@ -130,7 +130,7 @@ func TestNatsHttpFunction(t *testing.T) {
 
 	Export.NatsAsync("testAsync", "/testAsync", method2)
 
-	for _, na := range Export.GetHttpAsyncNats() {
+	for _, na := range Export.getHttpAsyncNats() {
 		an := NewAsyncNats(na.Entrypoint, "")
 		an.SubscribeAsync(na.HttpFn)
 	}
@@ -139,7 +139,7 @@ func TestNatsHttpFunction(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go mockCallBackServer(ctx)
-	for _, na := range Export.GetHttpAsyncNats() {
+	for _, na := range Export.getHttpAsyncNats() {
 		an := NewAsyncNats(na.Entrypoint, "")
 		mockIncomingRequest(t, an.HandleAsyncNats)
 		<-time.After(1 * time.Second)
