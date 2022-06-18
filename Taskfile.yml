@@ -8,7 +8,6 @@ env:
 
 vars:
   DOCKER_REMOTE: ishan27g/ryo-faas
-  IMAGE_AGENT: rfa-agent.v0.1
   IMAGE_PROXY: rfa-proxy.v0.1
   IMAGE_DATABASE: rfa-database.v0.1
   IMAGE_DEPLOY_BASE: rfa-deploy-base.v0.1
