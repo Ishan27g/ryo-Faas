@@ -37,10 +37,19 @@ func Test(w http.ResponseWriter, r *http.Request) {
 func testGin(c *gin.Context) {
 	c.JSON(http.StatusOK, nil)
 }
+func (e *example) Example(c *gin.Context) {
+	c.JSON(http.StatusOK, nil)
+}
+
+type example struct{}
+
 func main() {
 
 	FuncFw.Export.Http("testMethod", "/test", Test)
 	FuncFw.Export.HttpGin("testMethod", "/testgin", testGin)
+
+	e := example{}
+	FuncFw.Export.HttpGin("ok", "/ok", e.Example)
 
 	//FuncFw.Export.Http("Method2", "/method2", Method2)
 	//FuncFw.Export.Http("Method1", "/method1", Method1)
