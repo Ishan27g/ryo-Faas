@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	deploy "github.com/Ishan27g/ryo-Faas/pkg/proto"
@@ -82,6 +83,10 @@ var read = func(defFile string) (definition, bool) {
 		fn.FilePath = cwd + tmpDir + pn + "/" + fName
 		fns.Deploy = append(fns.Deploy, fn)
 	}
+
+	// update at ~/.ryoFaas/
+	_ = exec.Command("go", "mod", "tidy").Run()
+	_ = exec.Command("go", "mod", "vendor").Run()
 
 	return fns, isMain
 }

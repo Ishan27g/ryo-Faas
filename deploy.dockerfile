@@ -2,7 +2,8 @@ FROM golang:alpine3.13 as build
 LABEL label=rfa
 WORKDIR /app
 # copy from baseimage to get pre vendored packages
-COPY --from=ishan27g/ryo-faas:rfa-deploy-base.v0.1 /app .
+# COPY --from=ishan27g/ryo-faas:rfa-deploy-base.v0.1 /app .
+COPY . .
 COPY deployments deployments
 WORKDIR deployments/tmp
 RUN go build
