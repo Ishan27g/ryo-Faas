@@ -22,9 +22,9 @@ var (
 )
 
 var builds = [][]string{
-	//{"task", "imgDeployBase"},
+	{"task", "imgDeployBase"},
 	{"task", "imgDb"},
-	//{"task", "imgProxy"},
+	{"task", "imgProxy"},
 }
 var push = [][]string{
 	{"task", "pushImages"},

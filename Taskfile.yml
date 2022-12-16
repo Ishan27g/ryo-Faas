@@ -74,9 +74,9 @@ tasks:
       - docker build -f .dockerfiles/deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
   pushImages:
     cmds:
-#      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
+      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
       - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
-#     - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
+      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
 
   startLocal:
     cmds:
