@@ -10,6 +10,17 @@ type LoggerI interface{}
 type loggerI struct{}
 type Option func(l *LoggerI)
 
+var once sync.Once
+var logLevel = hclog.Trace
+var colorOn = hclog.AutoColor
+var lock sync.Mutex
+
+// loggers added as Named
+var loggers map[string]hclog.Logger
+
+// top level logger
+var logger hclog.Logger
+
 func Apply(options ...Option) LoggerI {
 	newLogger := func() LoggerI {
 		return &loggerI{}
@@ -32,17 +43,6 @@ func Color(color bool) Option {
 		}
 	}
 }
-
-var once sync.Once
-var logLevel = hclog.Trace
-var colorOn = hclog.AutoColor
-var lock sync.Mutex
-
-// loggers added as Named
-var loggers map[string]hclog.Logger
-
-// top level logger
-var logger hclog.Logger
 
 func init() {
 	once.Do(func() {

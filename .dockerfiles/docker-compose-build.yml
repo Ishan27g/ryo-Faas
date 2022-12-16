@@ -1,0 +1,49 @@
+version: "3.7"
+
+# use
+# - debug db/proxy in docker network
+# - without ryo-faas cli
+# - with ryo-faas cli -> bypassProxy, bypassDb
+services:
+  database:
+    build:
+      context: ..
+      dockerfile: .dockerfiles/db.dockerfile
+    container_name: rfa-database
+    hostname: rfa-database
+    networks:
+      rfa_nw:
+    env_file:
+      - .env
+    ports: #
+      - "5000:5000"
+      - "5001:5001"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.02'
+          memory: 100M
+
+  proxy:
+    build:
+      context: ..
+      dockerfile: .dockerfiles/proxy.dockerfile
+    container_name: rfa-proxy
+    hostname: rfa-proxy
+    networks:
+      rfa_nw:
+    env_file:
+      - .env
+    ports: #
+      - "9999:9999"
+      - "9998:9998"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 200M
+
+networks:
+  rfa_nw:
+    external:
+      true

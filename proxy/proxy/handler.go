@@ -33,7 +33,13 @@ const (
 	DefaultRpc           = ":9998"
 	DefaultHttp          = ":9999"
 	DeployedFunctionPort = ":6000"
+
+	LocalProxy = "LOCAL_PROXY"
+	LocalDB    = "LOCAL_DB"
 )
+
+var isProxyLocal = func() bool { return os.Getenv(LocalProxy) == "YES" }
+var isDbLocal = func() bool { return os.Getenv(LocalDB) == "YES" }
 
 var scaleEndpoint = hn() + DefaultHttp + Functions + "/scale"
 
@@ -104,7 +110,14 @@ func (h *handler) Deploy(ctx context.Context, request *deploy.DeployRequest) (*d
 			function.Async = isAsync
 		}
 	}
-	err := docker.New().RunFunctionInstance(request.Functions[0].Entrypoint, instance)
+	d := docker.New()
+	if isProxyLocal() {
+		d.SetLocalProxy()
+	}
+	if isDbLocal() {
+		d.SetLocalDb()
+	}
+	err := d.RunFunctionInstance(request.Functions[0].Entrypoint, instance)
 	if err != nil {
 		span.AddEvent("unable to start container for " + request.Functions[0].Entrypoint)
 		h.Println(err.Error())
@@ -301,7 +314,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.proxies = newProxy()
 	h.Monitor = scale.NewMetricsMonitor()
 
-	scale.StartExporter(h.Monitor, scaleEndpoint)
+	// scale.StartExporter(h.Monitor, scaleEndpoint)
 
 	FuncFw.Export.HttpGin("Reset", "/reset", h.reset)
 	FuncFw.Export.HttpGin("DetailsHttp", "/details", h.DetailsHttp)

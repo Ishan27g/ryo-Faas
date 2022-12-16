@@ -124,15 +124,12 @@ func ToDocs(documents *deploy.Documents, table string) []Doc {
 	}
 	var entities []Doc
 	for i, _ := range docs {
-		value := (*docs[i]).Document()["Data"].(map[string]interface{})
+		data := (*docs[i]).Document()["Data"].(map[string]interface{})
 		doc := Doc{
 			Id:        (*docs[i]).Document()["Id"].(string),
 			CreatedAt: (*docs[i]).Document()["CreatedAt"].(string),
 			EditedAt:  (*docs[i]).Document()["EditedAt"].(string),
-			Data:      database.Data(struct{ Value map[string]interface{} }{Value: nil}),
-		}
-		if value["Value"] != nil {
-			doc.Data.Value = value["Value"].(map[string]interface{})
+			Data:      data,
 		}
 		entities = append(entities, doc)
 	}

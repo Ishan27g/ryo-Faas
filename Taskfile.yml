@@ -5,6 +5,10 @@ env:
   DATABASE: localhost:5000
   NATS: nats://localhost:4222
   RYO_FAAS: /Users/ishan/Documents/Drive/golang/ryo-Faas
+  LOCAL_PROXY: YES
+  LOCAL_DB: YES
+
+  REUSE_FN_IMG: YES
 
 vars:
   DOCKER_REMOTE: ishan27g/ryo-faas
@@ -55,10 +59,16 @@ tasks:
 
   # build & push
   # call via go to run in parallel
-  metaGolangTask:
+  build:
     cmds:
       - go run .dockerfiles/taskFile.go -buildImages
+  push:
+    cmds:
       - go run .dockerfiles/taskFile.go -pushImages
+  metaGolangTask:
+    cmds:
+      - { task: build }
+      - { task: push }
   imgProxy:
     cmds:
       - docker build -f .dockerfiles/proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
@@ -72,8 +82,14 @@ tasks:
     cmds:
       - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
       - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
-      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
+    #  - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
 
+  startLocal:
+    cmds:
+      - go run cli.go sta
+  deployLocal:
+    cmds:
+      - go run cli.go deploy --main examples/deployMain.json
 #  runLocal:
 #    cmds:
 #      - open -a terminal .dockerfiles/database.sh

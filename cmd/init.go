@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -15,7 +16,12 @@ import (
 //var cwdMock = "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas"
 var cwdMock = "/Users/ishan/Documents/Drive/golang"
 
-const DIR_KEY = "RYO_FAAS"
+const DirKey = "RYO_FAAS"
+
+const LocalProxy = "LOCAL_PROXY"
+const LocalDB = "LOCAL_DB"
+
+const ReuseFnImg = "REUSE_FN_IMG"
 
 var repositoryUrl = "https://github.com/Ishan27g/registry.git"
 
@@ -28,9 +34,13 @@ var dirName = "/ryo-Faas" // todo .
 var gitDir = "/gitDir"
 var directory = ""
 
+var isProxyLocal = func() bool { return os.Getenv(LocalProxy) == "YES" }
+var isDbLocal = func() bool { return os.Getenv(LocalDB) == "YES" }
+var isFnImgBuilt = func() bool { return os.Getenv(ReuseFnImg) == "YES" }
+
 func getDir() string {
-	if directory != "" {
-		return directory
+	if directory != "" && os.Getenv(DirKey) != "" {
+		return os.Getenv(DirKey)
 	}
 	// flag.Parse()
 	if !local {
@@ -45,8 +55,8 @@ func getDir() string {
 			return ""
 		}
 	}
-	directory = cwdMock + dirName
-	os.Setenv(DIR_KEY, directory)
+	directory = cwdMock + dirName + gitDir
+	os.Setenv(DirKey, directory)
 	return directory
 }
 
@@ -54,8 +64,11 @@ func cloneRepo() bool {
 	if getDir() == "" {
 		return false
 	}
-	var path = getDir() + gitDir
-	os.RemoveAll(path + "/")
+	var path = getDir()
+	err := os.RemoveAll(path)
+	if err != nil {
+		log.Println("ok", err.Error())
+	}
 	if !copy {
 		_, err := git.PlainClone(path, false, &git.CloneOptions{
 			URL: repositoryUrl,
@@ -66,18 +79,18 @@ func cloneRepo() bool {
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-		err = os.Setenv(DIR_KEY, path)
+		err = os.Setenv(DirKey, path)
 		if err != nil {
 			fmt.Println(err.Error())
 			return false
 		}
 	} else {
-		err := cp.Copy("/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/", getDir())
+		err := cp.Copy("/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/", path)
 		if err != nil {
 			fmt.Println(err.Error())
 			return false
 		}
-		err = os.Setenv(DIR_KEY, getDir())
+		err = os.Setenv(DirKey, path)
 		if err != nil {
 			fmt.Println(err.Error())
 			return false
@@ -96,7 +109,7 @@ func makeDir() bool {
 	if getDir() == "" {
 		return false
 	}
-	err := os.MkdirAll(getDir()+gitDir, os.ModePerm)
+	err := os.MkdirAll(getDir(), os.ModePerm)
 	if err != nil {
 		fmt.Println(err.Error())
 		return false
@@ -153,7 +166,9 @@ var envCmd = cli.Command{
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
 		dir := getDir()
-		fmt.Println(DIR_KEY + "=" + dir)
+		fmt.Println(DirKey + "=" + dir)
+		fmt.Println(LocalProxy+"=", isProxyLocal())
+		fmt.Println(LocalDB+"=", isDbLocal())
 		return nil
 	},
 }

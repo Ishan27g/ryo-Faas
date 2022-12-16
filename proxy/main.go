@@ -26,7 +26,6 @@ var serviceName = proxy.ServiceName
 
 func main() {
 	flag.Parse()
-
 	var provider tracing.TraceProvider
 	if jaegerUrl == "" && zipKinUrl != "" {
 		provider = tracing.Init("zipkin", appName, serviceName)

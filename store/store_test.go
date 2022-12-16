@@ -34,19 +34,19 @@ func TestName(t *testing.T) {
 	var gets, updates, creates, deletes = 0, 0, 0, 0
 	docStore := Get("payments")
 	docStore.On(DocumentGET, func(document Doc) {
-		fmt.Println("sub-get:", document.Data.Value)
+		fmt.Println("sub-get:", document.Data)
 		gets++
 	})
 	docStore.On(DocumentUPDATE, func(document Doc) {
-		fmt.Println("sub-update:", document.Data.Value)
+		fmt.Println("sub-update:", document.Data)
 		updates++
 	})
 	docStore.On(DocumentCREATE, func(document Doc) {
-		fmt.Println("sub-create:", document.Data.Value)
+		fmt.Println("sub-create:", document.Data)
 		creates++
 	})
 	docStore.On(DocumentDELETE, func(document Doc) {
-		fmt.Println("sub-delete:", document.Data.Value)
+		fmt.Println("sub-delete:", document.Data)
 		deletes++
 	})
 	<-time.After(1 * time.Second)

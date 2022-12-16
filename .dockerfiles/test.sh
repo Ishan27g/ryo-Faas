@@ -1,20 +1,30 @@
 #!/usr/bin/env bash
 
 if [ -z "$1" ]; then
-  echo ""
+  echo "
+
+              NOT BUILDING IMAGES FOR TEST!!!!!!
+
+  "
+  sleep 3
 else
-  task imgProxy
+  task build
 fi
 
-go run cli.go sto
-rm -rf /Users/ishan/Documents/Drive/golang/ryo-Faas/
-rm -rf /Users/ishan/Desktop/multi/*
-cp -r examples/* /Users/ishan/Desktop/multi/
-go run cli.go init
-go run cli.go sta
+# test as ryo-faas `command`, without taskfile env
+go build -o ryo-Faas cli.go
+./ryo-Faas sto
+./ryo-Faas i
+./ryo-Faas sta
+./ryo-Faas deploy --main examples/deployMain.json
+curl http://localhost:9999/functions/database-events/pay
+curl http://localhost:9999/functions/database-events/pay
+curl http://localhost:9999/functions/database-events/pay
+curl http://localhost:9999/functions/database-events/pay
+curl http://localhost:9999/functions/database-events/get
 
-go run cli.go deploy pkg/scale/deploy-scale.json
-go run cli.go deploy examples/deploy-otel.json
+sleep 3
 
-#go run cli.go deploy examples/deploy-otel.json
-#go run cli.go deploy examples/deploy-otel.json
+./ryo-Faas deploy examples/deploy-otel.json
+go run examples/testClient/client.go
+open http://localhost:16686/search

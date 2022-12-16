@@ -57,7 +57,7 @@ func AddChildPermission(w http.ResponseWriter, r *http.Request) {
 	// get parent
 	var parent Role
 	if doc := store.Get(TableName).Get(role.Id); len(doc) == 1 {
-		parent = UnMarshal(doc[0].Data.Value)
+		parent = UnMarshal(doc[0].Data)
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Parent id not found " + role.Id))
@@ -70,7 +70,7 @@ func AddChildPermission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, id := range childrenRoles {
-		rl := UnMarshal(id.Data.Value)
+		rl := UnMarshal(id.Data)
 		parent.AddPermissions(rl.getPermissions()...)
 	}
 	// update database
@@ -93,7 +93,7 @@ func CheckPermission(w http.ResponseWriter, r *http.Request) {
 	var permission = Permission{Name: role.Permissions[0]}
 	var rl Role
 	if doc := store.Get(TableName).Get(role.Id); len(doc) == 1 {
-		rl = UnMarshal(doc[0].Data.Value)
+		rl = UnMarshal(doc[0].Data)
 		fmt.Println("Checking ", role.Id, " for ", permission)
 		if rl.CanAccess(permission) {
 			w.WriteHeader(http.StatusAccepted)

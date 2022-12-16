@@ -10,6 +10,7 @@ import (
 func main() {
 	app := cmd.Init()
 	err := app.Run(os.Args)
+	app.EnableBashCompletion = true
 	if err != nil {
 		log.Fatal(err)
 	}

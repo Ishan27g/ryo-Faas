@@ -108,6 +108,7 @@ type docker struct {
 	forcePull    bool
 	silent       bool
 	isProxyLocal bool
+	isDbLocal    bool
 	*client.Client
 	*log.Logger
 }
@@ -638,6 +639,10 @@ func (d *docker) startProxy() error {
 }
 
 func (d *docker) startDatabase() error {
+	if d.isDbLocal {
+		d.Logger.Println("database disabled")
+		return nil
+	}
 	ctx := context.Background()
 
 	var config = new(container.Config)

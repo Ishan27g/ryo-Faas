@@ -33,7 +33,11 @@ var stopRyoFaas = cli.Command{
 			return nil
 		}
 		var rsp []types.FunctionJsonRsp
-		json.Unmarshal(sendHttp("/details"), &rsp)
+		err := json.Unmarshal(sendHttp("/details"), &rsp)
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
 		for _, v := range rsp {
 			fmt.Printf("%s\t%s\t%s\n", v.Url, v.Name, v.Status)
 			d.StopFunction(v.Name, prune)
@@ -57,7 +61,17 @@ var startRyoFaas = cli.Command{
 			return err
 		}
 
+		// todo --flag forcePull
+
 		d := docker.New()
+
+		if isProxyLocal() {
+			d.SetLocalProxy()
+		}
+		if isDbLocal() {
+			d.SetLocalDb()
+		}
+
 		if !d.Start() {
 			d.Stop()
 			fmt.Println("Unable to start")
