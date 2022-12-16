@@ -25,6 +25,7 @@ type Docker interface {
 	SetForcePull()
 	SetSilent()
 	SetLocalProxy()
+	SetLocalDb()
 
 	StatusAll() bool
 	StatusAny() bool
@@ -203,6 +204,7 @@ func (d *docker) runFunction(imageName, serviceName string) error {
 
 	config = &container.Config{Image: imageName, Hostname: serviceName, ExposedPorts: ports, Env: defaultEnv, Labels: labels}
 
+	hostConfig.PortBindings = map[nat.Port][]nat.PortBinding{}
 	// if proxy is running outside docker, expose fn-container port to host
 	if d.isProxyLocal {
 		// bind container port to host port
@@ -215,7 +217,12 @@ func (d *docker) runFunction(imageName, serviceName string) error {
 			d.Println("Unable to get the port", err.Error())
 			return err
 		}
-		hostConfig.PortBindings = nat.PortMap{containerPort: []nat.PortBinding{hostBinding}}
+		hostConfig.PortBindings[containerPort] = []nat.PortBinding{hostBinding}
+	}
+	// if database is running outside docker, expose fn-container port to host
+	if d.isDbLocal {
+		config.Env = append(defaultEnv[1:], "DATABASE="+"host.docker.internal:5000")
+		config.ExposedPorts[databaseHostRpcPort+"/tcp"] = struct{}{}
 	}
 
 	// attach container to network
@@ -263,6 +270,9 @@ func databaseNwHost() string {
 func (d *docker) SetLocalProxy() {
 	d.isProxyLocal = true
 }
+func (d *docker) SetLocalDb() {
+	d.isDbLocal = true
+}
 func (d *docker) SetForcePull() {
 	d.forcePull = true
 }
@@ -275,5 +285,12 @@ func New() Docker {
 	if err != nil {
 		return nil
 	}
-	return &docker{false, false, false, cli, log.New(os.Stdout, "docker", log.LstdFlags)}
+	return &docker{
+		false,
+		false,
+		false,
+		false,
+		cli,
+		log.New(os.Stdout, "docker", log.LstdFlags),
+	}
 }

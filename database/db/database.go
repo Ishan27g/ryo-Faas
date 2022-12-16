@@ -7,19 +7,19 @@ import (
 
 	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27g/ryo-Faas/pkg/types"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/hashicorp/go-hclog"
 	"github.com/patrickmn/go-cache"
-	db "github.com/sonyarouje/simdb"
 )
 
 const TFormat = time.RFC850
 
 var databaseStore = dbStore{
-	documents: types.NewMap(),              // entityId:createdAt
-	driver:    make(map[string]*db.Driver), // database driver
-	Mutex:     sync.Mutex{},
-	Logger:    mLogger.Get("DATABASE"),
-	cache:     cache.New(1*time.Minute, 5*time.Minute),
+	documents:    types.NewMap(), // entityId:createdAt
+	badgerDriver: nil,            // database driver
+	Mutex:        sync.Mutex{},
+	Logger:       mLogger.Get("DATABASE"),
+	cache:        cache.New(1*time.Minute, 5*time.Minute),
 }
 
 type Database interface {
@@ -30,11 +30,14 @@ type Database interface {
 	All() []*Entity
 	After(fromTime string) []*Entity
 }
-
+type badgerDriver struct {
+	badgerDb *badger.DB
+	close    func() error
+}
 type dbStore struct {
-	documents types.SyncMap
-	driver    map[string]*db.Driver
-	cache     *cache.Cache
+	documents    types.SyncMap
+	badgerDriver *badgerDriver
+	cache        *cache.Cache
 	sync.Mutex
 	hclog.Logger
 }
@@ -49,32 +52,31 @@ func format(when time.Time) time.Time {
 }
 func init() {
 	var err error
-	// databaseStore.driver, err = db.New("data")
 	if err != nil {
 		panic(err)
 	}
 
 }
 
-func GetDatabase() Database {
-	return &databaseStore
-}
+func GetDatabase() Database { return &databaseStore }
 
 func toEntity(doc NatsDoc) Entity {
 	return Entity{
 		Id:        doc.Id(),
 		CreatedAt: "",
 		EditedAt:  "",
-		Data:      Data{Value: doc.Document()},
+		Data:      doc.Document(),
 	}
 }
-func (d *dbStore) getDriver(table string) *db.Driver {
-	if d.driver[table] == nil {
-		if driver, err := db.New(table); err == nil {
-			d.driver[table] = driver
+func (d *dbStore) getBadgerDriver() *badgerDriver {
+	if d.badgerDriver == nil {
+		driver, close := Init()
+		d.badgerDriver = &badgerDriver{
+			badgerDb: driver,
+			close:    close,
 		}
 	}
-	return d.driver[table]
+	return d.badgerDriver
 }
 func (d *dbStore) New(doc NatsDoc) {
 	d.Lock()
@@ -84,7 +86,7 @@ func (d *dbStore) New(doc NatsDoc) {
 	entity.CreatedAt = time.Now().String()
 	entity.EditedAt = time.Now().String()
 
-	err := d.getDriver(doc.Table()).Insert(entity)
+	err := set(d.getBadgerDriver().badgerDb, doc.Table(), &entity)
 	if err != nil {
 		d.Logger.Error("driver.Insert", "id", entity.Id)
 	}
@@ -110,7 +112,7 @@ func (d *dbStore) Update(doc NatsDoc) {
 	entity.EditedAt = time.Now().String()
 	entity.CreatedAt = existing.CreatedAt
 
-	err := d.getDriver(doc.Table()).Update(entity)
+	err := set(d.getBadgerDriver().badgerDb, doc.Table(), &entity)
 	if err != nil {
 		d.Logger.Error("driver.Update", "id", entity.Id, "err", err.Error())
 	}
@@ -126,7 +128,7 @@ func (d *dbStore) Delete(id string) {
 	defer d.Unlock()
 	tableName := d.documents.Get(id)
 	fmt.Println("Deleting ", id, " from ", tableName)
-	err := d.getDriver(tableName.(string)).Delete(Entity{Id: id})
+	err := delete(d.getBadgerDriver().badgerDb, tableName.(string), &Entity{Id: id})
 	if err != nil {
 		d.Logger.Error("driver.Delete", "id", id)
 	}
@@ -142,10 +144,11 @@ func (d *dbStore) get(id string) Entity {
 	tableName := d.documents.Get(id)
 	if tableName != nil {
 		fmt.Println("Table found for ", id)
-		err := d.getDriver(tableName.(string)).Open(Entity{}).Where("Id", "=", id).First().AsEntity(&entity)
+		e, err := get(d.getBadgerDriver().badgerDb, tableName.(string), id)
 		if err != nil {
 			panic(err)
 		}
+		entity = e
 	} else {
 		fmt.Println("Table not found for ", id)
 	}

@@ -5,6 +5,10 @@ env:
   DATABASE: localhost:5000
   NATS: nats://localhost:4222
   RYO_FAAS: /Users/ishan/Documents/Drive/golang/ryo-Faas
+  LOCAL_PROXY: YES
+  LOCAL_DB: YES
+
+  REUSE_FN_IMG: YES
 
 vars:
   DOCKER_REMOTE: ishan27g/ryo-faas
@@ -70,10 +74,16 @@ tasks:
       - docker build -f .dockerfiles/deploy-base.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}} .
   pushImages:
     cmds:
-      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
+#      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}}
       - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
-      - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
+#     - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
 
+  startLocal:
+    cmds:
+      - go run cli.go sta
+  deployLocal:
+    cmds:
+      - go run cli.go deploy --main examples/deployMain.json
 #  runLocal:
 #    cmds:
 #      - open -a terminal .dockerfiles/database.sh

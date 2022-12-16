@@ -11,7 +11,6 @@ type NatsDoc interface {
 	Id() string
 	Document() map[string]interface{} // natsDoc as map
 	DocumentString() string
-
 	Print()
 }
 
@@ -42,20 +41,8 @@ type natsDoc struct {
 	data  map[string]interface{}
 }
 
-func (d *natsDoc) Table() string {
-	return d.table
-}
-
-func (d *natsDoc) Print() {
-	fmt.Println(d.Id(), fmt.Sprintf("%v", d.data))
-}
-func (d *natsDoc) Document() map[string]interface{} {
-	return d.data
-}
-
-func (d *natsDoc) DocumentString() string {
-	return fmt.Sprintf("%v", d.Document())
-}
-func (d *natsDoc) Id() string {
-	return d.id
-}
+func (d *natsDoc) Table() string                    { return d.table }
+func (d *natsDoc) Print()                           { fmt.Println(d.Id(), fmt.Sprintf("%v", d.data)) }
+func (d *natsDoc) Document() map[string]interface{} { return d.data }
+func (d *natsDoc) DocumentString() string           { return fmt.Sprintf("%v", d.Document()) }
+func (d *natsDoc) Id() string                       { return d.id }

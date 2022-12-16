@@ -72,9 +72,10 @@ var deployCmd = cli.Command{
 
 		// run definition as single container
 		d := docker.New()
-
-		if d.BuildFunction(fns[0].Entrypoint) != nil {
-			log.Fatal("cannot run container" + fns[0].Entrypoint)
+		if !isFnImgBuilt() { // todo : skip building image
+			if d.BuildFunction(fns[0].Entrypoint) != nil {
+				log.Fatal("cannot run container" + fns[0].Entrypoint)
+			}
 		}
 		if !bypass {
 			// add container proxy

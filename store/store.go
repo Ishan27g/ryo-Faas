@@ -11,7 +11,7 @@ import (
 
 var (
 	defaultTable    = "data"
-	databaseAddress = os.Getenv("DATABASE")
+	databaseAddress = os.Getenv("DATABASE")     // set "" if local
 	documents       = make(map[string]DocStore) // per table
 )
 
@@ -60,16 +60,20 @@ func newTable(table string) DocStore {
 
 	var dbClient database.Client
 	if dbClient = database.Connect(databaseAddress); dbClient == nil {
-		fmt.Println("cannot connect to database ", databaseAddress)
+		fmt.Println("cannot connect to database [" + databaseAddress + "]")
 		return nil
 	}
 	if table == "" {
 		table = defaultTable
 	}
-	documents[table] = &store{table: table, new: db.NewDocument, dbClient: dbClient,
-		Logger: log.New(os.Stdout, "[store]["+table+"]", log.LstdFlags)}
+	documents[table] = newStore(table, dbClient)
 
 	return documents[table]
+}
+
+func newStore(table string, dbClient database.Client) *store {
+	return &store{table: table, new: db.NewDocument, dbClient: dbClient,
+		Logger: log.New(os.Stdout, "[store]["+table+"]", log.LstdFlags)}
 }
 
 func Get(table string) DocStore {

@@ -64,6 +64,14 @@ var startRyoFaas = cli.Command{
 		// todo --flag forcePull
 
 		d := docker.New()
+
+		if isProxyLocal() {
+			d.SetLocalProxy()
+		}
+		if isDbLocal() {
+			d.SetLocalDb()
+		}
+
 		if !d.Start() {
 			d.Stop()
 			fmt.Println("Unable to start")

@@ -41,15 +41,11 @@ func (d *rpc) forEachDoc(documents *deploy.Documents, cb func(data database.Nats
 	return ids, nil
 }
 func (d *rpc) New(ctx context.Context, documents *deploy.Documents) (*deploy.Ids, error) {
-	return d.forEachDoc(documents, func(doc database.NatsDoc) {
-		db.New(doc)
-	})
+	return d.forEachDoc(documents, func(doc database.NatsDoc) { db.New(doc) })
 }
 
 func (d *rpc) Update(ctx context.Context, documents *deploy.Documents) (*deploy.Ids, error) {
-	return d.forEachDoc(documents, func(doc database.NatsDoc) {
-		db.Update(doc)
-	})
+	return d.forEachDoc(documents, func(doc database.NatsDoc) { db.Update(doc) })
 }
 
 func (d *rpc) Get(ctx context.Context, ids *deploy.Ids) (*deploy.Documents, error) {

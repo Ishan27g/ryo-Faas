@@ -16,7 +16,12 @@ import (
 //var cwdMock = "/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas"
 var cwdMock = "/Users/ishan/Documents/Drive/golang"
 
-const DIR_KEY = "RYO_FAAS"
+const DirKey = "RYO_FAAS"
+
+const LocalProxy = "LOCAL_PROXY"
+const LocalDB = "LOCAL_DB"
+
+const ReuseFnImg = "REUSE_FN_IMG"
 
 var repositoryUrl = "https://github.com/Ishan27g/registry.git"
 
@@ -29,9 +34,13 @@ var dirName = "/ryo-Faas" // todo .
 var gitDir = "/gitDir"
 var directory = ""
 
+var isProxyLocal = func() bool { return os.Getenv(LocalProxy) == "YES" }
+var isDbLocal = func() bool { return os.Getenv(LocalDB) == "YES" }
+var isFnImgBuilt = func() bool { return os.Getenv(ReuseFnImg) == "YES" }
+
 func getDir() string {
-	if directory != "" && os.Getenv(DIR_KEY) != "" {
-		return os.Getenv(DIR_KEY)
+	if directory != "" && os.Getenv(DirKey) != "" {
+		return os.Getenv(DirKey)
 	}
 	// flag.Parse()
 	if !local {
@@ -47,7 +56,7 @@ func getDir() string {
 		}
 	}
 	directory = cwdMock + dirName + gitDir
-	os.Setenv(DIR_KEY, directory)
+	os.Setenv(DirKey, directory)
 	return directory
 }
 
@@ -70,7 +79,7 @@ func cloneRepo() bool {
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-		err = os.Setenv(DIR_KEY, path)
+		err = os.Setenv(DirKey, path)
 		if err != nil {
 			fmt.Println(err.Error())
 			return false
@@ -81,7 +90,7 @@ func cloneRepo() bool {
 			fmt.Println(err.Error())
 			return false
 		}
-		err = os.Setenv(DIR_KEY, path)
+		err = os.Setenv(DirKey, path)
 		if err != nil {
 			fmt.Println(err.Error())
 			return false
@@ -157,7 +166,9 @@ var envCmd = cli.Command{
 	HideHelpCommand: false,
 	Action: func(c *cli.Context) error {
 		dir := getDir()
-		fmt.Println(DIR_KEY + "=" + dir)
+		fmt.Println(DirKey + "=" + dir)
+		fmt.Println(LocalProxy+"=", isProxyLocal())
+		fmt.Println(LocalDB+"=", isDbLocal())
 		return nil
 	},
 }

@@ -35,7 +35,7 @@ func (p *Payment) BuildInvoice() {
 	}
 }
 func FromDocument(doc store.Doc) Payment {
-	rec, _ := json.Marshal(doc.Data.Value)
+	rec, _ := json.Marshal(doc.Data)
 	var p = Payment{}
 	err := json.Unmarshal(rec, &p)
 	if err != nil {

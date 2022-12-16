@@ -64,9 +64,9 @@ func Test_Grpc(t *testing.T) {
 
 	for _, d := range docs {
 		assert.Equal(t, docId, d.Id)
-		assert.NotNil(t, d.Data.Value["Num"])
-		assert.NotNil(t, d.Data.Value["From"])
-		assert.NotNil(t, d.Data.Value["To"])
+		assert.NotNil(t, d.Data["Num"])
+		assert.NotNil(t, d.Data["From"])
+		assert.NotNil(t, d.Data["To"])
 	}
 
 	deletedIds, err := c.Delete(ctx, &deploy.Ids{Id: id.Id})
