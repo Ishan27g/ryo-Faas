@@ -37,20 +37,20 @@ jobs:
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
-      if: ${{ github.ref == 'ref/heads/main' }}
+      if: ${{ github.ref == 'refs/remotes/origin/main' }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
-      if: ${{ github.ref == 'ref/heads/main' }}
+      if: ${{ github.ref == 'refs/remotes/origin/main' }}
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
-      if: ${{ github.ref == 'ref/heads/main' }}
+      if: ${{ github.ref == 'refs/remotes/origin/main' }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Build and push
       run: task metaGolangTask
-      if: ${{ github.ref == 'ref/heads/main' }}
+      if: ${{ github.ref == 'refs/remotes/origin/main' }}
     
