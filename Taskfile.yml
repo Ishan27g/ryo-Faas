@@ -59,10 +59,16 @@ tasks:
 
   # build & push
   # call via go to run in parallel
-  metaGolangTask:
+  build:
     cmds:
       - go run .dockerfiles/taskFile.go -buildImages
+  push:
+    cmds:
       - go run .dockerfiles/taskFile.go -pushImages
+  metaGolangTask:
+    cmds:
+      - { task: build }
+      - { task: push }
   imgProxy:
     cmds:
       - docker build -f .dockerfiles/proxy.dockerfile -t {{.DOCKER_REMOTE}}:{{.IMAGE_PROXY}} .
