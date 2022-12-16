@@ -1,10 +1,9 @@
 module github.com/Ishan27g/ryo-Faas
 
-go 1.17
+go 1.19
 
 require (
 	github.com/DavidGamba/dgtools/run v0.6.0
-	github.com/Ishan27g/go-utils/mLogger v0.0.0-20220308132511-ad5f5c0e8f14
 	github.com/Ishan27g/noware v0.0.0-20220519143130-dbb002d80d96
 	github.com/docker/docker v20.10.13+incompatible
 	github.com/docker/go-connections v0.4.0
@@ -17,7 +16,6 @@ require (
 	github.com/nats-io/nats.go v1.15.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
-	github.com/sonyarouje/simdb v0.1.0
 	github.com/stretchr/testify v1.7.1
 	github.com/urfave/cli/v2 v2.3.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.29.0
@@ -68,7 +66,6 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
@@ -94,8 +91,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
-	github.com/spf13/cobra v1.0.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
@@ -113,6 +108,7 @@ require (
 )
 
 require (
+	github.com/Ishan27g/go-utils/mLogger v0.0.0-20221216094139-1907b39430e3
 	github.com/brianvoe/gofakeit/v6 v6.15.0
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/otiai10/copy v1.7.0

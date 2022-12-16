@@ -26,7 +26,7 @@ func main() {
 
 	go func() {
 		<-time.After(3 * time.Second)
-		// todo only to check connectivity
+		// todo left in to debug/check connectivity
 		transport.NatsPublish("hello", "ok", nil)
 		store.Get("any")
 	}()
