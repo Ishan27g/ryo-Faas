@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -29,8 +30,8 @@ var gitDir = "/gitDir"
 var directory = ""
 
 func getDir() string {
-	if directory != "" {
-		return directory
+	if directory != "" && os.Getenv(DIR_KEY) != "" {
+		return os.Getenv(DIR_KEY)
 	}
 	// flag.Parse()
 	if !local {
@@ -45,7 +46,7 @@ func getDir() string {
 			return ""
 		}
 	}
-	directory = cwdMock + dirName
+	directory = cwdMock + dirName + gitDir
 	os.Setenv(DIR_KEY, directory)
 	return directory
 }
@@ -54,8 +55,11 @@ func cloneRepo() bool {
 	if getDir() == "" {
 		return false
 	}
-	var path = getDir() + gitDir
-	os.RemoveAll(path + "/")
+	var path = getDir()
+	err := os.RemoveAll(path)
+	if err != nil {
+		log.Println("ok", err.Error())
+	}
 	if !copy {
 		_, err := git.PlainClone(path, false, &git.CloneOptions{
 			URL: repositoryUrl,
@@ -72,12 +76,12 @@ func cloneRepo() bool {
 			return false
 		}
 	} else {
-		err := cp.Copy("/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/", getDir())
+		err := cp.Copy("/Users/ishan/go/src/github.com/Ishan27g/ryo-Faas/", path)
 		if err != nil {
 			fmt.Println(err.Error())
 			return false
 		}
-		err = os.Setenv(DIR_KEY, getDir())
+		err = os.Setenv(DIR_KEY, path)
 		if err != nil {
 			fmt.Println(err.Error())
 			return false
@@ -96,7 +100,7 @@ func makeDir() bool {
 	if getDir() == "" {
 		return false
 	}
-	err := os.MkdirAll(getDir()+gitDir, os.ModePerm)
+	err := os.MkdirAll(getDir(), os.ModePerm)
 	if err != nil {
 		fmt.Println(err.Error())
 		return false
