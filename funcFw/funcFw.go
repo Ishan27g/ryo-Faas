@@ -32,6 +32,7 @@ var (
 		httpAsync:     make(map[string]*HttpAsync),
 		httpAsyncNats: make(map[string]*HttpAsync),
 		storeEvents:   nil,
+		funcCtx:       newCtx[any](nil),
 	}
 	provider tracing.TraceProvider
 )

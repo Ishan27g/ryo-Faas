@@ -2,7 +2,7 @@
   "deploy": [
     {
       "name" : "Scale",
-      "filePath": "/Users/ishan/Documents/Drive/golang/ryo-Faas/pkg/scale/scale.go"
+      "filePath": "/Users/ishan/Documents/Drive/golang/ryo-Faas/gitDir/pkg/scale/scale.go"
     }
   ]
 }

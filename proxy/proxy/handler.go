@@ -314,7 +314,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.proxies = newProxy()
 	h.Monitor = scale.NewMetricsMonitor()
 
-	// scale.StartExporter(h.Monitor, scaleEndpoint)
+	scale.StartExporter(h.Monitor, scaleEndpoint)
 
 	FuncFw.Export.HttpGin("Reset", "/reset", h.reset)
 	FuncFw.Export.HttpGin("DetailsHttp", "/details", h.DetailsHttp)

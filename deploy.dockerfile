@@ -1,4 +1,4 @@
-FROM golang:alpine3.13 as build
+FROM golang:alpine3.16 as build
 LABEL label=rfa
 WORKDIR /app
 # copy from baseimage to get pre vendored packages
@@ -8,7 +8,7 @@ COPY deployments deployments
 WORKDIR deployments/tmp
 RUN go build
 
-FROM alpine:3.13
+FROM alpine:3.16
 LABEL label=rfa
 WORKDIR /app
 COPY --from=build /app/deployments/tmp .
