@@ -22,6 +22,9 @@ Functions as a service and json datastore.
 > [How it works](#How-it-works)
 > 
 > [Scaling](#Scaling)
+>
+> [Custom Dependency](#Custom-Dependency)
+> 
 
 ## Example
 1.Define a golang function -> see `examples/helloWorld/hello.go`
@@ -258,3 +261,41 @@ To enable `autoscaling`, deploy the `scale` function.
 The proxy exports function `invocation` counts to this deployed function.
 which in turn scales the running deployments based on the periodic invocation counts received by it. To scale, it queries the proxy 
 in the same way as the `cli` does.
+
+
+## Custom Dependency
+
+Inject custom dependency like `pointers`, `clients`, `dbConn` etc into handlers
+which can then be extracted inside handler `pointers`, `clients`, `dbConn` etc into handlers
+
+```go
+package helloWorld
+
+import (
+	"fmt"
+	"net/http"
+
+	FuncFw "github.com/Ishan27g/ryo-Faas/funcFw"
+)
+type srv struct {
+	val string
+}
+
+func init() {
+	s := &srv{"some data"}
+	
+	// inject into funcFw
+	FuncFw.InjectCtx(s)
+}
+
+func Hello(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Hello hit....")
+
+	// get ctx from funcFw
+	s := FuncFw.ExtractCtx[*srv]()
+	if s != nil {
+		w.Write([]byte(s.val))
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+```
