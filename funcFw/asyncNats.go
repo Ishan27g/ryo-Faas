@@ -16,10 +16,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func NewAsyncNats(entrypoint, callback string) HttpAsyncNats {
+func NewAsyncNats(entrypoint string) HttpAsyncNats {
 	return HttpAsyncNats{
 		req:        new(http.Request),
-		callback:   callback,
+		callback:   "",
 		entrypoint: entrypoint,
 	}
 }
@@ -34,7 +34,8 @@ func (hn HttpAsyncNats) HandleAsyncNats(w http.ResponseWriter, r *http.Request) 
 	span.SetAttributes(attribute.Key(tracing.XCallback).String(callback))
 	span.SetAttributes(attribute.Key(tracing.Pub).String(hn.entrypoint))
 
-	ha := NewAsyncNats(hn.entrypoint, callback)
+	ha := NewAsyncNats(hn.entrypoint)
+	ha.callback = callback
 	*ha.req = *r
 	var b = &bytes.Buffer{}
 	if err := ha.req.Write(b); err != nil {

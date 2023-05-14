@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -52,6 +53,15 @@ type store struct {
 	*log.Logger
 }
 
+func (d Doc) Unmarshal(to interface{}) error {
+	rec, _ := json.Marshal(d.Data)
+	err := json.Unmarshal(rec, &to)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	return nil
+}
 func newTable(table string) DocStore {
 
 	if databaseAddress == "" {

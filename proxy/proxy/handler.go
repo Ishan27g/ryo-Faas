@@ -221,7 +221,7 @@ func (h *handler) ForwardToAgentHttp(c *gin.Context) {
 			if noop.ContainsNoop(ctxR) {
 				return
 			}
-			FuncFw.NewAsyncNats(fnName, "").HandleAsyncNats(c.Writer, newReq)
+			FuncFw.NewAsyncNats(fnName).HandleAsyncNats(c.Writer, newReq)
 			statusCode = http.StatusOK
 			sp = updateSpan(sp, "async-nats", statusCode, now, fnName)
 		} else {
@@ -314,7 +314,7 @@ func Start(ctx context.Context, grpcPort, http string) {
 	h.proxies = newProxy()
 	h.Monitor = scale.NewMetricsMonitor()
 
-	scale.StartExporter(h.Monitor, scaleEndpoint)
+	// scale.StartExporter(h.Monitor, scaleEndpoint)
 
 	FuncFw.Export.HttpGin("Reset", "/reset", h.reset)
 	FuncFw.Export.HttpGin("DetailsHttp", "/details", h.DetailsHttp)

@@ -86,7 +86,10 @@ tasks:
 
   startLocal:
     cmds:
-      - go run cli.go sta
+      - go build -o ryo-Faas cli.go
+      - ./ryo-Faas i
+      - ./ryo-Faas sta
+      - echo 'task database; task proxy'
   deployLocal:
     cmds:
       - go run cli.go deploy --main examples/deployMain.json

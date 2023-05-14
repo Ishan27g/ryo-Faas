@@ -107,7 +107,7 @@ func Start(port, service string) {
 
 	// apply http async nats handlers
 	for _, httpAsync := range Export.getHttpAsyncNats() {
-		an := NewAsyncNats(httpAsync.Entrypoint, "")
+		an := NewAsyncNats(httpAsync.Entrypoint)
 		an.SubscribeAsync(httpAsync.HttpFn)
 		logger.Println("[http-Async-Nats] " + httpAsync.Entrypoint + " at " + an.getSubj())
 	}

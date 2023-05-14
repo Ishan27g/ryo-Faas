@@ -40,7 +40,7 @@ func TestNatsJson(t *testing.T) {
 
 	var ok = false
 
-	var sendStruct = NewAsyncNats("any", "")
+	var sendStruct = NewAsyncNats("any")
 
 	go transport.NatsSubscribeJson(sendStruct.getSubj(), func(msg *transport.AsyncNats) {
 		req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(msg.Req)))
@@ -131,7 +131,7 @@ func TestNatsHttpFunction(t *testing.T) {
 	Export.NatsAsync("testAsync", "/testAsync", method2)
 
 	for _, na := range Export.getHttpAsyncNats() {
-		an := NewAsyncNats(na.Entrypoint, "")
+		an := NewAsyncNats(na.Entrypoint)
 		an.SubscribeAsync(na.HttpFn)
 	}
 	<-time.After(3 * time.Second)
@@ -140,7 +140,7 @@ func TestNatsHttpFunction(t *testing.T) {
 	defer cancel()
 	go mockCallBackServer(ctx)
 	for _, na := range Export.getHttpAsyncNats() {
-		an := NewAsyncNats(na.Entrypoint, "")
+		an := NewAsyncNats(na.Entrypoint)
 		mockIncomingRequest(t, an.HandleAsyncNats)
 		<-time.After(1 * time.Second)
 		fmt.Println("sending again")
