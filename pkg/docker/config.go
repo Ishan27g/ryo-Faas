@@ -174,7 +174,7 @@ func (d *docker) pruneFunctionImages(name string) bool {
 }
 func (d *docker) stop(name string) error {
 	ctx := context.Background()
-	if err := d.ContainerStop(ctx, name, nil); err != nil {
+	if err := d.ContainerStop(ctx, name, container.StopOptions{}); err != nil {
 		if !strings.Contains(err.Error(), "No such container") {
 			fmt.Printf("\nUnable to stop container %s: %s\n", name, err)
 			return err

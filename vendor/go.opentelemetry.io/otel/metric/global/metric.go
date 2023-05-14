@@ -15,35 +15,35 @@
 package global // import "go.opentelemetry.io/otel/metric/global"
 
 import (
-	"go.opentelemetry.io/otel/internal/metric/global"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/internal/global"
 )
 
-// Meter creates an implementation of the Meter interface from the global
-// MeterProvider. The instrumentationName must be the name of the library
-// providing instrumentation. This name may be the same as the instrumented
-// code only if that code provides built-in instrumentation. If the
-// instrumentationName is empty, then a implementation defined default name
-// will be used instead.
+// Meter returns a Meter from the global MeterProvider. The name must be the
+// name of the library providing instrumentation. This name may be the same as
+// the instrumented code only if that code provides built-in instrumentation.
+// If the name is empty, then a implementation defined default name will be
+// used instead.
 //
-// This is short for MeterProvider().Meter(name)
+// If this is called before a global MeterProvider is registered the returned
+// Meter will be a No-op implementation of a Meter. When a global MeterProvider
+// is registered for the first time, the returned Meter, and all the
+// instruments it has created or will create, are recreated automatically from
+// the new MeterProvider.
+//
+// This is short for GetMeterProvider().Meter(name).
 func Meter(instrumentationName string, opts ...metric.MeterOption) metric.Meter {
-	return GetMeterProvider().Meter(instrumentationName, opts...)
+	return MeterProvider().Meter(instrumentationName, opts...)
 }
 
-// GetMeterProvider returns the registered global meter provider.  If
-// none is registered then a default meter provider is returned that
-// forwards the Meter interface to the first registered Meter.
+// MeterProvider returns the registered global meter provider.
 //
-// Use the meter provider to create a named meter. E.g.
-//     meter := global.MeterProvider().Meter("example.com/foo")
-// or
-//     meter := global.Meter("example.com/foo")
-func GetMeterProvider() metric.MeterProvider {
+// If no global MeterProvider has been registered, a No-op MeterProvider implementation is returned. When a global MeterProvider is registered for the first time, the returned MeterProvider, and all the Meters it has created or will create, are recreated automatically from the new MeterProvider.
+func MeterProvider() metric.MeterProvider {
 	return global.MeterProvider()
 }
 
-// SetMeterProvider registers `mp` as the global meter provider.
+// SetMeterProvider registers mp as the global MeterProvider.
 func SetMeterProvider(mp metric.MeterProvider) {
 	global.SetMeterProvider(mp)
 }
