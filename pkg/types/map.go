@@ -2,37 +2,37 @@ package types
 
 import "sync"
 
-type SyncMap struct {
+type SyncMap[k comparable, v any] struct {
 	sync.RWMutex
-	data map[string]interface{}
+	data map[k]v
 }
 
-func NewMap() SyncMap {
-	return SyncMap{
+func NewMap[k comparable, v any]() SyncMap[k, v] {
+	return SyncMap[k, v]{
 		RWMutex: sync.RWMutex{},
-		data:    make(map[string]interface{}),
+		data:    make(map[k]v),
 	}
 }
-func (sm *SyncMap) Add(id string, val interface{}) {
+func (sm *SyncMap[k, v]) Add(id k, val v) {
 	sm.Lock()
 	defer sm.Unlock()
 	sm.data[id] = val
 }
 
-func (sm *SyncMap) Delete(id string) {
+func (sm *SyncMap[k, v]) Delete(id k) {
 	sm.Lock()
 	defer sm.Unlock()
 	delete(sm.data, id)
 }
-func (sm *SyncMap) Get(id string) interface{} {
+func (sm *SyncMap[k, v]) Get(id k) v {
 	sm.RLock()
 	defer sm.RUnlock()
 	return sm.data[id]
 }
-func (sm *SyncMap) All() map[string]interface{} {
+func (sm *SyncMap[k, v]) All() map[k]v {
 	sm.RLock()
 	defer sm.RUnlock()
-	var m = make(map[string]interface{})
+	var m = make(map[k]v)
 	m = sm.data
 	return m
 }

@@ -15,8 +15,8 @@ import (
 const TFormat = time.RFC850
 
 var databaseStore = dbStore{
-	documents:    types.NewMap(), // entityId:createdAt
-	badgerDriver: nil,            // database driver
+	documents:    types.NewMap[string, string](), // entityId:createdAt
+	badgerDriver: nil,                            // database driver
 	Mutex:        sync.Mutex{},
 	Logger:       mLogger.Get("DATABASE"),
 	cache:        cache.New(1*time.Minute, 5*time.Minute),
@@ -28,14 +28,13 @@ type Database interface {
 	Delete(id string)
 	Get(id string) *Entity
 	All() []*Entity
-	After(fromTime string) []*Entity
 }
 type badgerDriver struct {
 	badgerDb *badger.DB
 	close    func() error
 }
 type dbStore struct {
-	documents    types.SyncMap
+	documents    types.SyncMap[string, string]
 	badgerDriver *badgerDriver
 	cache        *cache.Cache
 	sync.Mutex
@@ -128,7 +127,7 @@ func (d *dbStore) Delete(id string) {
 	defer d.Unlock()
 	tableName := d.documents.Get(id)
 	fmt.Println("Deleting ", id, " from ", tableName)
-	err := delete(d.getBadgerDriver().badgerDb, tableName.(string), &Entity{Id: id})
+	err := delete(d.getBadgerDriver().badgerDb, tableName, &Entity{Id: id})
 	if err != nil {
 		d.Logger.Error("driver.Delete", "id", id)
 	}
@@ -142,9 +141,9 @@ func (d *dbStore) get(id string) Entity {
 	}
 	var entity Entity
 	tableName := d.documents.Get(id)
-	if tableName != nil {
+	if tableName != "" {
 		fmt.Println("Table found for ", id)
-		e, err := get(d.getBadgerDriver().badgerDb, tableName.(string), id)
+		e, err := get(d.getBadgerDriver().badgerDb, tableName, id)
 		if err != nil {
 			panic(err)
 		}
@@ -169,22 +168,6 @@ func (d *dbStore) All() []*Entity {
 	for id := range d.documents.All() {
 		doc := d.get(id)
 		documents = append(documents, &doc)
-	}
-	return documents
-}
-
-func (d *dbStore) After(fromTime string) []*Entity {
-	d.Lock()
-	defer d.Unlock()
-	var documents []*Entity
-
-	from := parse(fromTime)
-	for id, at := range d.documents.All() {
-		createdAt := format(at.(time.Time))
-		if createdAt.Before(from) {
-			doc := d.get(id)
-			documents = append(documents, &doc)
-		}
 	}
 	return documents
 }

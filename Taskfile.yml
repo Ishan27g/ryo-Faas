@@ -90,9 +90,15 @@ tasks:
       - ./ryo-Faas i
       - ./ryo-Faas sta
       - echo 'task database; task proxy'
-  deployLocal:
+  deployDbEvents:
     cmds:
       - go run cli.go deploy --main examples/deployMain.json
+      - sleep 5
+      - curl http://localhost:9999/functions/database-events/pay
+      - curl http://localhost:9999/functions/database-events/pay
+      - curl http://localhost:9999/functions/database-events/pay
+      - curl http://localhost:9999/functions/database-events/pay
+      - curl http://localhost:9999/functions/database-events/get
 #  runLocal:
 #    cmds:
 #      - open -a terminal .dockerfiles/database.sh

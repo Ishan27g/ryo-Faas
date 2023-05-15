@@ -126,19 +126,7 @@ func (d *handle) GetHttp(c *gin.Context) {
 	entity := db.Get(id)
 	c.JSON(http.StatusOK, *entity)
 }
-func (d *handle) AfterHttp(c *gin.Context) {
-	id, found := c.Params.Get("time")
-	if !found {
-		c.JSON(400, nil)
-		return
-	}
-	entities := db.After(id)
-	var documents []database.Entity
-	for _, entity := range entities {
-		documents = append(documents, *entity)
-	}
-	c.JSON(http.StatusOK, entities)
-}
+
 func (d *handle) AllHttp(c *gin.Context) {
 	var docs []database.Entity
 	for _, v := range db.All() {
@@ -174,7 +162,6 @@ func GetHandler() handle {
 	FuncFw.Export.HttpGin("GetHttp", "/database/get/:id", h.GetHttp)
 	FuncFw.Export.HttpGin("AllHttp", "/database/all", h.AllHttp)
 	FuncFw.Export.HttpGin("GetHttp", "/database/get/:id", h.GetHttp)
-	FuncFw.Export.HttpGin("AfterHttp", "/database/after/:time", h.AfterHttp)
 	FuncFw.Export.HttpGin("AddHttp", "/database/new", h.AddHttp)
 	FuncFw.Export.HttpGin("UpdateHttp", "/database/update/:id", h.UpdateHttp)
 	FuncFw.Export.HttpGin("DeleteHttp", "/database/delete/:id", h.DeleteHttp)
