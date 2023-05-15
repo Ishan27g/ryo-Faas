@@ -19,6 +19,7 @@ import (
 type Docker interface {
 	Setup() bool
 	CheckImages() bool
+	ListRfaImages() bool
 
 	PruneImages() bool
 

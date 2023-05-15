@@ -194,18 +194,16 @@ func NatsSubscribeJson(subj string, cb func(msg *AsyncNats)) {
 		log.Fatal(err)
 	}
 	defer ec.Close()
-	wg := sync.WaitGroup{}
-	wg.Add(1)
 
 	if _, err := ec.Subscribe(subj, func(s *AsyncNats) {
 		cb(s)
-		wg.Done()
 	}); err != nil {
 		log.Fatal(err)
 	}
 
 	log.Printf("Listening on [%s]", subj)
-	wg.Wait()
+	// keep go-routine alive
+	<-make(chan byte)
 
 	if err := ec.LastError(); err != nil {
 		log.Fatal(err)

@@ -113,6 +113,10 @@ type docker struct {
 	*log.Logger
 }
 
+func (d *docker) ListRfaImages() bool {
+	return d.listRfaImages()
+}
+
 func (d *docker) PruneImages() bool {
 	return d.pruneImages()
 }
@@ -136,6 +140,27 @@ func (d *docker) ensureNetwork() bool {
 	}
 	return true
 }
+
+func (d *docker) listRfaImages() bool {
+	ctx := context.Background()
+	list, err := d.ImageList(ctx, types.ImageListOptions{
+		All: true,
+	})
+	if err != nil {
+		return false
+	}
+	for _, summary := range list {
+		if summary.Labels["label"] == "rfa" && summary.Labels["rfa"] != "" {
+			fmt.Println("function image", summary.Labels["rfa"])
+		}
+	}
+	c := d.checkAllRfa()
+	for _, t := range c {
+		fmt.Println("container", t.Names[0])
+	}
+	return true
+}
+
 func (d *docker) pruneImages() bool {
 	ctx := context.Background()
 	list, err := d.ImageList(ctx, types.ImageListOptions{
@@ -146,6 +171,7 @@ func (d *docker) pruneImages() bool {
 	}
 	for _, summary := range list {
 		if summary.Labels["label"] == "rfa" {
+			d.Logger.Println("Removing", summary.Labels["rfa"])
 			d.ImageRemove(ctx, summary.ID, types.ImageRemoveOptions{
 				Force:         true,
 				PruneChildren: true,

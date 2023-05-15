@@ -66,8 +66,8 @@ func (hn HttpAsyncNats) HandleAsyncNats(w http.ResponseWriter, r *http.Request) 
 
 func (hn HttpAsyncNats) SubscribeAsync(fn HttpFn) {
 	go transport.NatsSubscribeJson(hn.getSubj(), func(msg *transport.AsyncNats) {
-		// register next subscription
-		go hn.SubscribeAsync(fn)
+		// don't register another subscription, keep single listener
+		// go hn.SubscribeAsync(fn)
 
 		req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(msg.Req)))
 

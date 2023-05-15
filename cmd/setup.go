@@ -97,3 +97,15 @@ var pruneRyoFaas = cli.Command{
 		return nil
 	},
 }
+var listRyoFaas = cli.Command{
+	Name:            "list",
+	Aliases:         []string{"l"},
+	Usage:           "list all ryo-Faas images",
+	HideHelp:        false,
+	HideHelpCommand: false,
+	Action: func(c *cli.Context) error {
+		d := docker.New()
+		d.ListRfaImages()
+		return nil
+	},
+}

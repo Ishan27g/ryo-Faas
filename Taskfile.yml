@@ -84,9 +84,13 @@ tasks:
       - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DATABASE}}
     #  - docker push {{.DOCKER_REMOTE}}:{{.IMAGE_DEPLOY_BASE}}
 
-  startLocal:
+  buildCli:
     cmds:
       - go build -o ryo-Faas cli.go
+
+  startLocal:
+    cmds:
+      - task buildCli
       - ./ryo-Faas i
       - ./ryo-Faas sta
       - echo 'task database; task proxy'
@@ -105,3 +109,12 @@ tasks:
 #      - open -a terminal .dockerfiles/nats.sh
 #      - open -a terminal .dockerfiles/jaeger.sh
 #      - open -a terminal .dockerfiles/proxy.sh
+
+  newCli:
+    - task build
+    - task buildCli
+    - cp -r examples/* /Users/ishan/Desktop/multi/
+    - ./ryo-Faas i
+    - ./ryo-Faas sta
+    - ./ryo-Faas sto
+    - ./ryo-Faas p

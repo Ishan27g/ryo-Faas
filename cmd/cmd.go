@@ -162,7 +162,7 @@ var proxyResetCmd = cli.Command{
 func Init() *cli.App {
 	app := &cli.App{Commands: []*cli.Command{
 		&initRfaFaasCmd, &envCmd, &proxyResetCmd,
-		&startRyoFaas, &stopRyoFaas, &pruneRyoFaas,
+		&startRyoFaas, &stopRyoFaas, &pruneRyoFaas, &listRyoFaas,
 		&deployCmd, &stopCmd, &detailsProxyCmd},
 		HideHelp:             true,
 		HideHelpCommand:      true,
