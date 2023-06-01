@@ -8,12 +8,13 @@ import (
 
 	database "github.com/Ishan27g/ryo-Faas/database/client"
 	db "github.com/Ishan27g/ryo-Faas/database/db"
+	"github.com/Ishan27g/ryo-Faas/pkg/types"
 )
 
 var (
 	defaultTable    = "data"
-	databaseAddress = os.Getenv("DATABASE")     // set "" if local
-	documents       = make(map[string]DocStore) // per table
+	databaseAddress = os.Getenv("DATABASE")            // set "" if local
+	documents       = types.NewMap[string, DocStore]() // per table
 )
 
 const (
@@ -76,9 +77,8 @@ func newTable(table string) DocStore {
 	if table == "" {
 		table = defaultTable
 	}
-	documents[table] = newStore(table, dbClient)
-
-	return documents[table]
+	documents.Add(table, newStore(table, dbClient))
+	return documents.Get(table)
 }
 
 func newStore(table string, dbClient database.Client) *store {
@@ -87,8 +87,8 @@ func newStore(table string, dbClient database.Client) *store {
 }
 
 func Get(table string) DocStore {
-	if documents[table] == nil {
+	if documents.Get(table) == nil {
 		return newTable(table)
 	}
-	return documents[table]
+	return documents.Get(table)
 }

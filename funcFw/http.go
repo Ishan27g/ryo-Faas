@@ -25,7 +25,7 @@ type funcFw struct {
 	httpAsync     map[string]*HttpAsync
 	httpAsyncNats map[string]*HttpAsync
 	storeEvents   map[string]StoreEventsI
-	funcCtx
+	*funcCtx
 }
 
 func wrap(f HttpFn) gin.HandlerFunc {

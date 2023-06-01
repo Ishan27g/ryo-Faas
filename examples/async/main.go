@@ -9,20 +9,20 @@ import (
 )
 
 type invocation struct {
-	count *int
+	count int
 }
 
 func init() {
 	count := 0
-	FuncFw.InjectCtx(&invocation{&count})
+	FuncFw.InjectCtx(&invocation{count})
 }
 
 // MethodAsync is a long-running job
 func MethodAsync(w http.ResponseWriter, r *http.Request) {
 	i := FuncFw.ExtractCtx[*invocation]()
-	*(i.count) = *(i.count) + 1
+	i.count = (i.count) + 1
 
-	fmt.Println(fmt.Sprintf("Async process %d started ...", *i.count))
+	fmt.Println(fmt.Sprintf("Async process %d started ...", i.count))
 
 	fmt.Println("Processing ...")
 	<-time.After(2 * time.Second)
@@ -31,7 +31,7 @@ func MethodAsync(w http.ResponseWriter, r *http.Request) {
 	<-time.After(2 * time.Second)
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, fmt.Sprintf("Async process %d done ..."+"\n", *i.count))
+	fmt.Fprint(w, fmt.Sprintf("Async process %d done ..."+"\n", i.count))
 }
 
 func main() {

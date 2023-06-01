@@ -10,7 +10,7 @@ type httpFnGin struct {
 
 type funcCtx struct{ any }
 
-func newCtx[T any](val T) funcCtx { return funcCtx{val} }
+func newCtx[T any](val T) *funcCtx { return &funcCtx{val} }
 
 // InjectCtx will set funcCtx to provided val
 // call on init & use pointers
