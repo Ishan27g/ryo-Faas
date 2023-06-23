@@ -3,7 +3,6 @@ package FuncFw
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,7 +12,9 @@ import (
 	"github.com/Ishan27g/noware/pkg/middleware"
 	database "github.com/Ishan27g/ryo-Faas/database/client"
 	"github.com/Ishan27g/ryo-Faas/pkg/tracing"
+	"github.com/Ishan27g/sentri/hook"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
@@ -23,7 +24,7 @@ var (
 	zipkinHost                   = os.Getenv("ZIPKIN")
 	databaseAddress              = os.Getenv("DATABASE")
 	httpSrv         *http.Server = nil
-	logger                       = log.New(os.Stdout, "[func-fw]", log.LstdFlags)
+	logger                       = log.New()
 	healthCheckUrl               = "/healthcheck"
 	stopUrl                      = "/stop"
 	Export                       = funcFw{
@@ -38,6 +39,12 @@ var (
 )
 
 func Start(port, service string) {
+	tf := new(log.TextFormatter)
+	tf.DisableTimestamp = true
+	logger.SetFormatter(tf)
+	// hook sentri
+	logger.SetOutput(hook.Hook(service, os.Stdout))
+
 	if service == "" {
 		serviceName, _ = os.Hostname()
 	} else {
@@ -61,7 +68,7 @@ func Start(port, service string) {
 	g.Use(middleware.Gin())
 
 	g.Use(func(ctx *gin.Context) {
-		fmt.Println(fmt.Sprintf("\t\t\t[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
+		logger.Println(fmt.Sprintf("\t\t\t[%s] [%s]", ctx.Request.Method, ctx.Request.RequestURI))
 		ctx.Next()
 	})
 
@@ -78,10 +85,10 @@ func Start(port, service string) {
 	// apply store event handlers
 	if Export.storeEvents != nil {
 		if database.Connect(databaseAddress) == nil {
-			log.Fatal("Store: Cannot connect to database")
+			logger.Fatal("Store: Cannot connect to database")
 		}
 		if !applyEvents() {
-			log.Fatal("Store: Unable to apply event cbs")
+			logger.Fatal("Store: Unable to apply event cbs")
 		}
 	}
 
@@ -116,9 +123,9 @@ func Start(port, service string) {
 	httpSrv = &http.Server{Addr: ":" + strings.TrimPrefix(port, ":"), Handler: g}
 
 	go func() {
-		fmt.Println("HTTP started on " + httpSrv.Addr)
+		logger.Println("HTTP started on " + httpSrv.Addr)
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Println("HTTP", err.Error())
+			logger.Println("HTTP", err.Error())
 		}
 	}()
 }
@@ -142,7 +149,7 @@ func runAsyncFn(fn HttpFn, callback string, r *http.Request) {
 	fn(ww, r)
 	_, err := http.Post(callback, "application/json", ww.Result().Body)
 	if err != nil {
-		log.Println(err.Error())
+		logger.Println(err.Error())
 	}
 }
 func Stop() {

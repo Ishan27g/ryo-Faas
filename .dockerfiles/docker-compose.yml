@@ -55,11 +55,12 @@ services:
     ports:
       - "16686:16686"
       - "14268:14268"
-    deploy:
-      resources:
-        limits:
-          cpus: '0.05'
-          memory: 250M
+        #    deploy:
+        #resources:
+        #limits:
+        #  cpus: '0.05'
+        #  memory: 250M
+
 #  zipkin:
 #      container_name: rfa-zipkin
 #      hostname: rfa-zipkin

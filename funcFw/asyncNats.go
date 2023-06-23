@@ -3,8 +3,6 @@ package FuncFw
 import (
 	"bufio"
 	"bytes"
-	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -40,7 +38,7 @@ func (hn HttpAsyncNats) HandleAsyncNats(w http.ResponseWriter, r *http.Request) 
 	var b = &bytes.Buffer{}
 	if err := ha.req.Write(b); err != nil {
 		span.SetAttributes(attribute.Key(tracing.Error).String(tracing.ErrorWrite))
-		fmt.Println("ha.req.Write", err.Error())
+		logger.Println("ha.req.Write", err.Error())
 		return
 	}
 	span.SetAttributes(attribute.Key(tracing.PubAt).String(time.Now().String()))
@@ -83,7 +81,7 @@ func (hn HttpAsyncNats) SubscribeAsync(fn HttpFn) {
 		span.SetAttributes(attribute.Key(tracing.SubEnd).String(time.Now().String()))
 		_, err = http.Post(msg.Callback, "application/json", ww.Result().Body)
 		if err != nil {
-			log.Println(err.Error())
+			logger.Error(err.Error())
 		}
 	})
 }
